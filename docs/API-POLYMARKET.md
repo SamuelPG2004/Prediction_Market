@@ -95,9 +95,8 @@ verificados.
 
 ### `GET /public-search?q=…`
 
-Existe y funciona (devuelve `{events, pagination}`). **No integrado todavía**: la
-búsqueda actual filtra en cliente sobre lo cargado. Es la vía para buscar en todo
-el catálogo sin descargarlo.
+**Integrado** en `searchEvents()`. Ver "Paridad de catálogo" al final para los
+parámetros y el motivo por el que es imprescindible.
 
 ---
 
@@ -187,12 +186,13 @@ Dos decisiones deliberadas:
 
 ## Categorías, verificadas una a una
 
-Slugs con eventos reales. Se probaron ~70 candidatos.
+Slugs con eventos reales. Se probaron ~110 candidatos.
 
 **Principales:** `politics`, `sports`, `crypto`, `esports`, `geopolitics`,
 `finance`, `economy`, `tech`, `pop-culture`, `weather`, `elections`, `awards`.
 
-**Deportes (subcategorías):** `soccer`, `basketball`, `mlb`, `tennis`, `nfl`,
+**Subcategorías:** ver `CATEGORIES[].subs` en `gammaApi.ts`. Todas las pestañas
+tienen las suyas, no solo Deportes.
 `f1`, `ufc`, `nhl`, `golf`, `esports`, `cricket`, `chess`.
 
 **No existen** (devuelven 0 eventos), pese a parecer obvios:
