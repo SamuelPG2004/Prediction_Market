@@ -193,7 +193,6 @@ Slugs con eventos reales. Se probaron ~110 candidatos.
 
 **Subcategorías:** ver `CATEGORIES[].subs` en `gammaApi.ts`. Todas las pestañas
 tienen las suyas, no solo Deportes.
-`f1`, `ufc`, `nhl`, `golf`, `esports`, `cricket`, `chess`.
 
 **No existen** (devuelven 0 eventos), pese a parecer obvios:
 
