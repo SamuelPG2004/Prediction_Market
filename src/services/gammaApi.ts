@@ -305,6 +305,35 @@ export type CategorySlug = string | null
 /** Identificador estable de pestaña (el label sirve, y `new` desambigua). */
 export type CategoryKey = string
 
+/**
+ * Subcategorías de Deportes, con los slugs REALES de la API.
+ *
+ * Verificadas una a una contando eventos y liquidez. Cuatro candidatos obvios
+ * NO existen: `formula-1` (el bueno es `f1`), `college-basketball`, `athletics`,
+ * `darts` y `snooker` devuelven 0 eventos.
+ *
+ * Cuando dos slugs se solapan se toma el de más liquidez:
+ *   baseball / mlb            -> mlb (2.443 mercados)
+ *   football / nfl            -> nfl
+ *   epl / premier-league      -> premier-league
+ *   mma / ufc                 -> ufc (mucho más volumen)
+ */
+export const SPORTS_SUBCATEGORIES = [
+  { slug: 'sports', label: 'Todos' },
+  { slug: 'soccer', label: 'Fútbol' },
+  { slug: 'basketball', label: 'Baloncesto' },
+  { slug: 'mlb', label: 'Béisbol' },
+  { slug: 'tennis', label: 'Tenis' },
+  { slug: 'nfl', label: 'NFL' },
+  { slug: 'f1', label: 'F1' },
+  { slug: 'ufc', label: 'UFC' },
+  { slug: 'nhl', label: 'Hockey' },
+  { slug: 'golf', label: 'Golf' },
+  { slug: 'esports', label: 'Esports' },
+  { slug: 'cricket', label: 'Críquet' },
+  { slug: 'chess', label: 'Ajedrez' },
+] as const
+
 interface GammaEventRaw {
   id: string
   title?: string

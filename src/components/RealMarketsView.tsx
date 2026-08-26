@@ -1,18 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Loader2,
   RefreshCw,
   Search,
   AlertTriangle,
-  ListPlus,
   ShieldCheck,
   TrendingUp,
   Sparkles,
 } from 'lucide-react';
 import { useRealEvents } from '../hooks/useRealEvents';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useOnchainAccount } from '../hooks/useOnchainAccount';
 import {
   CATEGORIES,
+  SPORTS_SUBCATEGORIES,
   type RealEvent,
   type RealMarket,
 } from '../services/gammaApi';
@@ -43,12 +44,26 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
 }) => {
   const [tabIndex, setTabIndex] = useState(0);
   const tab = CATEGORIES[tabIndex];
+  const isSports = tab.label === 'Deportes';
 
-  const { events, isLoading, isLoadingMore, error, hasMore, loadMore, reload } =
-    useRealEvents({
-      tagSlug: tab.slug,
-      order: 'order' in tab ? tab.order : 'volume24hr',
-    });
+  // Subcategoria activa dentro de Deportes. 0 = "Todos".
+  const [subIndex, setSubIndex] = useState(0);
+  const effectiveSlug = isSports ? SPORTS_SUBCATEGORIES[subIndex].slug : tab.slug;
+
+  const {
+    events,
+    isLoading,
+    isLoadingMore,
+    error,
+    hasMore,
+    loadMore,
+    reload,
+    lastSyncAt,
+    isSyncing,
+  } = useRealEvents({
+    tagSlug: effectiveSlug,
+    order: 'order' in tab ? tab.order : 'volume24hr',
+  });
 
   const account = useOnchainAccount();
   const [query, setQuery] = useState('');
@@ -60,7 +75,12 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [tabIndex, query]);
+  }, [tabIndex, subIndex, query]);
+
+  // Al salir de Deportes se olvida la subcategoria, para no volver filtrado.
+  useEffect(() => {
+    if (!isSports) setSubIndex(0);
+  }, [isSports]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -74,10 +94,31 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
     );
   }, [events, query]);
 
+  // Se guarda en una ref para que el centinela no dependa del array completo.
+  const filteredRef = useRef(filtered);
+  filteredRef.current = filtered;
+
+  /**
+   * Un unico centinela cubre las dos paginaciones: primero revela mas de lo ya
+   * descargado y, cuando se agota, pide la siguiente pagina a la API.
+   */
+  const reachEnd = useCallback(() => {
+    if (visibleCount < filteredRef.current.length) {
+      setVisibleCount((n) => n + PAGE_SIZE);
+    } else if (hasMore && !isLoadingMore) {
+      loadMore();
+    }
+  }, [visibleCount, hasMore, isLoadingMore, loadMore]);
+
   const visible = useMemo(
     () => filtered.slice(0, visibleCount),
     [filtered, visibleCount],
   );
+
+  const sentinelRef = useInfiniteScroll({
+    onReachEnd: reachEnd,
+    enabled: !isLoading && (visibleCount < filtered.length || hasMore),
+  });
 
   const totals = useMemo(
     () => ({
@@ -167,6 +208,28 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
         })}
       </div>
 
+      {/* Subcategorías de Deportes */}
+      {isSports && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 -mt-2">
+          {SPORTS_SUBCATEGORIES.map((sc, i) => {
+            const active = i === subIndex;
+            return (
+              <button
+                key={sc.slug}
+                onClick={() => setSubIndex(i)}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 ${
+                  active
+                    ? 'bg-emerald-500 text-black'
+                    : 'bg-[#0d1017] text-neutral-500 border border-neutral-800 hover:text-neutral-300'
+                }`}
+              >
+                {sc.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Búsqueda */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
@@ -208,11 +271,16 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
         </div>
       ) : (
         <>
-          <p className="text-[11px] font-mono text-neutral-500">
-            <span className="text-neutral-300">{visible.length}</span> de{' '}
-            <span className="text-neutral-300">{filtered.length}</span> eventos ·{' '}
-            {totals.markets} mercados operables
-          </p>
+          {/* Contador y estado de sincronización */}
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-mono text-neutral-500">
+              <span className="text-neutral-300">{visible.length}</span> de{' '}
+              <span className="text-neutral-300">{filtered.length}</span>{' '}
+              eventos · {totals.markets} mercados operables
+            </p>
+
+            <SyncIndicator isSyncing={isSyncing} lastSyncAt={lastSyncAt} />
+          </div>
 
           {visible.length === 0 ? (
             <div className="py-20 flex flex-col items-center gap-3 rounded-2xl bg-[#0d1017] border border-dashed border-neutral-800">
@@ -241,35 +309,28 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 py-2">
-            {visibleCount < filtered.length && (
-              <button
-                onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-xs font-bold transition-all active:scale-95"
-              >
-                <span>Mostrar {PAGE_SIZE} más</span>
-              </button>
-            )}
-
-            {hasMore && visibleCount >= filtered.length && (
-              <button
-                onClick={loadMore}
-                disabled={isLoadingMore}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0f121a] hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/40 text-xs font-bold text-neutral-200 transition-all active:scale-95 disabled:opacity-50"
-              >
-                {isLoadingMore ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <ListPlus className="w-3.5 h-3.5 text-emerald-400" />
-                )}
-                <span>Traer más de Polymarket</span>
-              </button>
-            )}
-
-            {!hasMore && visibleCount >= filtered.length && events.length > 0 && (
-              <p className="text-[11px] font-mono text-neutral-600">
-                {events.length} eventos · catálogo completo de {tab.label}
-              </p>
+          {/* Centinela: dispara la carga al acercarse el final. Sustituye a los
+              botones de "cargar más": el flujo no depende de pulsar nada. */}
+          <div
+            ref={sentinelRef}
+            className="flex items-center justify-center py-6"
+          >
+            {visibleCount < filtered.length || hasMore ? (
+              <div className="flex items-center gap-2 text-[11px] font-mono text-neutral-600">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>
+                  {isLoadingMore
+                    ? 'Trayendo más de Polymarket...'
+                    : 'Cargando más...'}
+                </span>
+              </div>
+            ) : (
+              events.length > 0 && (
+                <p className="text-[11px] font-mono text-neutral-700">
+                  {events.length} eventos · catálogo completo de{' '}
+                  {isSports ? SPORTS_SUBCATEGORIES[subIndex].label : tab.label}
+                </p>
+              )
             )}
           </div>
         </>
@@ -284,6 +345,55 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
         />
       )}
     </div>
+  );
+};
+
+/**
+ * Estado del refresco en vivo.
+ *
+ * Muestra hace cuánto se sincronizó para que un precio viejo no pase por
+ * actual si la red falla.
+ */
+const SyncIndicator: React.FC<{
+  isSyncing: boolean;
+  lastSyncAt: number | null;
+}> = ({ isSyncing, lastSyncAt }) => {
+  const [, tick] = useState(0);
+
+  // Refresca el texto "hace Ns" sin depender de que llegue otro dato.
+  useEffect(() => {
+    const t = window.setInterval(() => tick((n) => n + 1), 5000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  const seconds =
+    lastSyncAt === null ? null : Math.floor((Date.now() - lastSyncAt) / 1000);
+  const stale = seconds !== null && seconds > 90;
+
+  return (
+    <span
+      className={`flex items-center gap-1.5 text-[10px] font-mono ${
+        stale ? 'text-amber-400' : 'text-neutral-600'
+      }`}
+      title="Los precios se refrescan automáticamente"
+    >
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${
+          isSyncing
+            ? 'bg-emerald-400 animate-pulse'
+            : stale
+              ? 'bg-amber-400'
+              : 'bg-emerald-500/60'
+        }`}
+      />
+      <span>
+        {seconds === null
+          ? 'sincronizando'
+          : seconds < 10
+            ? 'en vivo'
+            : `hace ${seconds}s`}
+      </span>
+    </span>
   );
 };
 
