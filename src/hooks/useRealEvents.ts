@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   fetchEventsPage,
+  searchEvents,
   GAMMA_MAX_LIMIT,
   type EventsPage,
   type RealEvent,
@@ -45,12 +46,17 @@ export function useRealEvents(options: {
   tagSlug?: string | null
   order?: string
   refreshMs?: number
+  /** Texto de búsqueda global. Si viene, sustituye al listado por categoría. */
+  search?: string
 }): UseRealEventsState {
   const {
     tagSlug = null,
     order = 'volume24hr',
     refreshMs = DEFAULT_REFRESH_MS,
+    search = '',
   } = options
+
+  const isSearching = search.trim().length > 0
 
   const [events, setEvents] = useState<RealEvent[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -63,16 +69,28 @@ export function useRealEvents(options: {
 
   const loadingRef = useRef(false)
 
+  /**
+   * En búsqueda se pagina por `page` (1, 2, 3…) y en listado por `offset`
+   * (0, 100, 200…). Se unifican tras el mismo contador: `nextOffset` guarda
+   * la página en un caso y el desplazamiento en el otro.
+   */
   const fetchPage = useCallback(
-    (offset: number, signal?: AbortSignal): Promise<EventsPage> =>
-      fetchEventsPage({
-        tagSlug,
-        order,
-        limit: GAMMA_MAX_LIMIT,
-        offset,
-        signal,
-      }),
-    [tagSlug, order],
+    (cursor: number, signal?: AbortSignal): Promise<EventsPage> =>
+      isSearching
+        ? searchEvents({
+            query: search,
+            limit: GAMMA_MAX_LIMIT,
+            page: cursor === 0 ? 1 : cursor,
+            signal,
+          })
+        : fetchEventsPage({
+            tagSlug,
+            order,
+            limit: GAMMA_MAX_LIMIT,
+            offset: cursor,
+            signal,
+          }),
+    [isSearching, search, tagSlug, order],
   )
 
   // Carga inicial; se repite al cambiar categoría, orden o al recargar.

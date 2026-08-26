@@ -209,3 +209,65 @@ athletics   darts   snooker
 
 "Tendencia" y "Nuevo" no son etiquetas: son el catálogo ordenado por
 `volume24hr` y `creationDate` respectivamente.
+
+---
+
+## Paridad de catálogo: por qué faltaban mercados
+
+Auditoría del 2026-08-26. **Nuestros filtros no descartaban ni un evento** (0 de
+100 en todas las categorías probadas). El problema era otro, y tiene dos partes.
+
+### 1. La ventana de `/events` se corta en ~2.100
+
+`/events` ordenado por `volume24hr` devuelve como mucho ~2.100 eventos (HTTP 422
+más allá), y **todos tienen volumen > 0**. Un evento de nicho queda enterrado
+tan abajo que es inalcanzable por mucho que se pagine.
+
+Ejemplo medido: `"Spider-Man: Brand New Day" 5th Weekend Box Office`
+(`vol24h=2201`, activo, abierto) **no aparece en la primera página de ninguna
+ordenación** —ni `volume24hr`, ni `startDate`, ni `creationDate`, ni `id`— pero
+sí se obtiene por `slug` o por su etiqueta `box-office`.
+
+**Cada etiqueta tiene su propia ventana de resultados.** Por eso las
+subcategorías no son cosmética: son la única vía práctica de alcanzar taquilla,
+temperaturas o premios menores.
+
+### 2. Un filtro nuestro sí ocultaba lo nuevo
+
+`normalizeEvent` exigía `acceptingOrders === true`. Eso escondía eventos recién
+creados cuyo libro aún no ha abierto — justo los que deben salir en "Nuevo".
+Ahora basta con `enableOrderBook`, y los no operables llegan marcados para que
+la UI lo indique en vez de esconderlos.
+
+**No hay ningún filtro por liquidez ni por volumen en ningún punto del código.**
+
+### `GET /public-search` — búsqueda global
+
+Ya integrado (`searchEvents`). Es el buscador de la web oficial.
+
+| Param | Valor |
+| --- | --- |
+| `q` | Texto libre |
+| `limit_per_type` | Hasta 100 |
+| `page` | 1, 2, 3… (`pagination.hasMore` indica si sigue) |
+| `events_status` | `active` |
+
+Devuelve eventos con **exactamente la misma forma** que `/events`, mercados
+operables incluidos, así que reutiliza `normalizeEvent`.
+
+Es lo que cierra el hueco de paridad: `/events` llega a ~2.100 eventos, la
+búsqueda al corpus completo (la API reporta **121.143** resultados). Verificado
+alcanzando eventos de `vol24h = 5` y `vol24h = 8`, inaccesibles paginando.
+
+### Etiquetas añadidas en esta pasada
+
+`box-office`, `movies`, `tv`, `music`, `celebrities`, `oscars`, `emmys`,
+`grammys`, `stocks`, `oil`, `gold`, `forex`, `earnings`, `business`, `space`,
+`science`, `ai`, `openai`, `bitcoin`, `ethereum`, `video-games`, `gaming`,
+`russia`, `ukraine`, `israel`, `china`, `middle-east`, `congress`, `courts`,
+`immigration`, `inflation`, `fed`, `finance`, `climate`.
+
+**No existen** (0 eventos), pese a parecer evidentes: `news`, `breaking-news`,
+`current-events`, `legal-cases`, `companies`, `nobel`, `person-of-the-year`.
+Los "sucesos recientes" se cubren con la pestaña **Nuevo**
+(`order=creationDate`) y con `geopolitics` / `trump` / `congress`.

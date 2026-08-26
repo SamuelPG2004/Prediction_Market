@@ -13,7 +13,6 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useOnchainAccount } from '../hooks/useOnchainAccount';
 import {
   CATEGORIES,
-  SPORTS_SUBCATEGORIES,
   type RealEvent,
   type RealMarket,
 } from '../services/gammaApi';
@@ -44,11 +43,23 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
 }) => {
   const [tabIndex, setTabIndex] = useState(0);
   const tab = CATEGORIES[tabIndex];
-  const isSports = tab.label === 'Deportes';
+  const subs = tab.subs ?? [];
 
-  // Subcategoria activa dentro de Deportes. 0 = "Todos".
+  // Subcategoria activa. 0 = "Todo".
   const [subIndex, setSubIndex] = useState(0);
-  const effectiveSlug = isSports ? SPORTS_SUBCATEGORIES[subIndex].slug : tab.slug;
+  const effectiveSlug = subs.length ? subs[subIndex]?.slug ?? tab.slug : tab.slug;
+
+  const [query, setQuery] = useState('');
+  /**
+   * La busqueda va contra /public-search, que alcanza el corpus completo.
+   * Se aplica con retardo para no lanzar una peticion por tecla.
+   */
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedQuery(query), 350);
+    return () => window.clearTimeout(t);
+  }, [query]);
+  const isSearching = debouncedQuery.trim().length > 0;
 
   const {
     events,
@@ -62,11 +73,11 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
     isSyncing,
   } = useRealEvents({
     tagSlug: effectiveSlug,
-    order: 'order' in tab ? tab.order : 'volume24hr',
+    order: tab.order ?? 'volume24hr',
+    search: debouncedQuery,
   });
 
   const account = useOnchainAccount();
-  const [query, setQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [selected, setSelected] = useState<{
     event: RealEvent;
@@ -75,24 +86,19 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [tabIndex, subIndex, query]);
+  }, [tabIndex, subIndex, debouncedQuery]);
 
-  // Al salir de Deportes se olvida la subcategoria, para no volver filtrado.
+  // Al cambiar de pestana se vuelve a "Todo".
   useEffect(() => {
-    if (!isSports) setSubIndex(0);
-  }, [isSports]);
+    setSubIndex(0);
+  }, [tabIndex]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return events;
-    return events.filter(
-      (e) =>
-        e.title.toLowerCase().includes(q) ||
-        e.markets.some((m) =>
-          (m.optionLabel ?? m.question).toLowerCase().includes(q),
-        ),
-    );
-  }, [events, query]);
+  /**
+   * En busqueda no se filtra en cliente: los resultados YA vienen del
+   * buscador global, y volver a filtrarlos descartaria coincidencias
+   * legitimas por descripcion o etiqueta.
+   */
+  const filtered = events;
 
   // Se guarda en una ref para que el centinela no dependa del array completo.
   const filteredRef = useRef(filtered);
@@ -208,10 +214,10 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
         })}
       </div>
 
-      {/* Subcategorías de Deportes */}
-      {isSports && (
+      {/* Subcategorías dinámicas de la pestaña activa */}
+      {subs.length > 0 && !isSearching && (
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 -mt-2">
-          {SPORTS_SUBCATEGORIES.map((sc, i) => {
+          {subs.map((sc, i) => {
             const active = i === subIndex;
             return (
               <button
@@ -328,7 +334,7 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
               events.length > 0 && (
                 <p className="text-[11px] font-mono text-neutral-700">
                   {events.length} eventos · catálogo completo de{' '}
-                  {isSports ? SPORTS_SUBCATEGORIES[subIndex].label : tab.label}
+                  {subs.length ? (subs[subIndex]?.label ?? tab.label) : tab.label}
                 </p>
               )
             )}

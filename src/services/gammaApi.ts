@@ -434,60 +434,173 @@ export async function fetchMarkets(
  * sobre `/markets?tag_slug=` daría una UI que parece funcionar mostrando
  * siempre lo mismo.
  */
-export const CATEGORIES = [
+export interface Subcategory {
+  slug: string
+  label: string
+}
+
+export interface Category {
+  slug: string | null
+  label: string
+  /** Campo de orden. Solo se usa cuando no hay `slug`. */
+  order?: string
+  /** Sub-pestañas dinámicas. Todas con slugs verificados. */
+  subs?: Subcategory[]
+}
+
+/**
+ * Navegación completa, con todos los slugs VERIFICADOS contra la API.
+ *
+ * Se probaron ~110 candidatos. La lista incluye solo los que devuelven eventos
+ * reales. Los que NO existen, pese a parecer evidentes:
+ *
+ *   news, breaking-news, current-events, legal-cases, companies, nobel,
+ *   person-of-the-year, entertainment, financials, culture, mentions,
+ *   formula-1 (el correcto es f1), college-basketball, athletics, darts, snooker
+ *
+ * Las subcategorías importan más de lo que parece: la ventana global de
+ * `/events` se corta en ~2.100 resultados ordenados por volumen, así que un
+ * evento de nicho —taquilla de cine, temperaturas, premios menores— queda
+ * enterrado y es inalcanzable desde la pestaña general. Cada etiqueta tiene su
+ * propia ventana, y es la única vía práctica para llegar a ellos.
+ */
+export const CATEGORIES: Category[] = [
   { slug: null, label: 'Tendencia', order: 'volume24hr' },
   // "Nuevo" no es una etiqueta: es el catálogo ordenado por fecha de creación.
-  { slug: null, label: 'Nuevo', order: 'creationDate', key: 'new' },
-  { slug: 'politics', label: 'Política' },
-  { slug: 'sports', label: 'Deportes' },
-  { slug: 'crypto', label: 'Cripto' },
-  { slug: 'esports', label: 'Esports' },
-  { slug: 'geopolitics', label: 'Geopolítica' },
-  { slug: 'finance', label: 'Finanzas' },
-  { slug: 'economy', label: 'Economía' },
-  { slug: 'tech', label: 'Tecnología' },
-  { slug: 'pop-culture', label: 'Cultura' },
-  { slug: 'weather', label: 'Clima' },
-  { slug: 'elections', label: 'Elecciones' },
-  { slug: 'awards', label: 'Premios' },
-] as const
+  { slug: null, label: 'Nuevo', order: 'creationDate' },
+  {
+    slug: 'politics',
+    label: 'Política',
+    subs: [
+      { slug: 'politics', label: 'Todo' },
+      { slug: 'elections', label: 'Elecciones' },
+      { slug: 'trump', label: 'Trump' },
+      { slug: 'congress', label: 'Congreso' },
+      { slug: 'courts', label: 'Tribunales' },
+      { slug: 'immigration', label: 'Inmigración' },
+    ],
+  },
+  {
+    slug: 'sports',
+    label: 'Deportes',
+    subs: [
+      { slug: 'sports', label: 'Todo' },
+      { slug: 'soccer', label: 'Fútbol' },
+      { slug: 'basketball', label: 'Baloncesto' },
+      { slug: 'mlb', label: 'Béisbol' },
+      { slug: 'tennis', label: 'Tenis' },
+      { slug: 'nfl', label: 'NFL' },
+      { slug: 'f1', label: 'F1' },
+      { slug: 'ufc', label: 'UFC' },
+      { slug: 'nhl', label: 'Hockey' },
+      { slug: 'golf', label: 'Golf' },
+      { slug: 'cricket', label: 'Críquet' },
+      { slug: 'chess', label: 'Ajedrez' },
+    ],
+  },
+  {
+    slug: 'crypto',
+    label: 'Cripto',
+    subs: [
+      { slug: 'crypto', label: 'Todo' },
+      { slug: 'bitcoin', label: 'Bitcoin' },
+      { slug: 'ethereum', label: 'Ethereum' },
+    ],
+  },
+  {
+    slug: 'esports',
+    label: 'Esports',
+    subs: [
+      { slug: 'esports', label: 'Todo' },
+      { slug: 'video-games', label: 'Videojuegos' },
+      { slug: 'gaming', label: 'Gaming' },
+    ],
+  },
+  {
+    slug: 'geopolitics',
+    label: 'Geopolítica',
+    subs: [
+      { slug: 'geopolitics', label: 'Todo' },
+      { slug: 'middle-east', label: 'Oriente Medio' },
+      { slug: 'israel', label: 'Israel' },
+      { slug: 'ukraine', label: 'Ucrania' },
+      { slug: 'russia', label: 'Rusia' },
+      { slug: 'china', label: 'China' },
+      { slug: 'world', label: 'Mundo' },
+    ],
+  },
+  {
+    slug: 'economy',
+    label: 'Economía',
+    subs: [
+      { slug: 'economy', label: 'Todo' },
+      { slug: 'finance', label: 'Finanzas' },
+      { slug: 'fed', label: 'Fed' },
+      { slug: 'inflation', label: 'Inflación' },
+      { slug: 'stocks', label: 'Acciones' },
+      { slug: 'earnings', label: 'Resultados' },
+      { slug: 'oil', label: 'Petróleo' },
+      { slug: 'gold', label: 'Oro' },
+      { slug: 'forex', label: 'Divisas' },
+      { slug: 'business', label: 'Empresas' },
+    ],
+  },
+  {
+    slug: 'tech',
+    label: 'Tecnología',
+    subs: [
+      { slug: 'tech', label: 'Todo' },
+      { slug: 'ai', label: 'IA' },
+      { slug: 'openai', label: 'OpenAI' },
+      { slug: 'space', label: 'Espacio' },
+      { slug: 'science', label: 'Ciencia' },
+    ],
+  },
+  {
+    slug: 'pop-culture',
+    label: 'Cultura',
+    subs: [
+      { slug: 'pop-culture', label: 'Todo' },
+      { slug: 'movies', label: 'Cine' },
+      { slug: 'box-office', label: 'Taquilla' },
+      { slug: 'tv', label: 'TV' },
+      { slug: 'music', label: 'Música' },
+      { slug: 'celebrities', label: 'Famosos' },
+    ],
+  },
+  {
+    slug: 'awards',
+    label: 'Premios',
+    subs: [
+      { slug: 'awards', label: 'Todo' },
+      { slug: 'oscars', label: 'Oscars' },
+      { slug: 'emmys', label: 'Emmys' },
+      { slug: 'grammys', label: 'Grammys' },
+    ],
+  },
+  {
+    slug: 'weather',
+    label: 'Clima',
+    subs: [
+      { slug: 'weather', label: 'Todo' },
+      { slug: 'climate', label: 'Clima global' },
+    ],
+  },
+]
+
+/** @deprecated Se conserva por compatibilidad; usar `CATEGORIES[i].subs`. */
+export const SPORTS_SUBCATEGORIES =
+  CATEGORIES.find((c) => c.label === 'Deportes')?.subs ?? []
 
 export type CategorySlug = string | null
 
 /** Identificador estable de pestaña (el label sirve, y `new` desambigua). */
 export type CategoryKey = string
 
-/**
- * Subcategorías de Deportes, con los slugs REALES de la API.
- *
- * Verificadas una a una contando eventos y liquidez. Cuatro candidatos obvios
- * NO existen: `formula-1` (el bueno es `f1`), `college-basketball`, `athletics`,
- * `darts` y `snooker` devuelven 0 eventos.
- *
- * Cuando dos slugs se solapan se toma el de más liquidez:
- *   baseball / mlb            -> mlb (2.443 mercados)
- *   football / nfl            -> nfl
- *   epl / premier-league      -> premier-league
- *   mma / ufc                 -> ufc (mucho más volumen)
- */
-export const SPORTS_SUBCATEGORIES = [
-  { slug: 'sports', label: 'Todos' },
-  { slug: 'soccer', label: 'Fútbol' },
-  { slug: 'basketball', label: 'Baloncesto' },
-  { slug: 'mlb', label: 'Béisbol' },
-  { slug: 'tennis', label: 'Tenis' },
-  { slug: 'nfl', label: 'NFL' },
-  { slug: 'f1', label: 'F1' },
-  { slug: 'ufc', label: 'UFC' },
-  { slug: 'nhl', label: 'Hockey' },
-  { slug: 'golf', label: 'Golf' },
-  { slug: 'esports', label: 'Esports' },
-  { slug: 'cricket', label: 'Críquet' },
-  { slug: 'chess', label: 'Ajedrez' },
-] as const
 
 interface GammaEventRaw {
   id: string
+  closed?: boolean
   title?: string
   slug?: string
   ticker?: string
@@ -557,10 +670,20 @@ export interface RealEvent {
  * un evento sin mercados con libro no sirve para nada en modo real.
  */
 export function normalizeEvent(raw: GammaEventRaw): RealEvent | null {
+  /**
+   * Se conserva todo mercado con libro de órdenes, ACEPTE ÓRDENES O NO.
+   *
+   * Antes se exigía `acceptingOrders === true`, y eso ocultaba eventos recién
+   * creados cuyo libro aún no ha abierto: justo los que deben salir en
+   * "Nuevo" y en categorías de nicho. No se filtra por liquidez ni por volumen
+   * en ningún punto; si Polymarket lo publica, aquí aparece.
+   *
+   * Los no operables llegan marcados (`acceptingOrders: false`) y la UI lo
+   * indica, en lugar de esconderlos.
+   */
   const markets: RealMarket[] = []
   for (const rawMarket of raw.markets ?? []) {
     if (rawMarket.enableOrderBook !== true) continue
-    if (rawMarket.acceptingOrders !== true) continue
     const norm = normalizeMarket(rawMarket)
     if (norm) markets.push(norm)
   }
@@ -732,6 +855,62 @@ export async function fetchMarketsByTag(options: {
       : offset + effective
 
   return { markets, rawCount: events.length, nextOffset }
+}
+
+/**
+ * Búsqueda global por texto sobre TODO el catálogo.
+ *
+ * Usa `/public-search`, el mismo endpoint que sustenta el buscador de la web
+ * oficial. Devuelve eventos con exactamente la misma forma que `/events`
+ * —incluidos los mercados operables—, así que se reutiliza `normalizeEvent`.
+ *
+ * Es imprescindible para la paridad: la ventana de `/events` se corta en
+ * ~2.100 resultados ordenados por volumen, mientras que la búsqueda alcanza el
+ * corpus completo (la API reporta >121.000 resultados). Sin esto, un evento de
+ * volumen bajo es sencillamente inalcanzable por mucho que se pagine.
+ */
+export async function searchEvents(options: {
+  query: string
+  limit?: number
+  page?: number
+  signal?: AbortSignal
+}): Promise<EventsPage> {
+  const { query, limit = 40, page = 1, signal } = options
+  const q = query.trim()
+  if (!q) return { events: [], rawCount: 0, nextOffset: null }
+
+  const params = new URLSearchParams({
+    q,
+    limit_per_type: String(Math.min(limit, GAMMA_MAX_LIMIT)),
+    page: String(page),
+    events_status: 'active',
+  })
+
+  const res = await fetch(`${GAMMA_API_BASE}/public-search?${params}`, {
+    signal,
+  })
+  if (!res.ok) {
+    throw new Error(`Búsqueda respondió ${res.status} ${res.statusText}`)
+  }
+
+  const data = (await res.json()) as {
+    events?: GammaEventRaw[]
+    pagination?: { hasMore?: boolean }
+  }
+  const raws = data.events ?? []
+
+  const events = raws
+    // La búsqueda puede devolver eventos ya cerrados; aquí solo interesan los
+    // abiertos, igual que en el resto de la app.
+    .filter((e) => e.closed !== true)
+    .map(normalizeEvent)
+    .filter((e): e is RealEvent => e !== null)
+
+  return {
+    events,
+    rawCount: raws.length,
+    nextOffset: data.pagination?.hasMore ? page + 1 : null,
+  }
 }
 
 /** Trae un mercado por su conditionId. */
