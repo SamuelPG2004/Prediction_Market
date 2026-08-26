@@ -259,6 +259,104 @@ export async function fetchMarkets(
   return page.markets
 }
 
+/**
+ * Categorías de nivel superior, al estilo de la navegación de Polymarket.
+ *
+ * Cada slug está VERIFICADO contra la API: devuelve eventos reales con
+ * mercados operables. Se probaron 40 candidatos y varios que parecen obvios no
+ * existen (`entertainment`, `financials`, `companies` devuelven 0 eventos), por
+ * eso la lista es esta y no la que uno supondría.
+ *
+ * IMPORTANTE: el filtro por etiqueta solo funciona en `/events`. En `/markets`
+ * el parámetro `tag_slug` se IGNORA silenciosamente: pedir `politics`, `sports`
+ * o un slug inventado devuelve exactamente los mismos IDs. Construir pestañas
+ * sobre `/markets?tag_slug=` daría una UI que parece funcionar mostrando
+ * siempre lo mismo.
+ */
+export const CATEGORIES = [
+  { slug: null, label: 'Tendencia' },
+  { slug: 'politics', label: 'Política' },
+  { slug: 'sports', label: 'Deportes' },
+  { slug: 'crypto', label: 'Cripto' },
+  { slug: 'geopolitics', label: 'Geopolítica' },
+  { slug: 'economy', label: 'Economía' },
+  { slug: 'tech', label: 'Tecnología' },
+  { slug: 'pop-culture', label: 'Cultura' },
+  { slug: 'elections', label: 'Elecciones' },
+] as const
+
+export type CategorySlug = (typeof CATEGORIES)[number]['slug']
+
+interface GammaEventRaw {
+  id: string
+  title?: string
+  ticker?: string
+  markets?: GammaMarketRaw[]
+  tags?: { slug?: string }[]
+}
+
+/**
+ * Trae los mercados de una categoría a través de `/events`.
+ *
+ * Un evento agrupa varios mercados (p.ej. "Nominado demócrata 2028" contiene
+ * un mercado por candidato), así que se aplanan. Se filtran los que no tienen
+ * libro o no aceptan órdenes: en modo real no sirven para nada.
+ */
+export async function fetchMarketsByTag(options: {
+  tagSlug: string
+  /** Nº de EVENTOS a pedir (cada uno aporta varios mercados). Máx 100. */
+  eventLimit?: number
+  offset?: number
+  signal?: AbortSignal
+}): Promise<MarketsPage> {
+  const { tagSlug, eventLimit = 60, offset = 0, signal } = options
+
+  const params = new URLSearchParams({
+    closed: 'false',
+    archived: 'false',
+    active: 'true',
+    limit: String(Math.min(eventLimit, GAMMA_MAX_LIMIT)),
+    offset: String(offset),
+    // En /events el campo de orden es `liquidity`, no `liquidityNum`.
+    order: 'liquidity',
+    ascending: 'false',
+    tag_slug: tagSlug,
+  })
+
+  const res = await fetch(`${GAMMA_API_BASE}/events?${params}`, { signal })
+  if (!res.ok) {
+    if (res.status === 422) return { markets: [], rawCount: 0, nextOffset: null }
+    throw new Error(`Gamma API respondió ${res.status} ${res.statusText}`)
+  }
+
+  const data: unknown = await res.json()
+  const events: GammaEventRaw[] = Array.isArray(data) ? data : []
+
+  const markets: RealMarket[] = []
+  for (const ev of events) {
+    for (const raw of ev.markets ?? []) {
+      if (raw.enableOrderBook !== true) continue
+      if (raw.acceptingOrders !== true) continue
+      const norm = normalizeMarket(raw)
+      if (!norm) continue
+      // El título del evento da contexto a la tarjeta ("Nominado demócrata
+      // 2028" sobre "¿Ganará Newsom?").
+      markets.push({ ...norm, eventTitle: norm.eventTitle ?? ev.title })
+    }
+  }
+
+  // Los mercados de un mismo evento vienen en orden arbitrario.
+  markets.sort((a, b) => b.liquidityUsd - a.liquidityUsd)
+
+  const effective = Math.min(eventLimit, GAMMA_MAX_LIMIT)
+  const nextOffset =
+    events.length < effective || offset + effective >= GAMMA_MAX_OFFSET
+      ? null
+      : offset + effective
+
+  return { markets, rawCount: events.length, nextOffset }
+}
+
 /** Trae un mercado por su conditionId. */
 export async function fetchMarketByConditionId(
   conditionId: string,

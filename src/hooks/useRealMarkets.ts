@@ -7,8 +7,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  fetchMarketsByTag,
   fetchMarketsPage,
   GAMMA_MAX_LIMIT,
+  type CategorySlug,
+  type MarketsPage,
   type RealMarket,
 } from '../services/gammaApi'
 import {
@@ -46,20 +49,45 @@ export interface UseRealMarketsState {
  * Ordena por liquidez descendente por defecto: para operar de verdad, un
  * mercado sin libro no sirve, así que los más líquidos van primero.
  */
-export function useRealMarkets(): UseRealMarketsState {
+export function useRealMarkets(
+  category: CategorySlug = null,
+): UseRealMarketsState {
   const [markets, setMarkets] = useState<RealMarket[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [nextOffset, setNextOffset] = useState<number | null>(0)
-  const [sort, setSort] = useState<MarketSort>('liquidityNum')
+  // "Tendencia" ordena por actividad reciente, no por liquidez: es lo que
+  // significa la palabra. Ordenando por liquidez la pestaña acabaría siendo un
+  // duplicado de Política, que es la categoría con más capital parado.
+  const [sort, setSort] = useState<MarketSort>('volume24hr')
   const [nonce, setNonce] = useState(0)
 
   // Evita que una carga en curso pise a otra (p.ej. cambio de orden mientras
   // se está trayendo una página).
   const loadingRef = useRef(false)
 
-  // Primera página, y recarga al cambiar el orden.
+  /**
+   * Elige la fuente según la categoría.
+   *
+   * Sin categoría se usa `/markets`, que ordena bien y da el catálogo completo.
+   * Con categoría hay que ir por `/events`, porque `/markets?tag_slug=` se
+   * ignora silenciosamente y devolvería lo mismo para todas las pestañas.
+   */
+  const fetchPage = useCallback(
+    (offset: number, signal?: AbortSignal): Promise<MarketsPage> =>
+      category
+        ? fetchMarketsByTag({ tagSlug: category, offset, signal })
+        : fetchMarketsPage({
+            limit: GAMMA_MAX_LIMIT,
+            offset,
+            order: sort,
+            signal,
+          }),
+    [category, sort],
+  )
+
+  // Primera página; recarga al cambiar categoría u orden.
   useEffect(() => {
     const controller = new AbortController()
     let alive = true
@@ -69,12 +97,7 @@ export function useRealMarkets(): UseRealMarketsState {
     setMarkets([])
     setNextOffset(0)
 
-    fetchMarketsPage({
-      limit: GAMMA_MAX_LIMIT,
-      offset: 0,
-      order: sort,
-      signal: controller.signal,
-    })
+    fetchPage(0, controller.signal)
       .then((page) => {
         if (!alive) return
         setMarkets(page.markets)
@@ -97,7 +120,7 @@ export function useRealMarkets(): UseRealMarketsState {
       alive = false
       controller.abort()
     }
-  }, [sort, nonce])
+  }, [fetchPage, nonce])
 
   /** Deduplica por id: la paginación puede solapar si el orden cambia en vuelo. */
   const append = useCallback((incoming: RealMarket[]) => {
@@ -112,11 +135,7 @@ export function useRealMarkets(): UseRealMarketsState {
     loadingRef.current = true
     setIsLoadingMore(true)
     try {
-      const page = await fetchMarketsPage({
-        limit: GAMMA_MAX_LIMIT,
-        offset: nextOffset,
-        order: sort,
-      })
+      const page = await fetchPage(nextOffset)
       append(page.markets)
       setNextOffset(page.nextOffset)
     } catch (e) {
@@ -127,7 +146,7 @@ export function useRealMarkets(): UseRealMarketsState {
       loadingRef.current = false
       setIsLoadingMore(false)
     }
-  }, [nextOffset, sort, append])
+  }, [nextOffset, fetchPage, append])
 
   const loadAll = useCallback(async () => {
     if (loadingRef.current) return
@@ -137,11 +156,7 @@ export function useRealMarkets(): UseRealMarketsState {
     try {
       // Secuencial a propósito: en paralelo se dispara el rate limit.
       while (offset !== null) {
-        const page = await fetchMarketsPage({
-          limit: GAMMA_MAX_LIMIT,
-          offset,
-          order: sort,
-        })
+        const page = await fetchPage(offset)
         append(page.markets)
         offset = page.nextOffset
         setNextOffset(offset)
@@ -154,7 +169,7 @@ export function useRealMarkets(): UseRealMarketsState {
       loadingRef.current = false
       setIsLoadingMore(false)
     }
-  }, [nextOffset, sort, append])
+  }, [nextOffset, fetchPage, append])
 
   const reload = useCallback(() => setNonce((n) => n + 1), [])
 
