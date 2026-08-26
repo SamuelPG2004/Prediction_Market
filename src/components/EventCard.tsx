@@ -35,10 +35,17 @@ export const EventCard: React.FC<EventCardProps> = ({
 }) => {
   const [expanded, setExpanded] = useState(false);
 
+  /**
+   * Las plantillas ("Team A") van al final y no se muestran salvo que se
+   * expanda: ocupan sitio sin aportar nada operable.
+   */
+  const realMarkets = event.markets.filter((m) => !m.isPlaceholder);
+  const listable = realMarkets.length > 0 ? realMarkets : event.markets;
+
   const visibleMarkets = expanded
-    ? event.markets
-    : event.markets.slice(0, MAX_VISIBLE_OPTIONS);
-  const hiddenCount = event.markets.length - visibleMarkets.length;
+    ? listable
+    : listable.slice(0, MAX_VISIBLE_OPTIONS);
+  const hiddenCount = listable.length - visibleMarkets.length;
 
   return (
     <div className="group rounded-2xl bg-[#0d1017] border border-neutral-800/80 hover:border-neutral-700 transition-colors p-4 flex flex-col gap-3">
@@ -89,7 +96,7 @@ export const EventCard: React.FC<EventCardProps> = ({
               + {hiddenCount} opciones más
             </button>
           )}
-          {expanded && event.markets.length > MAX_VISIBLE_OPTIONS && (
+          {expanded && listable.length > MAX_VISIBLE_OPTIONS && (
             <button
               onClick={() => setExpanded(false)}
               className="mt-0.5 py-1.5 text-[11px] font-semibold text-neutral-500 hover:text-neutral-300 transition-colors text-left"
@@ -117,8 +124,7 @@ export const EventCard: React.FC<EventCardProps> = ({
           </span>
         )}
         <span className="ml-auto text-neutral-600">
-          {event.markets.length}{' '}
-          {event.markets.length === 1 ? 'mercado' : 'mercados'}
+          {listable.length} {listable.length === 1 ? 'mercado' : 'mercados'}
         </span>
       </div>
     </div>
@@ -162,22 +168,37 @@ const EventImage: React.FC<{ event: RealEvent; eager?: boolean }> = ({
   );
 };
 
-/** Evento binario: probabilidad grande y compra directa de Sí/No. */
+/**
+ * Evento binario: probabilidad grande y compra directa.
+ *
+ * Las etiquetas de los botones salen de `outcomes`, que en deportes son los
+ * nombres reales ("Natus Vincere" / "M80", "Over" / "Under"), no Sí/No.
+ */
 const BinaryBody: React.FC<{
   market: RealMarket;
   onPick: (m: RealMarket) => void;
 }> = ({ market, onPick }) => {
-  const yesPct = Math.round((market.prices[0] ?? 0.5) * 100);
+  const price = market.prices[0];
+  const yesPct = price === null ? null : Math.round(price * 100);
 
   return (
     <div className="flex items-center gap-3">
       <div className="flex flex-col">
-        <span className="text-2xl font-mono font-extrabold text-neutral-100 leading-none">
-          {yesPct}
-          <span className="text-sm">%</span>
-        </span>
+        {yesPct === null ? (
+          <span
+            className="text-2xl font-mono font-extrabold text-neutral-600 leading-none"
+            title="Sin libro de órdenes todavía"
+          >
+            —
+          </span>
+        ) : (
+          <span className="text-2xl font-mono font-extrabold text-neutral-100 leading-none">
+            {yesPct}
+            <span className="text-sm">%</span>
+          </span>
+        )}
         <span className="text-[10px] font-mono uppercase text-neutral-500 mt-0.5">
-          probabilidad
+          {yesPct === null ? 'sin mercado' : 'probabilidad'}
         </span>
       </div>
 
@@ -199,13 +220,34 @@ const BinaryBody: React.FC<{
   );
 };
 
-/** Una opción dentro de un evento multi-mercado. */
+/**
+ * Una opción dentro de un evento multi-mercado.
+ *
+ * Distingue tres estados, en lugar de mostrar siempre un número:
+ *  - con precio: porcentaje y barra.
+ *  - sin precio (libro vacío): raya. Mostrar 0% o 50% sería inventarlo.
+ *  - plantilla ("Team A"): se marca como pendiente y no se puede operar.
+ */
 const OptionRow: React.FC<{
   market: RealMarket;
   onPick: () => void;
 }> = ({ market, onPick }) => {
-  const pct = Math.round((market.prices[0] ?? 0) * 100);
+  const price = market.prices[0];
+  const pct = price === null ? null : Math.round(price * 100);
   const label = market.optionLabel ?? market.question;
+
+  if (market.isPlaceholder) {
+    return (
+      <div className="w-full flex items-center gap-2.5 py-1.5 px-2 -mx-2 rounded-lg opacity-50">
+        <span className="flex-1 text-[11.5px] text-neutral-500 truncate italic">
+          Contendiente por definir
+        </span>
+        <span className="text-[10px] font-mono text-neutral-600 shrink-0">
+          pendiente
+        </span>
+      </div>
+    );
+  }
 
   return (
     <button
@@ -216,16 +258,23 @@ const OptionRow: React.FC<{
         {label}
       </span>
 
-      {/* Barra de probabilidad, compacta */}
+      {/* Barra de probabilidad, compacta. Sin precio no se dibuja. */}
       <span className="w-14 h-1 rounded-full bg-neutral-800 overflow-hidden shrink-0 hidden sm:block">
-        <span
-          className="block h-full bg-neutral-500 group-hover:bg-emerald-500/70 transition-colors"
-          style={{ width: `${Math.min(Math.max(pct, 0), 100)}%` }}
-        />
+        {pct !== null && (
+          <span
+            className="block h-full bg-neutral-500 group-hover:bg-emerald-500/70 transition-colors"
+            style={{ width: `${Math.min(Math.max(pct, 0), 100)}%` }}
+          />
+        )}
       </span>
 
-      <span className="text-[11.5px] font-mono font-bold text-neutral-100 w-9 text-right shrink-0">
-        {pct}%
+      <span
+        className={`text-[11.5px] font-mono font-bold w-9 text-right shrink-0 ${
+          pct === null ? 'text-neutral-600' : 'text-neutral-100'
+        }`}
+        title={pct === null ? 'Sin libro de órdenes todavía' : undefined}
+      >
+        {pct === null ? '—' : `${pct}%`}
       </span>
     </button>
   );

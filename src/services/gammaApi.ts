@@ -72,8 +72,12 @@ export interface RealMarket {
   outcomes: string[]
   /** Token IDs del CLOB, alineados con `outcomes`. */
   clobTokenIds: string[]
-  /** Precios por resultado, 0..1, alineados con `outcomes`. */
-  prices: number[]
+  /**
+   * Precios por resultado, 0..1, alineados por indice con `outcomes` y
+   * `clobTokenIds`. `null` = sin precio conocido (libro vacio). NUNCA se
+   * rellena con 0.5: eso producia los 50% repetidos.
+   */
+  prices: (number | null)[]
   liquidityUsd: number
   volumeUsd: number
   volume24hUsd: number
@@ -95,6 +99,10 @@ export interface RealMarket {
    * legible que la pregunta completa.
    */
   optionLabel?: string
+  /** true si es un mercado plantilla sin contendiente definido ("Team A"). */
+  isPlaceholder: boolean
+  /** true si hay al menos un precio real. */
+  hasPrice: boolean
 }
 
 /**
@@ -117,6 +125,86 @@ function toNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback
 }
 
+/** Convierte a número o devuelve null si no hay un valor utilizable. */
+function toNumberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const n = typeof value === 'string' ? parseFloat(value) : Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * Etiquetas plantilla que Polymarket usa en mercados aún sin definir.
+ *
+ * Son datos REALES de la API, no un fallo de parseo: para temporadas futuras
+ * crea mercados con `groupItemTitle: "Team A"` y preguntas como "Will Team A
+ * win the 2026-27 UEFA Champions League?". No hay ningún nombre que extraer
+ * porque todavía no existe; lo correcto es marcarlos y no mostrarlos como si
+ * fueran una opción real.
+ */
+const PLACEHOLDER_LABEL = /^(team|player|candidate|option|competitor)\s+[a-z0-9]{1,2}$/i
+
+export function isPlaceholderLabel(label: string | undefined | null): boolean {
+  if (!label) return false
+  return PLACEHOLDER_LABEL.test(label.trim())
+}
+
+/**
+ * Deduce la etiqueta de una opción, en orden de fiabilidad.
+ *
+ * 1. `groupItemTitle` — lo que usa la plataforma oficial. Suele estar y ser
+ *    exacto ("Kylian Mbappé", "25 bps decrease").
+ * 2. Si falta y los resultados NO son Yes/No, son los nombres reales de los
+ *    contendientes: `["Tampa Bay Rays","Detroit Tigers"]`. Se usa el primero.
+ * 3. Como último recurso se limpia la pregunta quitando la envoltura
+ *    ("Will X win the 2026 Ballon d'Or?" -> "X"), en lugar de volcar la
+ *    pregunta entera, que en estos eventos es repetitiva e ilegible.
+ */
+function deriveOptionLabel(
+  groupItemTitle: string | undefined,
+  question: string,
+  outcomes: string[],
+): string {
+  const git = groupItemTitle?.trim()
+  if (git) return git
+
+  const isYesNo =
+    outcomes.length === 2 &&
+    outcomes[0]?.toLowerCase() === 'yes' &&
+    outcomes[1]?.toLowerCase() === 'no'
+  if (!isYesNo && outcomes[0]?.trim()) return outcomes[0].trim()
+
+  return cleanQuestionToLabel(question)
+}
+
+/**
+ * Extrae el sujeto de una pregunta de mercado.
+ *
+ * "Will Kylian Mbappé win the 2026 Ballon d'Or?" -> "Kylian Mbappé"
+ * "Will the Fed cut rates in September?"         -> "the Fed cut rates in September"
+ *
+ * No es perfecto y no pretende serlo: es el último recurso, y devolver algo
+ * legible es mejor que un comodín vacío o la pregunta de 80 caracteres.
+ */
+export function cleanQuestionToLabel(question: string): string {
+  const q = (question ?? '').trim().replace(/\?+$/, '')
+  if (!q) return 'Opción sin nombre'
+
+  // "Will X win/join/be ..." -> X
+  const willMatch = q.match(
+    /^will\s+(.+?)\s+(win|join|be|become|reach|hit|sign|transfer|advance|qualify)\b/i,
+  )
+  if (willMatch?.[1]) return willMatch[1].trim()
+
+  // "Will X ..." -> X (sin verbo reconocido)
+  const bareWill = q.match(/^will\s+(.+)$/i)
+  if (bareWill?.[1]) {
+    const rest = bareWill[1].trim()
+    return rest.length > 42 ? `${rest.slice(0, 42)}…` : rest
+  }
+
+  return q.length > 46 ? `${q.slice(0, 46)}…` : q
+}
+
 /**
  * Normaliza un mercado de Gamma. Devuelve null si le falta lo imprescindible
  * para poder operar (token IDs o conditionId), en vez de dejar pasar un
@@ -131,7 +219,68 @@ export function normalizeMarket(raw: GammaMarketRaw): RealMarket | null {
   if (clobTokenIds.length < 2) return null
   if (outcomes.length !== clobTokenIds.length) return null
 
-  const prices = clobTokenIds.map((_, i) => toNumber(priceStrings[i], 0.5))
+  /**
+   * Precios emparejados por ÍNDICE con `clobTokenIds` y `outcomes`: los tres
+   * arrays vienen alineados desde la API, y el índice es lo que después se usa
+   * para elegir el token al firmar una orden. Desalinearlos compraría el
+   * resultado equivocado.
+   *
+   * `null` significa "sin precio conocido", no 0.5.
+   *
+   * Antes había un valor por defecto de 0.5 aquí, y era la causa de los 50%
+   * repetidos: 3.035 de 19.131 mercados operables (16%) llegan sin
+   * `outcomePrices`, y todos ellos con `bestBid: 0` / `bestAsk: 1`, es decir
+   * libro vacío. Su punto medio es exactamente 0.5, así que derivarlo del
+   * libro reproduce el mismo engaño. Sin mercado no hay probabilidad que
+   * mostrar.
+   */
+  /**
+   * Detección de "mercado inexistente".
+   *
+   * Aquí está la causa real de los 50% en cascada, y no era un valor por
+   * defecto nuestro: **la propia API devuelve `["0.5","0.5"]`** para mercados
+   * que no tienen libro. Ejemplo medido en "Where will Julian Alvarez
+   * transfer?", donde 11 de 17 opciones llegan así:
+   *
+   *   git="Team A"  outcomePrices=["0.5","0.5"]  bid=0  ask=1  last=0  liq=0
+   *   git="Arsenal" outcomePrices=["0.4615",…]   bid=0.44 ask=0.483 last=0.44
+   *
+   * El discriminador NO es el 0.5 —un mercado real puede estar legítimamente
+   * a 50/50— sino el **libro vacío**: diferencial que abarca todo el rango
+   * (bid 0 / ask 1), nunca negociado y sin liquidez. Un 50/50 auténtico tiene
+   * libro alrededor de 0.5.
+   */
+  const bid = toNumberOrNull(raw.bestBid) ?? 0
+  const ask = toNumberOrNull(raw.bestAsk) ?? 1
+  const fullSpread = ask - bid >= 0.99
+  const neverTraded = toNumber(raw.lastTradePrice, 0) === 0
+  const noLiquidity = toNumber(raw.liquidityNum ?? raw.liquidity, 0) === 0
+  const hasNoMarket = fullSpread && (neverTraded || noLiquidity)
+
+  /**
+   * Precios emparejados por ÍNDICE con `clobTokenIds` y `outcomes`: los tres
+   * arrays vienen alineados desde la API, y el índice es lo que después se usa
+   * para elegir el token al firmar una orden. Desalinearlos compraría el
+   * resultado equivocado.
+   *
+   * `null` significa "sin precio conocido". Nunca se inventa un 0.5.
+   */
+  const prices: (number | null)[] = clobTokenIds.map((_, i) => {
+    if (hasNoMarket) return null
+
+    const fromApi = toNumberOrNull(priceStrings[i])
+    if (fromApi !== null) return fromApi
+
+    // Sin `outcomePrices` pero con libro: se deriva del último negociado.
+    const last = toNumberOrNull(raw.lastTradePrice)
+    if (last !== null && last > 0 && last < 1) {
+      return i === 0 ? last : 1 - last
+    }
+
+    return null
+  })
+
+  const label = deriveOptionLabel(raw.groupItemTitle, raw.question, outcomes)
 
   return {
     id: raw.id,
@@ -158,7 +307,10 @@ export function normalizeMarket(raw: GammaMarketRaw): RealMarket | null {
     spread: raw.spread,
     lastTradePrice: raw.lastTradePrice,
     eventTitle: raw.events?.[0]?.title,
-    optionLabel: raw.groupItemTitle || undefined,
+    optionLabel: label,
+    isPlaceholder:
+      isPlaceholderLabel(raw.groupItemTitle) || isPlaceholderLabel(label),
+    hasPrice: prices.some((v) => v !== null),
   }
 }
 
@@ -415,8 +567,21 @@ export function normalizeEvent(raw: GammaEventRaw): RealEvent | null {
 
   if (markets.length === 0) return null
 
-  // Mayor probabilidad primero: es el orden en que Polymarket lista opciones.
-  markets.sort((a, b) => (b.prices[0] ?? 0) - (a.prices[0] ?? 0))
+  /**
+   * Orden: primero las opciones con precio conocido, de mayor a menor
+   * probabilidad; después las que no tienen mercado; y al final las plantilla
+   * sin contendiente definido.
+   *
+   * Así una opción sin libro no se cuela arriba fingiendo ser probable, que es
+   * lo que ocurría cuando su precio ausente se rellenaba con 0.5.
+   */
+  const rank = (m: RealMarket) => (m.isPlaceholder ? 2 : m.hasPrice ? 0 : 1)
+  markets.sort((a, b) => {
+    const ra = rank(a)
+    const rb = rank(b)
+    if (ra !== rb) return ra - rb
+    return (b.prices[0] ?? 0) - (a.prices[0] ?? 0)
+  })
 
   return {
     id: raw.id,

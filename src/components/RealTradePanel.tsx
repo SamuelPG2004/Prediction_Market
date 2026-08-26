@@ -209,7 +209,8 @@ export const RealTradePanel: React.FC<RealTradePanelProps> = ({
             <div className="flex gap-1.5 overflow-x-auto pb-1">
               {event.markets.map((m) => {
                 const active = m.id === market.id;
-                const pct = Math.round((m.prices[0] ?? 0) * 100);
+                const p0 = m.prices[0];
+                const pct = p0 === null ? null : Math.round(p0 * 100);
                 return (
                   <button
                     key={m.id}
@@ -226,7 +227,7 @@ export const RealTradePanel: React.FC<RealTradePanelProps> = ({
                     <span
                       className={`font-mono ${active ? 'text-neutral-600' : 'text-neutral-500'}`}
                     >
-                      {pct}%
+                      {pct === null ? '—' : `${pct}%`}
                     </span>
                   </button>
                 );
@@ -252,7 +253,9 @@ export const RealTradePanel: React.FC<RealTradePanelProps> = ({
                 >
                   <div>{label}</div>
                   <div className="font-mono text-[11px] mt-0.5 opacity-80">
-                    ${market.prices[i]?.toFixed(3)}
+                    {market.prices[i] === null
+                      ? '—'
+                      : `${market.prices[i]!.toFixed(3)}`}
                   </div>
                 </button>
               ))}
