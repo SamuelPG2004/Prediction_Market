@@ -128,7 +128,7 @@ export const OpenOrdersPanel: React.FC<OpenOrdersPanelProps> = ({
             const price = Number(o.price ?? 0);
             const total = Number(o.original_size ?? 0);
             const matched = Number(o.size_matched ?? 0);
-            const pct = total > 0 ? (matched / total) * 100 : 0;
+            const remaining = Math.max(total - matched, 0);
 
             return (
               <div
@@ -172,23 +172,23 @@ export const OpenOrdersPanel: React.FC<OpenOrdersPanelProps> = ({
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400">
-                  <span>${price.toFixed(3)} / share</span>
-                  <span>
-                    {matched.toFixed(0)} / {total.toFixed(0)} shares
-                  </span>
-                  <span className="text-neutral-500">
-                    {formatCurrency(price * total)}
-                  </span>
+                {/* Precio, tamaño y valor. Sin porcentaje ni barra: lo que
+                    importa en una orden viva es cuánto queda por llenar. */}
+                <div className="grid grid-cols-3 gap-2 text-[11px] font-mono">
+                  <Field label="Precio" value={`$${price.toFixed(3)}`} />
+                  <Field
+                    label="Pendiente"
+                    value={`${remaining.toFixed(0)} sh`}
+                  />
+                  <Field label="Valor" value={formatCurrency(price * remaining)} />
                 </div>
 
-                {/* Progreso de llenado */}
-                <div className="relative w-full h-1 rounded-full bg-neutral-900 overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-500 transition-all"
-                    style={{ width: `${Math.min(Math.max(pct, 0), 100)}%` }}
-                  />
-                </div>
+                {matched > 0 && (
+                  <p className="text-[10px] font-mono text-emerald-400/80">
+                    {matched.toFixed(0)} de {total.toFixed(0)} shares ya
+                    llenadas
+                  </p>
+                )}
               </div>
             );
           })}
@@ -197,3 +197,15 @@ export const OpenOrdersPanel: React.FC<OpenOrdersPanelProps> = ({
     </div>
   );
 };
+
+const Field: React.FC<{ label: string; value: string }> = ({
+  label,
+  value,
+}) => (
+  <div className="flex flex-col gap-0.5">
+    <span className="text-[9px] uppercase text-neutral-600 tracking-wider">
+      {label}
+    </span>
+    <span className="text-neutral-200 font-bold">{value}</span>
+  </div>
+);

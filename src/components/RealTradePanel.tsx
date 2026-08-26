@@ -8,7 +8,7 @@ import {
   Ban,
   Wallet,
 } from 'lucide-react';
-import type { RealMarket } from '../services/gammaApi';
+import type { RealEvent, RealMarket } from '../services/gammaApi';
 import { roundToTick, simulateMarketFill } from '../services/clobApi';
 import { useOrderBook } from '../hooks/useRealMarkets';
 import { useClobTrading, type TradeSide } from '../hooks/useClobTrading';
@@ -20,7 +20,10 @@ import { txUrl } from '../config/polymarket';
 import { formatCurrency } from '../utils/formatters';
 
 interface RealTradePanelProps {
-  market: RealMarket | null;
+  /** Evento al que pertenece el mercado, para dar contexto y permitir cambiar de opcion. */
+  event: RealEvent;
+  /** Mercado (opcion) seleccionado inicialmente. */
+  market: RealMarket;
   onClose: () => void;
   /** Abre el modal de conexión de wallet desde las comprobaciones previas. */
   onConnectWallet: () => void;
@@ -35,10 +38,13 @@ interface RealTradePanelProps {
  * no el mejor precio, para que no prometa algo que el mercado no va a dar.
  */
 export const RealTradePanel: React.FC<RealTradePanelProps> = ({
-  market,
+  event,
+  market: initialMarket,
   onClose,
   onConnectWallet,
 }) => {
+  // La opcion activa dentro del evento. Permite cambiar sin cerrar el panel.
+  const [market, setMarket] = useState<RealMarket>(initialMarket);
   const [outcomeIndex, setOutcomeIndex] = useState(0);
   const [side, setSide] = useState<TradeSide>('buy');
   // Arranca en el mínimo del mercado: para una primera prueba real conviene
@@ -173,8 +179,12 @@ export const RealTradePanel: React.FC<RealTradePanelProps> = ({
                 </span>
               )}
             </div>
+            {/* Contexto del evento, y la pregunta concreta debajo */}
+            <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-0.5">
+              {event.title}
+            </p>
             <h3 className="text-sm font-bold text-neutral-100 leading-snug">
-              {market.question}
+              {market.optionLabel ?? market.question}
             </h3>
             <p className="text-[11px] font-mono text-neutral-500 mt-1">
               Liquidez {formatCurrency(market.liquidityUsd)} · Vol 24h{' '}
@@ -189,6 +199,41 @@ export const RealTradePanel: React.FC<RealTradePanelProps> = ({
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Selector de opción, solo si el evento tiene varias */}
+        {event.markets.length > 1 && (
+          <div className="px-5 py-3 border-b border-neutral-800 bg-[#0d1017]">
+            <p className="text-[10px] uppercase font-mono text-neutral-600 tracking-wider mb-2">
+              Opción del evento ({event.markets.length})
+            </p>
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {event.markets.map((m) => {
+                const active = m.id === market.id;
+                const pct = Math.round((m.prices[0] ?? 0) * 100);
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setMarket(m)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 ${
+                      active
+                        ? 'bg-neutral-100 text-neutral-900'
+                        : 'bg-[#12151d] text-neutral-400 border border-neutral-800 hover:text-neutral-200'
+                    }`}
+                  >
+                    <span className="max-w-[160px] truncate">
+                      {m.optionLabel ?? m.question}
+                    </span>
+                    <span
+                      className={`font-mono ${active ? 'text-neutral-600' : 'text-neutral-500'}`}
+                    >
+                      {pct}%
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Columna izquierda: libro */}

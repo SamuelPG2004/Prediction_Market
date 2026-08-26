@@ -48,6 +48,8 @@ export interface GammaMarketRaw {
   image?: string
   icon?: string
   resolutionSource?: string
+  /** Etiqueta corta de la opcion dentro de un evento multi-mercado. */
+  groupItemTitle?: string
   /** Restricciones de orden que impone el CLOB. */
   orderPriceMinTickSize?: number
   orderMinSize?: number
@@ -87,6 +89,12 @@ export interface RealMarket {
   spread?: number
   lastTradePrice?: number
   eventTitle?: string
+  /**
+   * Etiqueta corta de la opcion ("25 bps decrease", "Real Madrid CF").
+   * Es lo que Polymarket muestra en las tarjetas multi-opcion, mucho mas
+   * legible que la pregunta completa.
+   */
+  optionLabel?: string
 }
 
 /**
@@ -150,6 +158,7 @@ export function normalizeMarket(raw: GammaMarketRaw): RealMarket | null {
     spread: raw.spread,
     lastTradePrice: raw.lastTradePrice,
     eventTitle: raw.events?.[0]?.title,
+    optionLabel: raw.groupItemTitle || undefined,
   }
 }
 
@@ -274,25 +283,199 @@ export async function fetchMarkets(
  * siempre lo mismo.
  */
 export const CATEGORIES = [
-  { slug: null, label: 'Tendencia' },
+  { slug: null, label: 'Tendencia', order: 'volume24hr' },
+  // "Nuevo" no es una etiqueta: es el catálogo ordenado por fecha de creación.
+  { slug: null, label: 'Nuevo', order: 'creationDate', key: 'new' },
   { slug: 'politics', label: 'Política' },
   { slug: 'sports', label: 'Deportes' },
   { slug: 'crypto', label: 'Cripto' },
+  { slug: 'esports', label: 'Esports' },
   { slug: 'geopolitics', label: 'Geopolítica' },
+  { slug: 'finance', label: 'Finanzas' },
   { slug: 'economy', label: 'Economía' },
   { slug: 'tech', label: 'Tecnología' },
   { slug: 'pop-culture', label: 'Cultura' },
+  { slug: 'weather', label: 'Clima' },
   { slug: 'elections', label: 'Elecciones' },
+  { slug: 'awards', label: 'Premios' },
 ] as const
 
-export type CategorySlug = (typeof CATEGORIES)[number]['slug']
+export type CategorySlug = string | null
+
+/** Identificador estable de pestaña (el label sirve, y `new` desambigua). */
+export type CategoryKey = string
 
 interface GammaEventRaw {
   id: string
   title?: string
+  slug?: string
   ticker?: string
+  description?: string
+  image?: string
+  icon?: string
+  liquidity?: number
+  volume?: number
+  volume24hr?: number
+  openInterest?: number
+  commentCount?: number
+  endDate?: string
+  startDate?: string
+  new?: boolean
+  featured?: boolean
+  live?: boolean
+  ended?: boolean
+  negRisk?: boolean
+  /** Pistas de presentación que usa la propia UI de Polymarket. */
+  showAllOutcomes?: boolean
+  showMarketImages?: boolean
   markets?: GammaMarketRaw[]
-  tags?: { slug?: string }[]
+  tags?: { slug?: string; label?: string }[]
+}
+
+/**
+ * Evento normalizado: la unidad que se muestra en una tarjeta.
+ *
+ * Un evento agrupa mercados relacionados. "Fed Decision in September?" contiene
+ * un mercado por resultado posible ("25 bps decrease", "No change"...), y
+ * "Real Madrid vs Real Sociedad" contiene uno por desenlace. Es la estructura
+ * que usa Polymarket y la razón de que sus tarjetas puedan mostrar varias
+ * opciones con su porcentaje.
+ */
+export interface RealEvent {
+  id: string
+  title: string
+  slug?: string
+  description?: string
+  /** Imagen oficial del evento (S3 de Polymarket). */
+  image?: string
+  icon?: string
+  liquidityUsd: number
+  volumeUsd: number
+  volume24hUsd: number
+  openInterestUsd: number
+  commentCount: number
+  endDate?: string
+  isNew: boolean
+  featured: boolean
+  live: boolean
+  /** Etiquetas del evento, útiles para mostrar contexto. */
+  tags: string[]
+  /** Mercados operables, ordenados por probabilidad descendente. */
+  markets: RealMarket[]
+  /**
+   * true si es un evento binario simple: un único mercado Sí/No.
+   * La tarjeta lo presenta con un porcentaje grande en vez de una lista.
+   */
+  isBinary: boolean
+  /** Alguno de sus mercados es negRisk. */
+  hasNegRisk: boolean
+}
+
+/**
+ * Normaliza un evento. Devuelve null si no le queda ningún mercado operable:
+ * un evento sin mercados con libro no sirve para nada en modo real.
+ */
+export function normalizeEvent(raw: GammaEventRaw): RealEvent | null {
+  const markets: RealMarket[] = []
+  for (const rawMarket of raw.markets ?? []) {
+    if (rawMarket.enableOrderBook !== true) continue
+    if (rawMarket.acceptingOrders !== true) continue
+    const norm = normalizeMarket(rawMarket)
+    if (norm) markets.push(norm)
+  }
+
+  if (markets.length === 0) return null
+
+  // Mayor probabilidad primero: es el orden en que Polymarket lista opciones.
+  markets.sort((a, b) => (b.prices[0] ?? 0) - (a.prices[0] ?? 0))
+
+  return {
+    id: raw.id,
+    title: raw.title ?? '(sin título)',
+    slug: raw.slug,
+    description: raw.description,
+    image: raw.image ?? raw.icon,
+    icon: raw.icon ?? raw.image,
+    liquidityUsd: toNumber(raw.liquidity),
+    volumeUsd: toNumber(raw.volume),
+    volume24hUsd: toNumber(raw.volume24hr),
+    openInterestUsd: toNumber(raw.openInterest),
+    commentCount: toNumber(raw.commentCount),
+    endDate: raw.endDate,
+    isNew: raw.new === true,
+    featured: raw.featured === true,
+    live: raw.live === true,
+    tags: (raw.tags ?? [])
+      .map((t) => t.slug)
+      .filter((s): s is string => Boolean(s)),
+    markets,
+    isBinary: markets.length === 1,
+    hasNegRisk: markets.some((m) => m.negRisk),
+  }
+}
+
+export interface EventsPage {
+  events: RealEvent[]
+  rawCount: number
+  nextOffset: number | null
+}
+
+/**
+ * Trae una página de eventos.
+ *
+ * Recordatorio de por qué esto va contra `/events` y no `/markets`: el filtro
+ * `tag_slug` solo se respeta aquí. En `/markets` se ignora en silencio y
+ * devuelve lo mismo para cualquier etiqueta, incluida una inventada.
+ */
+export async function fetchEventsPage(options: {
+  tagSlug?: string | null
+  /** Campo de orden. En /events es `liquidity`/`volume24hr`, no `liquidityNum`. */
+  order?: string
+  ascending?: boolean
+  limit?: number
+  offset?: number
+  signal?: AbortSignal
+}): Promise<EventsPage> {
+  const {
+    tagSlug,
+    order = 'volume24hr',
+    ascending = false,
+    limit = GAMMA_MAX_LIMIT,
+    offset = 0,
+    signal,
+  } = options
+
+  const effective = Math.min(limit, GAMMA_MAX_LIMIT)
+  const params = new URLSearchParams({
+    closed: 'false',
+    archived: 'false',
+    active: 'true',
+    limit: String(effective),
+    offset: String(offset),
+    order,
+    ascending: String(ascending),
+  })
+  if (tagSlug) params.set('tag_slug', tagSlug)
+
+  const res = await fetch(`${GAMMA_API_BASE}/events?${params}`, { signal })
+  if (!res.ok) {
+    if (res.status === 422) return { events: [], rawCount: 0, nextOffset: null }
+    throw new Error(`Gamma API respondió ${res.status} ${res.statusText}`)
+  }
+
+  const data: unknown = await res.json()
+  const raws: GammaEventRaw[] = Array.isArray(data) ? data : []
+
+  const events = raws
+    .map(normalizeEvent)
+    .filter((e): e is RealEvent => e !== null)
+
+  const nextOffset =
+    raws.length < effective || offset + effective >= GAMMA_MAX_OFFSET
+      ? null
+      : offset + effective
+
+  return { events, rawCount: raws.length, nextOffset }
 }
 
 /**

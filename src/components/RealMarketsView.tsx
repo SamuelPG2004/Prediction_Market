@@ -4,74 +4,75 @@ import {
   RefreshCw,
   Search,
   AlertTriangle,
-  Activity,
-  Droplets,
-  ChevronDown,
   ListPlus,
   ShieldCheck,
   TrendingUp,
+  Sparkles,
 } from 'lucide-react';
-import { useRealMarkets } from '../hooks/useRealMarkets';
+import { useRealEvents } from '../hooks/useRealEvents';
 import { useOnchainAccount } from '../hooks/useOnchainAccount';
 import {
   CATEGORIES,
-  type CategorySlug,
+  type RealEvent,
   type RealMarket,
 } from '../services/gammaApi';
+import { EventCard } from './EventCard';
 import { RealTradePanel } from './RealTradePanel';
-import { formatCompactNumber, formatCurrency } from '../utils/formatters';
+import { formatCurrency } from '../utils/formatters';
 
-/** Cuántas tarjetas se pintan de golpe. Renderizar miles satura el navegador. */
-const PAGE_SIZE = 48;
+/** Tarjetas pintadas por tanda. Renderizar cientos de golpe satura el navegador. */
+const PAGE_SIZE = 24;
 
 interface RealMarketsViewProps {
-  /** Abre el modal de conexion de wallet. */
   onConnectWallet: () => void;
 }
 
 /**
- * Terminal de mercados reales de Polymarket.
+ * Terminal de eventos reales de Polymarket.
  *
- * Navegación por categorías al estilo de la plataforma original. Ojo con la
- * fuente de datos: el filtro por categoría va contra `/events`, porque en
- * `/markets` el parámetro `tag_slug` se ignora en silencio (ver gammaApi.ts).
+ * Arquitectura centrada en EVENTOS, no en mercados sueltos: es lo que permite
+ * mostrar imagen, contexto y varias opciones por tarjeta, igual que la
+ * plataforma oficial.
+ *
+ * El filtro por categoría va contra `/events`. En `/markets` el parámetro
+ * `tag_slug` se ignora en silencio y devolvería lo mismo en todas las
+ * pestañas (medido).
  */
 export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
   onConnectWallet,
 }) => {
-  const [category, setCategory] = useState<CategorySlug>(null);
-  const {
-    markets,
-    isLoading,
-    isLoadingMore,
-    error,
-    hasMore,
-    loadMore,
-    loadAll,
-    reload,
-    sort,
-    setSort,
-  } = useRealMarkets(category);
+  const [tabIndex, setTabIndex] = useState(0);
+  const tab = CATEGORIES[tabIndex];
+
+  const { events, isLoading, isLoadingMore, error, hasMore, loadMore, reload } =
+    useRealEvents({
+      tagSlug: tab.slug,
+      order: 'order' in tab ? tab.order : 'volume24hr',
+    });
 
   const account = useOnchainAccount();
   const [query, setQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [selected, setSelected] = useState<RealMarket | null>(null);
+  const [selected, setSelected] = useState<{
+    event: RealEvent;
+    market: RealMarket;
+  } | null>(null);
 
-  // Al cambiar de pestaña o buscar, volver al principio del listado.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [category, query]);
+  }, [tabIndex, query]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return markets;
-    return markets.filter(
-      (m) =>
-        m.question.toLowerCase().includes(q) ||
-        (m.eventTitle?.toLowerCase().includes(q) ?? false),
+    if (!q) return events;
+    return events.filter(
+      (e) =>
+        e.title.toLowerCase().includes(q) ||
+        e.markets.some((m) =>
+          (m.optionLabel ?? m.question).toLowerCase().includes(q),
+        ),
     );
-  }, [markets, query]);
+  }, [events, query]);
 
   const visible = useMemo(
     () => filtered.slice(0, visibleCount),
@@ -80,17 +81,18 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
 
   const totals = useMemo(
     () => ({
-      liquidity: markets.reduce((a, m) => a + m.liquidityUsd, 0),
-      volume24h: markets.reduce((a, m) => a + m.volume24hUsd, 0),
+      liquidity: events.reduce((a, e) => a + e.liquidityUsd, 0),
+      volume24h: events.reduce((a, e) => a + e.volume24hUsd, 0),
+      markets: events.reduce((a, e) => a + e.markets.length, 0),
     }),
-    [markets],
+    [events],
   );
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Cabecera: estado de la cuenta y aviso de dinero real */}
+    <div className="flex flex-col gap-5">
+      {/* Cabecera de cuenta */}
       <div className="rounded-2xl bg-[#0d1017] border border-neutral-800/80 overflow-hidden">
-        <div className="px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-neutral-800/60">
+        <div className="px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-400">
               <ShieldCheck className="w-4 h-4" />
@@ -106,14 +108,8 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
           </div>
 
           <div className="flex items-center gap-5">
-            <Metric
-              label="Liquidez cargada"
-              value={formatCurrency(totals.liquidity)}
-            />
-            <Metric
-              label="Vol 24h"
-              value={formatCurrency(totals.volume24h)}
-            />
+            <Metric label="Liquidez" value={formatCurrency(totals.liquidity)} />
+            <Metric label="Vol 24h" value={formatCurrency(totals.volume24h)} />
             <Metric
               label="Tu USDC"
               value={
@@ -134,30 +130,35 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
             className="w-full px-5 py-2.5 flex items-center justify-center gap-2 bg-amber-500/10 hover:bg-amber-500/15 text-[11px] font-semibold text-amber-300 transition-colors"
           >
             <AlertTriangle className="w-3.5 h-3.5" />
-            <span>
-              Wallet no conectada — puedes explorar, pero no operar. Conectar
-            </span>
+            <span>Wallet no conectada — explora libremente, o conecta para operar</span>
           </button>
         )}
       </div>
 
       {/* Pestañas de categoría */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-        {CATEGORIES.map((c) => {
-          const active = category === c.slug;
+        {CATEGORIES.map((c, i) => {
+          const active = i === tabIndex;
+          const isTrending = c.label === 'Tendencia';
+          const isNew = c.label === 'Nuevo';
           return (
             <button
-              key={c.slug ?? 'trending'}
-              onClick={() => setCategory(c.slug)}
+              key={c.label}
+              onClick={() => setTabIndex(i)}
               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                 active
                   ? 'bg-neutral-100 text-neutral-900 shadow-lg'
                   : 'bg-[#0f121a] text-neutral-400 border border-neutral-800 hover:text-neutral-200 hover:border-neutral-700'
               }`}
             >
-              {c.slug === null && (
+              {isTrending && (
                 <TrendingUp
                   className={`w-3.5 h-3.5 ${active ? 'text-neutral-900' : 'text-emerald-400'}`}
+                />
+              )}
+              {isNew && (
+                <Sparkles
+                  className={`w-3.5 h-3.5 ${active ? 'text-neutral-900' : 'text-amber-400'}`}
                 />
               )}
               <span>{c.label}</span>
@@ -166,32 +167,18 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
         })}
       </div>
 
-      {/* Barra de búsqueda y orden */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+      {/* Búsqueda */}
+      <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar en esta categoría..."
+            placeholder={`Buscar en ${tab.label}...`}
             className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#0f121a] border border-neutral-800 focus:border-emerald-500/50 focus:outline-none text-sm text-neutral-100 placeholder:text-neutral-600"
           />
         </div>
-
-        {/* El orden solo aplica a Tendencia: en las categorías manda /events. */}
-        {category === null && (
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as typeof sort)}
-            className="px-3 py-2.5 rounded-xl bg-[#0f121a] border border-neutral-800 focus:border-emerald-500/50 focus:outline-none text-xs text-neutral-300"
-          >
-            <option value="liquidityNum">Mayor liquidez</option>
-            <option value="volume24hr">Mayor volumen 24h</option>
-            <option value="volumeNum">Mayor volumen total</option>
-          </select>
-        )}
-
         <button
           onClick={reload}
           disabled={isLoading}
@@ -206,7 +193,7 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
         <div className="rounded-xl bg-rose-500/10 border border-rose-500/25 p-4 flex items-start gap-2 text-xs text-rose-300">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold">No se pudieron cargar los mercados.</p>
+            <p className="font-semibold">No se pudieron cargar los eventos.</p>
             <p className="mt-1 text-rose-300/80">{error}</p>
           </div>
         </div>
@@ -216,25 +203,16 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
         <div className="py-24 flex flex-col items-center gap-3">
           <Loader2 className="w-7 h-7 text-emerald-400 animate-spin" />
           <p className="text-xs text-neutral-500 font-mono">
-            Cargando mercados de Polymarket...
+            Cargando {tab.label.toLowerCase()}...
           </p>
         </div>
       ) : (
         <>
-          {/* Contador discreto */}
-          <div className="flex items-baseline justify-between">
-            <p className="text-[11px] font-mono text-neutral-500">
-              mostrando{' '}
-              <span className="text-neutral-300">{visible.length}</span> de{' '}
-              <span className="text-neutral-300">{filtered.length}</span>
-              {query && ` · filtrado de ${markets.length}`}
-            </p>
-            {hasMore && (
-              <p className="text-[11px] font-mono text-amber-400/80">
-                quedan más por traer
-              </p>
-            )}
-          </div>
+          <p className="text-[11px] font-mono text-neutral-500">
+            <span className="text-neutral-300">{visible.length}</span> de{' '}
+            <span className="text-neutral-300">{filtered.length}</span> eventos ·{' '}
+            {totals.markets} mercados operables
+          </p>
 
           {visible.length === 0 ? (
             <div className="py-20 flex flex-col items-center gap-3 rounded-2xl bg-[#0d1017] border border-dashed border-neutral-800">
@@ -244,63 +222,53 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
               </p>
               <p className="text-xs text-neutral-500 max-w-xs text-center">
                 {query
-                  ? 'Ningún mercado cargado coincide. Prueba otra categoría o trae más.'
-                  : 'Esta categoría no devolvió mercados operables.'}
+                  ? 'Ningún evento cargado coincide con la búsqueda.'
+                  : 'Esta categoría no devolvió eventos operables.'}
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {visible.map((m) => (
-                <RealMarketCard
-                  key={m.id}
-                  market={m}
-                  onClick={() => setSelected(m)}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+              {visible.map((e, i) => (
+                <EventCard
+                  key={e.id}
+                  event={e}
+                  eagerImage={i < 6}
+                  onSelectMarket={(event, market) =>
+                    setSelected({ event, market })
+                  }
                 />
               ))}
             </div>
           )}
 
-          {/* Paginación: primero la de pintado, luego la de red */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-2 py-2">
             {visibleCount < filtered.length && (
               <button
                 onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-xs font-bold transition-all active:scale-95"
               >
-                <ChevronDown className="w-3.5 h-3.5" />
                 <span>Mostrar {PAGE_SIZE} más</span>
               </button>
             )}
 
-            {hasMore && (
-              <>
-                <button
-                  onClick={loadMore}
-                  disabled={isLoadingMore}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0f121a] hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/40 text-xs font-bold text-neutral-200 transition-all active:scale-95 disabled:opacity-50"
-                >
-                  {isLoadingMore ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <ListPlus className="w-3.5 h-3.5 text-emerald-400" />
-                  )}
-                  <span>Traer más de Polymarket</span>
-                </button>
-
-                <button
-                  onClick={loadAll}
-                  disabled={isLoadingMore}
-                  className="px-5 py-2.5 rounded-xl bg-transparent hover:bg-[#0f121a] border border-neutral-800/60 text-xs font-semibold text-neutral-500 hover:text-neutral-300 transition-all active:scale-95 disabled:opacity-50"
-                  title="Recorre todas las páginas restantes"
-                >
-                  Traer todo
-                </button>
-              </>
+            {hasMore && visibleCount >= filtered.length && (
+              <button
+                onClick={loadMore}
+                disabled={isLoadingMore}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0f121a] hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/40 text-xs font-bold text-neutral-200 transition-all active:scale-95 disabled:opacity-50"
+              >
+                {isLoadingMore ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <ListPlus className="w-3.5 h-3.5 text-emerald-400" />
+                )}
+                <span>Traer más de Polymarket</span>
+              </button>
             )}
 
-            {!hasMore && visibleCount >= filtered.length && markets.length > 0 && (
+            {!hasMore && visibleCount >= filtered.length && events.length > 0 && (
               <p className="text-[11px] font-mono text-neutral-600">
-                {markets.length} mercados · catálogo completo de esta categoría
+                {events.length} eventos · catálogo completo de {tab.label}
               </p>
             )}
           </div>
@@ -309,7 +277,8 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
 
       {selected && (
         <RealTradePanel
-          market={selected}
+          event={selected.event}
+          market={selected.market}
           onClose={() => setSelected(null)}
           onConnectWallet={onConnectWallet}
         />
@@ -334,85 +303,3 @@ const Metric: React.FC<{
     </span>
   </div>
 );
-
-const RealMarketCard: React.FC<{
-  market: RealMarket;
-  onClick: () => void;
-}> = ({ market, onClick }) => {
-  const yesPrice = market.prices[0] ?? 0.5;
-  const yesPct = Math.round(yesPrice * 100);
-  const noPct = 100 - yesPct;
-
-  return (
-    <button
-      onClick={onClick}
-      className="group text-left rounded-2xl bg-[#0d1017] border border-neutral-800/80 hover:border-neutral-700 hover:bg-[#101420] transition-all p-4 flex flex-col gap-3.5"
-    >
-      {/* Contexto: evento y etiquetas */}
-      <div className="flex items-start justify-between gap-2 min-h-[18px]">
-        {market.eventTitle ? (
-          <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 line-clamp-1">
-            {market.eventTitle}
-          </span>
-        ) : (
-          <span />
-        )}
-        {market.negRisk && (
-          <span
-            className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400/90 shrink-0"
-            title="Mercado de riesgo negativo: usa otro exchange y otra aprobación"
-          >
-            negRisk
-          </span>
-        )}
-      </div>
-
-      {/* Pregunta */}
-      <h4 className="text-[13px] font-semibold text-neutral-100 leading-snug line-clamp-2 min-h-[36px] group-hover:text-white">
-        {market.question}
-      </h4>
-
-      {/* Probabilidad */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between">
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-xl font-mono font-extrabold text-emerald-400 leading-none">
-              {yesPct}
-              <span className="text-xs font-bold">%</span>
-            </span>
-            <span className="text-[10px] font-mono uppercase text-neutral-500">
-              {market.outcomes[0] ?? 'Sí'}
-            </span>
-          </div>
-          <span className="text-[10px] font-mono text-neutral-600">
-            {noPct}% {market.outcomes[1] ?? 'No'}
-          </span>
-        </div>
-
-        <div className="relative w-full h-1 rounded-full bg-neutral-900 overflow-hidden">
-          <div
-            className="h-full bg-emerald-500/80 transition-all"
-            style={{ width: `${Math.min(Math.max(yesPct, 0), 100)}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Métricas reales */}
-      <div className="flex items-center gap-4 text-[10px] font-mono text-neutral-500 border-t border-neutral-800/60 pt-2.5">
-        <span
-          className="flex items-center gap-1"
-          title="Liquidez real del libro"
-        >
-          <Droplets className="w-3 h-3" />${formatCompactNumber(market.liquidityUsd)}
-        </span>
-        <span className="flex items-center gap-1" title="Volumen 24h">
-          <Activity className="w-3 h-3" />$
-          {formatCompactNumber(market.volume24hUsd)}
-        </span>
-        <span className="ml-auto text-emerald-400/0 group-hover:text-emerald-400 transition-colors font-semibold">
-          operar →
-        </span>
-      </div>
-    </button>
-  );
-};
