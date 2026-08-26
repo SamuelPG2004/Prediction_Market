@@ -153,6 +153,22 @@ export function normalizeMarket(raw: GammaMarketRaw): RealMarket | null {
   }
 }
 
+/**
+ * Límite máximo por petición que acepta la Gamma API.
+ *
+ * Medido: pedir 500 devuelve 100. Pedirlo de más no da error, simplemente
+ * recorta, lo que es fácil confundir con "ya no hay más resultados".
+ */
+export const GAMMA_MAX_LIMIT = 100
+
+/**
+ * Techo de paginación de la API: a partir de este offset responde HTTP 422.
+ *
+ * Medido recorriendo páginas: hay ~2.100 mercados abiertos y operables y el
+ * offset 2100 ya falla.
+ */
+export const GAMMA_MAX_OFFSET = 2100
+
 export interface FetchMarketsOptions {
   limit?: number
   offset?: number
@@ -164,23 +180,33 @@ export interface FetchMarketsOptions {
   signal?: AbortSignal
 }
 
+export interface MarketsPage {
+  markets: RealMarket[]
+  /** Cuántos devolvió la API antes de normalizar (para saber si quedan más). */
+  rawCount: number
+  /** Offset a pedir para la página siguiente, o null si no hay más. */
+  nextOffset: number | null
+}
+
 /**
  * Trae mercados abiertos y operables, ordenados por volumen 24h.
  *
  * Pide más de los necesarios porque se descartan los que no tienen libro o
  * les falta información para operar.
  */
-export async function fetchMarkets(
+export async function fetchMarketsPage(
   options: FetchMarketsOptions = {},
-): Promise<RealMarket[]> {
+): Promise<MarketsPage> {
   const {
-    limit = 40,
+    limit = GAMMA_MAX_LIMIT,
     offset = 0,
-    order = 'volume24hr',
+    order = 'liquidityNum',
     ascending = false,
     tagSlug,
     signal,
   } = options
+
+  const effectiveLimit = Math.min(limit, GAMMA_MAX_LIMIT)
 
   const params = new URLSearchParams({
     closed: 'false',
@@ -188,7 +214,7 @@ export async function fetchMarkets(
     active: 'true',
     // Solo mercados con libro de órdenes: sin esto no se puede operar.
     enableOrderBook: 'true',
-    limit: String(limit),
+    limit: String(effectiveLimit),
     offset: String(offset),
     order,
     ascending: String(ascending),
@@ -197,6 +223,11 @@ export async function fetchMarkets(
 
   const res = await fetch(`${GAMMA_API_BASE}/markets?${params}`, { signal })
   if (!res.ok) {
+    // Pasado el techo de paginación la API responde 422; se trata como fin de
+    // resultados en lugar de como error.
+    if (res.status === 422) {
+      return { markets: [], rawCount: 0, nextOffset: null }
+    }
     throw new Error(`Gamma API respondió ${res.status} ${res.statusText}`)
   }
 
@@ -206,9 +237,26 @@ export async function fetchMarkets(
     ? (data as GammaMarketRaw[])
     : ((data as { markets?: GammaMarketRaw[] })?.markets ?? [])
 
-  return list
+  const markets = list
     .map(normalizeMarket)
     .filter((m): m is RealMarket => m !== null)
+
+  // Si la API devolvió menos de lo pedido, se agotaron los resultados.
+  const candidateNext = offset + effectiveLimit
+  const nextOffset =
+    list.length < effectiveLimit || candidateNext >= GAMMA_MAX_OFFSET
+      ? null
+      : candidateNext
+
+  return { markets, rawCount: list.length, nextOffset }
+}
+
+/** Compatibilidad: una sola página, solo los mercados. */
+export async function fetchMarkets(
+  options: FetchMarketsOptions = {},
+): Promise<RealMarket[]> {
+  const page = await fetchMarketsPage(options)
+  return page.markets
 }
 
 /** Trae un mercado por su conditionId. */

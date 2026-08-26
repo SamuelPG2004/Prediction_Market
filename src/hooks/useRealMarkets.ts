@@ -5,38 +5,80 @@
  * antes de conectar nada.
  */
 
-import { useCallback, useEffect, useState } from 'react'
-import { fetchMarkets, type RealMarket } from '../services/gammaApi'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  fetchMarketsPage,
+  GAMMA_MAX_LIMIT,
+  type RealMarket,
+} from '../services/gammaApi'
 import {
   fetchOrderBook,
   simulateMarketFill,
   type OrderBook,
 } from '../services/clobApi'
 
+/** Criterios de ordenación que expone la Gamma API y nos resultan útiles. */
+export type MarketSort = 'liquidityNum' | 'volume24hr' | 'volumeNum'
+
 export interface UseRealMarketsState {
   markets: RealMarket[]
   isLoading: boolean
+  /** Cargando una página adicional (no la primera). */
+  isLoadingMore: boolean
   error: string | null
+  /** Quedan más páginas por traer. */
+  hasMore: boolean
+  loadMore: () => void
+  /** Trae TODAS las páginas restantes de golpe. */
+  loadAll: () => void
   reload: () => void
+  sort: MarketSort
+  setSort: (s: MarketSort) => void
 }
 
-export function useRealMarkets(limit = 40): UseRealMarketsState {
+/**
+ * Mercados reales de Polymarket, paginados.
+ *
+ * Hay ~2.100 mercados abiertos y operables, y la API sirve como máximo 100 por
+ * petición. Se carga la primera página rápido y el resto a demanda, en lugar de
+ * bloquear el primer render con 21 peticiones.
+ *
+ * Ordena por liquidez descendente por defecto: para operar de verdad, un
+ * mercado sin libro no sirve, así que los más líquidos van primero.
+ */
+export function useRealMarkets(): UseRealMarketsState {
   const [markets, setMarkets] = useState<RealMarket[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [nextOffset, setNextOffset] = useState<number | null>(0)
+  const [sort, setSort] = useState<MarketSort>('liquidityNum')
   const [nonce, setNonce] = useState(0)
 
+  // Evita que una carga en curso pise a otra (p.ej. cambio de orden mientras
+  // se está trayendo una página).
+  const loadingRef = useRef(false)
+
+  // Primera página, y recarga al cambiar el orden.
   useEffect(() => {
     const controller = new AbortController()
     let alive = true
 
     setIsLoading(true)
     setError(null)
+    setMarkets([])
+    setNextOffset(0)
 
-    fetchMarkets({ limit, signal: controller.signal })
-      .then((list) => {
+    fetchMarketsPage({
+      limit: GAMMA_MAX_LIMIT,
+      offset: 0,
+      order: sort,
+      signal: controller.signal,
+    })
+      .then((page) => {
         if (!alive) return
-        setMarkets(list)
+        setMarkets(page.markets)
+        setNextOffset(page.nextOffset)
       })
       .catch((e: unknown) => {
         if (!alive) return
@@ -55,11 +97,79 @@ export function useRealMarkets(limit = 40): UseRealMarketsState {
       alive = false
       controller.abort()
     }
-  }, [limit, nonce])
+  }, [sort, nonce])
+
+  /** Deduplica por id: la paginación puede solapar si el orden cambia en vuelo. */
+  const append = useCallback((incoming: RealMarket[]) => {
+    setMarkets((prev) => {
+      const seen = new Set(prev.map((m) => m.id))
+      return [...prev, ...incoming.filter((m) => !seen.has(m.id))]
+    })
+  }, [])
+
+  const loadMore = useCallback(async () => {
+    if (nextOffset === null || loadingRef.current) return
+    loadingRef.current = true
+    setIsLoadingMore(true)
+    try {
+      const page = await fetchMarketsPage({
+        limit: GAMMA_MAX_LIMIT,
+        offset: nextOffset,
+        order: sort,
+      })
+      append(page.markets)
+      setNextOffset(page.nextOffset)
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : 'No se pudo cargar más mercados.',
+      )
+    } finally {
+      loadingRef.current = false
+      setIsLoadingMore(false)
+    }
+  }, [nextOffset, sort, append])
+
+  const loadAll = useCallback(async () => {
+    if (loadingRef.current) return
+    loadingRef.current = true
+    setIsLoadingMore(true)
+    let offset = nextOffset
+    try {
+      // Secuencial a propósito: en paralelo se dispara el rate limit.
+      while (offset !== null) {
+        const page = await fetchMarketsPage({
+          limit: GAMMA_MAX_LIMIT,
+          offset,
+          order: sort,
+        })
+        append(page.markets)
+        offset = page.nextOffset
+        setNextOffset(offset)
+      }
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : 'No se pudo cargar más mercados.',
+      )
+    } finally {
+      loadingRef.current = false
+      setIsLoadingMore(false)
+    }
+  }, [nextOffset, sort, append])
 
   const reload = useCallback(() => setNonce((n) => n + 1), [])
 
-  return { markets, isLoading, error, reload }
+  return {
+    markets,
+    isLoading,
+    isLoadingMore,
+    error,
+    hasMore: nextOffset !== null,
+    loadMore,
+    loadAll,
+    reload,
+    sort,
+    setSort,
+  }
 }
 
 export interface QuoteState {

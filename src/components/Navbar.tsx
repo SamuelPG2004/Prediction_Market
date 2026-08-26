@@ -141,13 +141,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             </>
           )}
 
-          {/* Positions Quick Trigger */}
+          {/* Posiciones: solo en práctica. El cajón muestra posiciones
+              simuladas; en modo real tu exposición son las shares on-chain,
+              que se ven dentro del panel de operación. */}
+          {!isReal && (
           <button
             id="btn-toggle-positions"
             onClick={onOpenPositionsClick}
-            className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800/90 border border-neutral-800 text-xs font-medium text-neutral-200 transition-all active:scale-95 ${
-              isReal ? 'hidden md:flex' : ''
-            }`}
+            className="relative flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800/90 border border-neutral-800 text-xs font-medium text-neutral-200 transition-all active:scale-95"
           >
             <Layers className="w-3.5 h-3.5 text-neutral-400" />
             <span className="hidden sm:inline">Mis Posiciones</span>
@@ -162,6 +163,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             )}
           </button>
+          )}
 
           {/* Network Indicator */}
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/30 text-xs font-mono text-purple-300">

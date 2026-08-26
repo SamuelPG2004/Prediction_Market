@@ -7,6 +7,8 @@ import {
   Activity,
   Droplets,
   ExternalLink,
+  ChevronDown,
+  ListPlus,
 } from 'lucide-react';
 import { useRealMarkets } from '../hooks/useRealMarkets';
 import { useOnchainAccount } from '../hooks/useOnchainAccount';
@@ -28,20 +30,43 @@ interface RealMarketsViewProps {
 export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
   onConnectWallet,
 }) => {
-  const { markets, isLoading, error, reload } = useRealMarkets(50);
+  const {
+    markets,
+    isLoading,
+    isLoadingMore,
+    error,
+    hasMore,
+    loadMore,
+    loadAll,
+    reload,
+    sort,
+    setSort,
+  } = useRealMarkets();
   const account = useOnchainAccount();
   const [query, setQuery] = useState('');
+  const [onlyTradeable, setOnlyTradeable] = useState(true);
   const [selected, setSelected] = useState<RealMarket | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return markets;
-    return markets.filter(
-      (m) =>
+    return markets.filter((m) => {
+      if (onlyTradeable && !m.acceptingOrders) return false;
+      if (!q) return true;
+      return (
         m.question.toLowerCase().includes(q) ||
-        m.eventTitle?.toLowerCase().includes(q),
-    );
-  }, [markets, query]);
+        (m.eventTitle?.toLowerCase().includes(q) ?? false)
+      );
+    });
+  }, [markets, query, onlyTradeable]);
+
+  /** Totales de lo cargado. Son datos reales, no del modo práctica. */
+  const totals = useMemo(
+    () => ({
+      liquidity: markets.reduce((a, m) => a + m.liquidityUsd, 0),
+      volume24h: markets.reduce((a, m) => a + m.volume24hUsd, 0),
+    }),
+    [markets],
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -78,22 +103,43 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
         </div>
       </div>
 
-      {/* Buscador */}
-      <div className="flex items-center gap-2">
+      {/* Buscador, orden y filtros */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar entre los mercados reales..."
+            placeholder="Buscar entre los mercados cargados..."
             className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[#0f121a] border border-neutral-800 focus:border-emerald-500/50 focus:outline-none text-sm text-neutral-100 placeholder:text-neutral-600"
           />
         </div>
+
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as typeof sort)}
+          className="px-3 py-2.5 rounded-xl bg-[#0f121a] border border-neutral-800 focus:border-emerald-500/50 focus:outline-none text-xs text-neutral-200"
+        >
+          <option value="liquidityNum">Mayor liquidez</option>
+          <option value="volume24hr">Mayor volumen 24h</option>
+          <option value="volumeNum">Mayor volumen total</option>
+        </select>
+
+        <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#0f121a] border border-neutral-800 text-xs text-neutral-300 cursor-pointer whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={onlyTradeable}
+            onChange={(e) => setOnlyTradeable(e.target.checked)}
+            className="w-3.5 h-3.5 accent-emerald-500"
+          />
+          <span>Solo operables</span>
+        </label>
+
         <button
           onClick={reload}
           disabled={isLoading}
-          className="p-2.5 rounded-xl bg-[#0f121a] border border-neutral-800 hover:border-neutral-700 text-neutral-400 hover:text-neutral-200 transition-all disabled:opacity-50"
+          className="p-2.5 rounded-xl bg-[#0f121a] border border-neutral-800 hover:border-neutral-700 text-neutral-400 hover:text-neutral-200 transition-all disabled:opacity-50 shrink-0"
           title="Recargar"
         >
           <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -120,15 +166,24 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-mono font-bold uppercase text-neutral-400 tracking-wider flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <h3 className="text-sm font-mono font-bold uppercase text-neutral-400 tracking-wider flex items-center gap-2 flex-wrap">
               <span>Mercados reales</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-300">
                 {filtered.length}
+                {filtered.length !== markets.length && ` / ${markets.length}`}
               </span>
+              {hasMore && (
+                <span className="text-[10px] normal-case font-sans text-amber-400/90">
+                  hay más sin cargar
+                </span>
+              )}
             </h3>
+
+            {/* Totales de lo cargado. Reales, no del modo práctica. */}
             <span className="text-[11px] font-mono text-neutral-500">
-              ordenados por volumen 24h
+              liquidez {formatCurrency(totals.liquidity)} · vol 24h{' '}
+              {formatCurrency(totals.volume24h)}
             </span>
           </div>
 
@@ -144,7 +199,43 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
 
           {filtered.length === 0 && (
             <p className="text-center text-xs text-neutral-500 py-10">
-              Ningún mercado coincide con la búsqueda.
+              Ninguno de los {markets.length} mercados cargados coincide.
+              {hasMore && ' Prueba a cargar más.'}
+            </p>
+          )}
+
+          {/* Paginación: la API sirve 100 por petición y hay ~2.100 en total. */}
+          {hasMore && (
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 py-4">
+              <button
+                onClick={loadMore}
+                disabled={isLoadingMore}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0f121a] hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/40 text-xs font-bold text-neutral-200 transition-all active:scale-95 disabled:opacity-50"
+              >
+                {isLoadingMore ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5 text-emerald-400" />
+                )}
+                <span>Cargar 100 más</span>
+              </button>
+
+              <button
+                onClick={loadAll}
+                disabled={isLoadingMore}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0f121a] hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 text-xs font-semibold text-neutral-400 hover:text-neutral-200 transition-all active:scale-95 disabled:opacity-50"
+                title="Recorre todas las páginas restantes"
+              >
+                <ListPlus className="w-3.5 h-3.5" />
+                <span>Cargar todos (~2.100)</span>
+              </button>
+            </div>
+          )}
+
+          {!hasMore && markets.length > 0 && (
+            <p className="text-center text-[11px] font-mono text-neutral-600 py-4">
+              {markets.length} mercados cargados · no hay más disponibles en la
+              API
             </p>
           )}
         </>
