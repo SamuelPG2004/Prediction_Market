@@ -1,6 +1,6 @@
 import { createConfig, fallback, http, injected } from 'wagmi'
 import { base, polygon } from 'wagmi/chains'
-import { coinbaseWallet, metaMask, walletConnect } from '@wagmi/connectors'
+import { walletConnect } from '@wagmi/connectors'
 import { rpcUrlsFor } from './chains'
 
 /**
@@ -8,6 +8,18 @@ import { rpcUrlsFor } from './chains'
  *
  * Transportes con fallback: si un RPC falla, viem prueba el siguiente. El
  * endpoint propio de VITE_*_RPC_URL, si existe, va primero (ver chains.ts).
+ *
+ * Conectores, a propósito solo dos familias:
+ *
+ *  - `injected()`: cualquier extensión de wallet instalada en el navegador
+ *    (MetaMask, Binance Wallet, Rabby…). wagmi las descubre por EIP-6963 y
+ *    las lista por su nombre real; no hacen falta conectores dedicados.
+ *  - `walletConnect`: wallets MÓVILES por QR (app de Binance, Trust…).
+ *
+ * Los conectores dedicados de MetaMask/Coinbase se quitaron adrede: cargan
+ * bajo demanda SDKs que son peers opcionales de @wagmi/connectors y, si no
+ * están instalados, el clic revienta con "Could not resolve @metamask/…".
+ * Con EIP-6963 no aportan nada para extensiones ya instaladas.
  */
 function transportFor(chainId: number) {
   return fallback(
@@ -23,20 +35,15 @@ function readViteEnv(name: string): string | undefined {
 }
 
 /**
- * WalletConnect permite conectar wallets MÓVILES escaneando un QR (Binance,
- * Trust, Rainbow…). Requiere un projectId gratuito de https://cloud.reown.com
- * en VITE_WALLETCONNECT_PROJECT_ID; sin él, el conector no se ofrece.
+ * WalletConnect requiere un projectId gratuito de https://cloud.reown.com en
+ * VITE_WALLETCONNECT_PROJECT_ID; sin él, el conector no se ofrece.
  */
 const walletConnectProjectId = readViteEnv('VITE_WALLETCONNECT_PROJECT_ID')
 
 export const wagmiConfig = createConfig({
   chains: [polygon, base],
   connectors: [
-    // Detecta las extensiones instaladas (MetaMask, Binance Wallet, Rabby…):
-    // wagmi descubre por EIP-6963 cada wallet inyectada y la lista por nombre.
     injected(),
-    metaMask(),
-    coinbaseWallet({ appName: 'Aether Markets' }),
     ...(walletConnectProjectId !== undefined
       ? [
           walletConnect({

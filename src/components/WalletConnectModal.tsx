@@ -30,12 +30,19 @@ interface ConnectorLike {
 
 /**
  * wagmi lista los conectores configurados Y las wallets inyectadas que el
- * navegador anuncia (EIP-6963), así que MetaMask puede aparecer dos veces y
- * el genérico "Injected" sobra cuando hay wallets con nombre propio.
+ * navegador anuncia (EIP-6963), así que una misma wallet puede aparecer dos
+ * veces y el genérico "Injected" sobra cuando hay wallets con nombre propio
+ * — o cuando no hay NINGUNA extensión instalada (sería un botón muerto).
  */
 function dedupeConnectors<T extends ConnectorLike>(connectors: readonly T[]): T[] {
+  const hasInjectedProvider =
+    typeof window !== 'undefined' &&
+    (window as unknown as { ethereum?: unknown }).ethereum !== undefined;
   const named = connectors.filter((c) => c.id !== 'injected');
-  const base = named.length > 0 ? named : connectors;
+  const base =
+    named.length > 0 || !hasInjectedProvider
+      ? named
+      : connectors;
   const seen = new Set<string>();
   return base.filter((c) => {
     const key = c.name.toLowerCase();
@@ -78,6 +85,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
   const { balances, isLoading: balancesLoading } = useVenueBalances();
 
   const [copied, setCopied] = useState(false);
+  const connectorList = dedupeConnectors(connectors);
 
   if (!isOpen) return null;
 
@@ -210,7 +218,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
               </p>
 
               <div className="flex flex-col gap-2">
-                {dedupeConnectors(connectors).map((connector) => (
+                {connectorList.map((connector) => (
                   <button
                     key={connector.uid}
                     onClick={() => connect({ connector })}
@@ -226,12 +234,13 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                   </button>
                 ))}
 
-                {connectors.length === 0 && (
+                {connectorList.length === 0 && (
                   <div className="flex items-start gap-2 rounded-xl bg-neutral-900/70 border border-neutral-800 p-3 text-[11px] text-neutral-400">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                     <span>
-                      No se detectó ninguna wallet. Instala una extensión de
-                      wallet si quieres conectar una.
+                      No se detectó ninguna extensión de wallet en este
+                      navegador. Instala una (p. ej. Binance Wallet) o
+                      habilita WalletConnect para usar tu wallet móvil (abajo).
                     </span>
                   </div>
                 )}
