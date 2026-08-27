@@ -1,0 +1,89 @@
+[
+  {
+    "state": "Stopped",
+    "conditionId": "300610060000000000306992750000000000009084689496",
+    "sort": "400",
+    "title": "Handicap Games",
+    "category": null,
+    "outcomes": [
+      {
+        "id": "300610060000000000306992750000000000009084689496_0",
+        "outcomeId": "377",
+        "odds": "2.08",
+        "point": "-7",
+        "sort": "000007",
+        "title": "Lan Mi (-7)",
+        "state": "Stopped",
+        "hidden": true
+      },
+      {
+        "id": "300610060000000000306992750000000000009084689496_1",
+        "outcomeId": "378",
+        "odds": "1.72",
+        "point": "7",
+        "sort": "000008",
+        "title": "Isabella Barrera Aguirre (7)",
+        "state": "Stopped",
+        "hidden": true
+      }
+    ]
+  },
+  {
+    "state": "Stopped",
+    "conditionId": "300610060000000000306992750000000000009084689498",
+    "sort": "300",
+    "title": "Total Games",
+    "category": null,
+    "outcomes": [
+      {
+        "id": "300610060000000000306992750000000000009084689498_0",
+        "outcomeId": "405",
+        "odds": "1.68",
+        "point": "17",
+        "sort": "000009",
+        "title": "Over (17)",
+        "state": "Stopped",
+        "hidden": true
+      },
+      {
+        "id": "300610060000000000306992750000000000009084689498_1",
+        "outcomeId": "406",
+        "odds": "2.12",
+        "point": "17",
+        "sort": "000010",
+        "title": "Under (17)",
+        "state": "Stopped",
+        "hidden": true
+      }
+    ]
+  },
+  {
+    "state": "Stopped",
+    "conditionId": "300610060000000000306992750000000000009053525344",
+    "sort": "300",
+    "title": "Total Games",
+    "category": null,
+    "outcomes": [
+      {
+        "id": "300610060000000000306992750000000000009053525344_0",
+        "outcomeId": "401",
+        "odds": "1.89",
+        "point": "17.5",
+        "sort": "000009",
+        "title": "Over (17.5)",
+        "state": "Stopped",
+        "hidden": true
+      },
+      {
+        "id": "300610060000000000306992750000000000009053525344_1",
+        "outcomeId": "402",
+        "odds": "1.91",
+        "point": "17.5",
+        "sort": "000010",
+        "title": "Under (17.5)",
+        "state": "Stopped",
+        "hidden": true
+      }
+    ]
+  }
+]

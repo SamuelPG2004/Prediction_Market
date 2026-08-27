@@ -1,0 +1,99 @@
+/**
+ * Configuración de red de Azuro. ÚNICO lugar donde se decide cadena, token y
+ * dirección de afiliado. El resto del adaptador la recibe ya resuelta.
+ */
+import { chainsData, type ChainId } from '@azuro-org/toolkit'
+import { isAddress, type Address } from 'viem'
+
+/** Cadenas de Azuro que este proyecto soporta. Producción: Polygon y Base. */
+const SUPPORTED_CHAIN_IDS = [137, 8453, 80002, 84532] as const
+
+export type AzuroChainId = (typeof SUPPORTED_CHAIN_IDS)[number]
+
+export const DEFAULT_AZURO_CHAIN_ID: AzuroChainId = 137 // Polygon
+
+export interface AzuroConfig {
+  chainId: AzuroChainId
+  /**
+   * Dirección de afiliado que viaja en cada apuesta. Viene de la variable de
+   * entorno `VITE_AZURO_AFFILIATE_ADDRESS`; nunca se hardcodea. Si falta, el
+   * adaptador declara `canPlaceBet: false` y `placeBet` devuelve `unsupported`.
+   */
+  affiliate: Address | null
+  /** Token de apuesta de la cadena (USDT en Polygon), según el protocolo. */
+  betToken: {
+    address: Address
+    symbol: string
+    decimals: number
+  }
+  /** Dirección del relayer, que necesita allowance del token de apuesta. */
+  relayerAddress: Address
+  /** Dirección del contrato core, dominio de la firma EIP-712. */
+  coreAddress: Address
+}
+
+function isSupportedChainId(value: number): value is AzuroChainId {
+  return (SUPPORTED_CHAIN_IDS as readonly number[]).includes(value)
+}
+
+/** Construye la configuración para una cadena concreta. */
+export function makeAzuroConfig(
+  chainId: AzuroChainId,
+  affiliate: Address | null,
+): AzuroConfig {
+  const data = chainsData[chainId as ChainId]
+  return {
+    chainId,
+    affiliate,
+    betToken: {
+      address: data.betToken.address,
+      symbol: data.betToken.symbol,
+      decimals: data.betToken.decimals,
+    },
+    relayerAddress: data.contracts.relayer.address,
+    coreAddress: data.contracts.core.address,
+  }
+}
+
+function readViteEnv(name: string): string | undefined {
+  // Acceso defensivo: en los tests (vitest, entorno node) `import.meta.env`
+  // puede no tener la variable, y no queremos depender de tipos de Vite aquí.
+  const meta = import.meta as unknown as { env?: Record<string, unknown> }
+  const value = meta.env?.[name]
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined
+}
+
+/**
+ * Lee la configuración del entorno Vite.
+ *
+ * - `VITE_AZURO_CHAIN_ID`: opcional, por defecto Polygon (137).
+ * - `VITE_AZURO_AFFILIATE_ADDRESS`: opcional; sin ella no se pueden colocar
+ *   apuestas, pero el catálogo y las cotizaciones funcionan.
+ */
+export function loadAzuroConfigFromEnv(): AzuroConfig {
+  const rawChainId = readViteEnv('VITE_AZURO_CHAIN_ID')
+  let chainId: AzuroChainId = DEFAULT_AZURO_CHAIN_ID
+  if (rawChainId !== undefined) {
+    const parsed = Number(rawChainId)
+    if (!Number.isInteger(parsed) || !isSupportedChainId(parsed)) {
+      throw new Error(
+        `VITE_AZURO_CHAIN_ID inválido: ${JSON.stringify(rawChainId)}. ` +
+          `Soportados: ${SUPPORTED_CHAIN_IDS.join(', ')}`,
+      )
+    }
+    chainId = parsed
+  }
+
+  const rawAffiliate = readViteEnv('VITE_AZURO_AFFILIATE_ADDRESS')
+  let affiliate: Address | null = null
+  if (rawAffiliate !== undefined) {
+    if (!isAddress(rawAffiliate)) {
+      throw new Error(
+        'VITE_AZURO_AFFILIATE_ADDRESS no es una dirección EVM válida',
+      )
+    }
+    affiliate = rawAffiliate
+  }
+
+  return makeAzuroConfig(chainId, affiliate)
+}

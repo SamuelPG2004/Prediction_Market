@@ -1,0 +1,12 @@
+{
+  "gasLimit": 715097,
+  "gasPrice": 0,
+  "betTokenRate": 1,
+  "gasPriceInBetToken": 0,
+  "slippage": 0.05,
+  "gasAmount": 0,
+  "relayerFeeAmount": "0",
+  "beautyRelayerFeeAmount": "0.0",
+  "symbol": "USDT",
+  "decimals": 6
+}

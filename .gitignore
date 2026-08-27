@@ -5,6 +5,7 @@ coverage/
 .DS_Store
 *.log
 .env*
+!.env.example
 
 # Respaldos exportados desde la app (datos personales)
 aether-respaldo-*.json

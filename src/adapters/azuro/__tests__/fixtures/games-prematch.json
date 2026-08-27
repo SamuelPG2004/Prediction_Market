@@ -1,0 +1,408 @@
+{
+  "games": [
+    {
+      "id": "1006000000000030699275",
+      "gameId": "1006000000000030699275",
+      "slug": "lan-mi-isabella-barrera-aguirre-1006000000000030699275",
+      "title": "Lan Mi - Isabella Barrera Aguirre",
+      "startsAt": "1787841780",
+      "state": "Stopped",
+      "turnover": "0",
+      "sport": {
+        "sportId": "45",
+        "slug": "tennis",
+        "name": "Tennis",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "f617dce8-e910-46d9-9fed-9fce038b4238",
+        "slug": "wtt-women-barueri-hard",
+        "name": "WTT Women - Barueri - Hard",
+        "isTopLeague": false,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "a3c2a398-5364-4976-b4db-24c2d9cd91ce",
+        "slug": "brazil",
+        "name": "Brazil"
+      },
+      "participants": [
+        {
+          "name": "Lan Mi",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030699275/Lan Mi.png"
+        },
+        {
+          "name": "Isabella Barrera Aguirre",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030699275/Isabella Barrera Aguirre.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000030696510",
+      "gameId": "1006000000000030696510",
+      "slug": "sebastian-heinrich-luca-wiedenmann-1006000000000030696510",
+      "title": "Sebastian Heinrich - Luca Wiedenmann",
+      "startsAt": "1787842200",
+      "state": "Prematch",
+      "turnover": "0",
+      "sport": {
+        "sportId": "45",
+        "slug": "tennis",
+        "name": "Tennis",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "7e882288-6935-4656-94e4-e77a11abbed1",
+        "slug": "netherlands",
+        "name": "Netherlands",
+        "isTopLeague": false,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "99ec4325-038a-4cab-b1cf-eb3c5f4d5e63",
+        "slug": "netherlands",
+        "name": "Netherlands"
+      },
+      "participants": [
+        {
+          "name": "Sebastian Heinrich",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030696510/Sebastian Heinrich.png"
+        },
+        {
+          "name": "Luca Wiedenmann",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030696510/Luca Wiedenmann.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000030701140",
+      "gameId": "1006000000000030701140",
+      "slug": "beatrise-zeltina-britt-du-pree-1006000000000030701140",
+      "title": "Beatrise Zeltina - Britt Du Pree",
+      "startsAt": "1787842320",
+      "state": "Prematch",
+      "turnover": "0",
+      "sport": {
+        "sportId": "45",
+        "slug": "tennis",
+        "name": "Tennis",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "72afdac0-7dbe-4fcc-b9af-4c3edd78daac",
+        "slug": "netherlands-w",
+        "name": "Netherlands (W)",
+        "isTopLeague": false,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "699286d6-12ac-42f2-9fd8-06d55eaf20ff",
+        "slug": "international-tournaments",
+        "name": "International Tournaments"
+      },
+      "participants": [
+        {
+          "name": "Beatrise Zeltina",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030701140/Beatrise Zeltina.png"
+        },
+        {
+          "name": "Britt Du Pree",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030701140/Britt Du Pree.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000030696921",
+      "gameId": "1006000000000030696921",
+      "slug": "carson-branstine-robin-montgomery-1006000000000030696921",
+      "title": "Carson Branstine - Robin Montgomery",
+      "startsAt": "1787842800",
+      "state": "Prematch",
+      "turnover": "0",
+      "sport": {
+        "sportId": "45",
+        "slug": "tennis",
+        "name": "Tennis",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "76c251e3-9e83-419f-8dfb-9ef712fcd9c8",
+        "slug": "us-open-w",
+        "name": "US Open (W)",
+        "isTopLeague": false,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "4dfd33d7-e5b9-4b18-bc12-417a48d24007",
+        "slug": "united-states",
+        "name": "United States"
+      },
+      "participants": [
+        {
+          "name": "Carson Branstine",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030696921/Carson Branstine.png"
+        },
+        {
+          "name": "Robin Montgomery",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030696921/Robin Montgomery.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000030696939",
+      "gameId": "1006000000000030696939",
+      "slug": "daniel-rincon-marcelo-tomas-barrios-vera-1006000000000030696939",
+      "title": "Daniel Rincon - Marcelo Tomas Barrios Vera",
+      "startsAt": "1787842800",
+      "state": "Prematch",
+      "turnover": "0",
+      "sport": {
+        "sportId": "45",
+        "slug": "tennis",
+        "name": "Tennis",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "88dbc02b-1727-40dd-a01c-0183b39f8956",
+        "slug": "us-open",
+        "name": "US Open",
+        "isTopLeague": false,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "4dfd33d7-e5b9-4b18-bc12-417a48d24007",
+        "slug": "united-states",
+        "name": "United States"
+      },
+      "participants": [
+        {
+          "name": "Daniel Rincon",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030696939/Daniel Rincon.png"
+        },
+        {
+          "name": "Marcelo Tomas Barrios Vera",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030696939/Marcelo Tomas Barrios Vera.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000030697050",
+      "gameId": "1006000000000030697050",
+      "slug": "aziz-dougaz-andrea-guerrieri-1006000000000030697050",
+      "title": "Aziz Dougaz - Andrea Guerrieri",
+      "startsAt": "1787842800",
+      "state": "Prematch",
+      "turnover": "0",
+      "sport": {
+        "sportId": "45",
+        "slug": "tennis",
+        "name": "Tennis",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "88dbc02b-1727-40dd-a01c-0183b39f8956",
+        "slug": "us-open",
+        "name": "US Open",
+        "isTopLeague": false,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "4dfd33d7-e5b9-4b18-bc12-417a48d24007",
+        "slug": "united-states",
+        "name": "United States"
+      },
+      "participants": [
+        {
+          "name": "Aziz Dougaz",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030697050/Aziz Dougaz.png"
+        },
+        {
+          "name": "Andrea Guerrieri",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030697050/Andrea Guerrieri.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000091146911",
+      "gameId": "1006000000000091146911",
+      "slug": "kuopio-ps-shamrock-rovers-fc-1006000000000091146911",
+      "title": "Kuopio PS - Shamrock Rovers FC",
+      "startsAt": "1787842800",
+      "state": "Prematch",
+      "turnover": "33.492185437848434",
+      "sport": {
+        "sportId": "33",
+        "slug": "football",
+        "name": "Football",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "514d7ad2-f424-4e18-a926-de7fab536de2",
+        "slug": "uefa-conference-league",
+        "name": "UEFA Conference League",
+        "isTopLeague": true,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "699286d6-12ac-42f2-9fd8-06d55eaf20ff",
+        "slug": "international-tournaments",
+        "name": "International Tournaments"
+      },
+      "participants": [
+        {
+          "name": "Kuopio PS",
+          "image": "https://avatars.azuro.org/images/33/1006000000000091146911/Kuopio PS.png"
+        },
+        {
+          "name": "Shamrock Rovers FC",
+          "image": "https://avatars.azuro.org/images/33/1006000000000091146911/Shamrock Rovers FC.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000030674179",
+      "gameId": "1006000000000030674179",
+      "slug": "ozarox-esports-dark-passage-1006000000000030674179",
+      "title": "Ozarox Esports - Dark Passage",
+      "startsAt": "1787842800",
+      "state": "Prematch",
+      "turnover": "51",
+      "sport": {
+        "sportId": "1002",
+        "slug": "lol",
+        "name": "League of Legends",
+        "sporthub": {
+          "id": "ee5c8776-e9ad-4aa0-8334-d8392f8da16e",
+          "slug": "esports"
+        }
+      },
+      "league": {
+        "id": "594f464d-93ac-4911-a63d-c9a159c1db89",
+        "slug": "tcl",
+        "name": "TCL",
+        "isTopLeague": false,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "5589328e-fce3-4ff5-8d32-dcd3c8cdeb39",
+        "slug": "turkey",
+        "name": "Turkey"
+      },
+      "participants": [
+        {
+          "name": "Ozarox Esports",
+          "image": "https://avatars.azuro.org/images/1002/1006000000000030674179/Ozarox Esports.png"
+        },
+        {
+          "name": "Dark Passage",
+          "image": "https://avatars.azuro.org/images/1002/1006000000000030674179/Dark Passage.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000030645941",
+      "gameId": "1006000000000030645941",
+      "slug": "up2umedia-cebulaki-lodis-1006000000000030645941",
+      "title": "Up2umedia Cebulaki - Lodis",
+      "startsAt": "1787842800",
+      "state": "Prematch",
+      "turnover": "400",
+      "sport": {
+        "sportId": "1002",
+        "slug": "lol",
+        "name": "League of Legends",
+        "sporthub": {
+          "id": "ee5c8776-e9ad-4aa0-8334-d8392f8da16e",
+          "slug": "esports"
+        }
+      },
+      "league": {
+        "id": "d723fd59-d8e1-465d-89e8-7ce832ccacda",
+        "slug": "rift-legends-summer",
+        "name": "Rift Legends: Summer",
+        "isTopLeague": false,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "699286d6-12ac-42f2-9fd8-06d55eaf20ff",
+        "slug": "international-tournaments",
+        "name": "International Tournaments"
+      },
+      "participants": [
+        {
+          "name": "Up2umedia Cebulaki",
+          "image": "https://avatars.azuro.org/images/1002/1006000000000030645941/Up2umedia Cebulaki.png"
+        },
+        {
+          "name": "Lodis",
+          "image": "https://avatars.azuro.org/images/1002/1006000000000030645941/Lodis.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000030559726",
+      "gameId": "1006000000000030559726",
+      "slug": "nigeria-cameroon-1006000000000030559726",
+      "title": "Nigeria - Cameroon",
+      "startsAt": "1787842800",
+      "state": "Prematch",
+      "turnover": "37.34",
+      "sport": {
+        "sportId": "31",
+        "slug": "basketball",
+        "name": "Basketball",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "07c34009-8bca-44c0-8ef0-10e556d99abb",
+        "slug": "fiba-world-cup",
+        "name": "FIBA World Cup",
+        "isTopLeague": false,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "699286d6-12ac-42f2-9fd8-06d55eaf20ff",
+        "slug": "international-tournaments",
+        "name": "International Tournaments"
+      },
+      "participants": [
+        {
+          "name": "Nigeria",
+          "image": "https://avatars.azuro.org/images/31/1006000000000030559726/Nigeria.png"
+        },
+        {
+          "name": "Cameroon",
+          "image": "https://avatars.azuro.org/images/31/1006000000000030559726/Cameroon.png"
+        }
+      ]
+    }
+  ],
+  "page": 1,
+  "perPage": 10,
+  "total": 992,
+  "totalPages": 100
+}
