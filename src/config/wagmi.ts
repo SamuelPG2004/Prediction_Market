@@ -1,6 +1,6 @@
 import { createConfig, fallback, http, injected } from 'wagmi'
 import { base, polygon } from 'wagmi/chains'
-import { coinbaseWallet, metaMask } from '@wagmi/connectors'
+import { coinbaseWallet, metaMask, walletConnect } from '@wagmi/connectors'
 import { rpcUrlsFor } from './chains'
 
 /**
@@ -16,12 +16,41 @@ function transportFor(chainId: number) {
   )
 }
 
+function readViteEnv(name: string): string | undefined {
+  const meta = import.meta as unknown as { env?: Record<string, unknown> }
+  const value = meta.env?.[name]
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined
+}
+
+/**
+ * WalletConnect permite conectar wallets MÓVILES escaneando un QR (Binance,
+ * Trust, Rainbow…). Requiere un projectId gratuito de https://cloud.reown.com
+ * en VITE_WALLETCONNECT_PROJECT_ID; sin él, el conector no se ofrece.
+ */
+const walletConnectProjectId = readViteEnv('VITE_WALLETCONNECT_PROJECT_ID')
+
 export const wagmiConfig = createConfig({
   chains: [polygon, base],
   connectors: [
+    // Detecta las extensiones instaladas (MetaMask, Binance Wallet, Rabby…):
+    // wagmi descubre por EIP-6963 cada wallet inyectada y la lista por nombre.
     injected(),
     metaMask(),
     coinbaseWallet({ appName: 'Aether Markets' }),
+    ...(walletConnectProjectId !== undefined
+      ? [
+          walletConnect({
+            projectId: walletConnectProjectId,
+            metadata: {
+              name: 'Aether Markets',
+              description: 'Mercados de predicción reales',
+              url: 'http://localhost:3000',
+              icons: [],
+            },
+            showQrModal: true,
+          }),
+        ]
+      : []),
   ],
   transports: {
     [polygon.id]: transportFor(polygon.id),

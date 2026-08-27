@@ -17,6 +17,7 @@
     "@azuro-org/toolkit": "^6.1.1",
     "@tanstack/react-query": "^5.102.2",
     "@wagmi/connectors": "^8.1.0",
+    "@walletconnect/ethereum-provider": "^2.23.10",
     "canvas-confetti": "^1.9.4",
     "graphql": "^16.14.2",
     "graphql-tag": "^2.12.7",

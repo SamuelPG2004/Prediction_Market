@@ -40,10 +40,21 @@ export const EventCard: React.FC<EventCardProps> = ({
     : event.markets.slice(0, MAX_VISIBLE_OPTIONS);
   const hiddenCount = event.markets.length - visibleMarkets.length;
 
+  /** Clic en la cabecera: abre el panel en el primer mercado cotizable. */
+  const openEvent = () => {
+    const target =
+      event.markets.find((m) => m.isQuotable) ?? event.markets[0];
+    if (target !== undefined) onSelectMarket(event, target);
+  };
+
   return (
     <div className="group rounded-2xl bg-[#0d1017] border border-neutral-800/80 hover:border-neutral-700 transition-colors p-4 flex flex-col gap-3">
-      {/* Cabecera: imagen + título */}
-      <div className="flex items-start gap-3">
+      {/* Cabecera: imagen + título. Clicable: abre el panel de operación. */}
+      <button
+        onClick={openEvent}
+        className="flex items-start gap-3 text-left cursor-pointer"
+        title="Abrir este evento"
+      >
         <EventImage event={event} eager={eagerImage} />
 
         <div className="flex-1 min-w-0">
@@ -56,7 +67,7 @@ export const EventCard: React.FC<EventCardProps> = ({
             </span>
           )}
         </div>
-      </div>
+      </button>
 
       {/* Cuerpo: binario o lista de opciones */}
       {event.isBinary ? (

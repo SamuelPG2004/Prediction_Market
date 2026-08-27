@@ -20,6 +20,43 @@ interface WalletConnectModalProps {
   onClose: () => void;
 }
 
+/** Forma mínima del conector que usa este modal. */
+interface ConnectorLike {
+  uid: string;
+  id: string;
+  name: string;
+  type: string;
+}
+
+/**
+ * wagmi lista los conectores configurados Y las wallets inyectadas que el
+ * navegador anuncia (EIP-6963), así que MetaMask puede aparecer dos veces y
+ * el genérico "Injected" sobra cuando hay wallets con nombre propio.
+ */
+function dedupeConnectors<T extends ConnectorLike>(connectors: readonly T[]): T[] {
+  const named = connectors.filter((c) => c.id !== 'injected');
+  const base = named.length > 0 ? named : connectors;
+  const seen = new Set<string>();
+  return base.filter((c) => {
+    const key = c.name.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** Traduce los errores de conexión más comunes a algo accionable. */
+function humanConnectError(error: Error): string {
+  const message = error.message;
+  if (/provider.*not.*(found|available)|no.*provider/i.test(message)) {
+    return 'Esa wallet no está instalada en este navegador. Instala su extensión, o conecta una wallet móvil por WalletConnect (ver abajo).';
+  }
+  if (/rejected|denied/i.test(message)) {
+    return 'Has cancelado la conexión en la wallet.';
+  }
+  return message;
+}
+
 /**
  * Conexión de wallet, vía wagmi. Conectar te da tu dirección y muestra tus
  * saldos reales de los tokens de apuesta de cada venue. Las operaciones se
@@ -173,7 +210,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
               </p>
 
               <div className="flex flex-col gap-2">
-                {connectors.map((connector) => (
+                {dedupeConnectors(connectors).map((connector) => (
                   <button
                     key={connector.uid}
                     onClick={() => connect({ connector })}
@@ -193,8 +230,8 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                   <div className="flex items-start gap-2 rounded-xl bg-neutral-900/70 border border-neutral-800 p-3 text-[11px] text-neutral-400">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                     <span>
-                      No se detectó ninguna wallet. Instala MetaMask o similar
-                      si quieres conectar una.
+                      No se detectó ninguna wallet. Instala una extensión de
+                      wallet si quieres conectar una.
                     </span>
                   </div>
                 )}
@@ -203,9 +240,32 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
               {connectError && (
                 <div className="flex items-start gap-2 rounded-xl bg-rose-500/10 border border-rose-500/25 p-3 text-[11px] text-rose-300">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  <span>{connectError.message}</span>
+                  <span>{humanConnectError(connectError)}</span>
                 </div>
               )}
+
+              <div className="rounded-xl bg-neutral-900/70 border border-neutral-800 p-3 text-[11px] text-neutral-400 leading-relaxed">
+                <p className="font-semibold text-neutral-300 mb-1">
+                  ¿Tu wallet es la app de Binance (u otra app móvil)?
+                </p>
+                <p>
+                  En escritorio: instala la extensión{' '}
+                  <span className="text-neutral-200">Binance Wallet</span> en el
+                  navegador y aparecerá arriba. Desde el móvil: usa{' '}
+                  <span className="text-neutral-200">WalletConnect</span> y
+                  escanea el QR con la app de Binance (Perfil → WalletConnect).
+                  {!connectors.some((c) => c.id === 'walletConnect') && (
+                    <>
+                      {' '}
+                      Para habilitar WalletConnect, define{' '}
+                      <span className="font-mono text-neutral-300">
+                        VITE_WALLETCONNECT_PROJECT_ID
+                      </span>{' '}
+                      en .env.local (gratis en cloud.reown.com) y reinicia.
+                    </>
+                  )}
+                </p>
+              </div>
             </>
           )}
         </div>
