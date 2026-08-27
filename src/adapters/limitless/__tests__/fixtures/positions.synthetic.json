@@ -1,0 +1,96 @@
+{
+  "clob": [
+    {
+      "market": {
+        "slug": "btc-up-or-down-5-min-1787843400",
+        "title": "BTC Up or Down - 5 Min",
+        "status": "FUNDED",
+        "winningOutcomeIndex": null,
+        "payoutNumerators": null
+      },
+      "positions": {
+        "yes": {
+          "cost": "5000000",
+          "fillPrice": "370000",
+          "realisedPnl": "0",
+          "unrealizedPnl": "1000000",
+          "marketValue": "6000000"
+        },
+        "no": {
+          "cost": "0",
+          "fillPrice": "0",
+          "realisedPnl": "0",
+          "unrealizedPnl": "0",
+          "marketValue": "0"
+        }
+      },
+      "tokensBalance": {
+        "yes": "13513513",
+        "no": "0"
+      },
+      "orders": {}
+    },
+    {
+      "market": {
+        "slug": "btc-up-or-down-5-min-1787842800",
+        "title": "BTC Up or Down - 5 Min",
+        "status": "RESOLVED",
+        "winningOutcomeIndex": 0,
+        "payoutNumerators": null
+      },
+      "positions": {
+        "yes": {
+          "cost": "2000000",
+          "fillPrice": "500000",
+          "realisedPnl": "0",
+          "unrealizedPnl": "2000000",
+          "marketValue": "4000000"
+        },
+        "no": {
+          "cost": "1000000",
+          "fillPrice": "250000",
+          "realisedPnl": "0",
+          "unrealizedPnl": "-1000000",
+          "marketValue": "0"
+        }
+      },
+      "tokensBalance": {
+        "yes": "4000000",
+        "no": "4000000"
+      },
+      "orders": {}
+    },
+    {
+      "market": {
+        "slug": "qarabag-1787216403082",
+        "title": "Qarabag",
+        "status": "RESOLVED",
+        "winningOutcomeIndex": null,
+        "payoutNumerators": [50, 50]
+      },
+      "positions": {
+        "yes": {
+          "cost": "3000000",
+          "fillPrice": "600000",
+          "realisedPnl": "0",
+          "unrealizedPnl": "-500000",
+          "marketValue": "2500000"
+        },
+        "no": {
+          "cost": "0",
+          "fillPrice": "0",
+          "realisedPnl": "0",
+          "unrealizedPnl": "0",
+          "marketValue": "0"
+        }
+      },
+      "tokensBalance": {
+        "yes": "5000000",
+        "no": "0"
+      },
+      "orders": {}
+    }
+  ],
+  "amm": [],
+  "accumulativePoints": 0
+}

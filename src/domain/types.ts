@@ -253,7 +253,14 @@ export interface Position {
   /** Valor actual estimado, o `null` si no se puede valorar ahora. */
   currentValue: DecimalString | null
   status: 'open' | 'won' | 'lost' | 'redeemable' | 'redeemed'
-  openedAt: Date
+  /**
+   * [DESVIACIÓN 8] — `Date | null`, no `Date`.
+   *
+   * Limitless no devuelve la fecha de apertura en su endpoint de posiciones
+   * (solo coste, precio medio y valor actual). Inventar una fecha sería
+   * mentir; `null` obliga a la UI a tratar el caso "sin fecha".
+   */
+  openedAt: Date | null
 }
 
 // ---------------------------------------------------------------------------

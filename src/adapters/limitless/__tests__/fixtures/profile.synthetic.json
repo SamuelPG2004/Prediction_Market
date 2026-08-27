@@ -1,0 +1,12 @@
+{
+  "id": 777,
+  "account": "0x2222222222222222222222222222222222222222",
+  "displayName": "tester",
+  "username": "tester",
+  "tradeWalletOption": "eoa",
+  "rank": {
+    "id": 2,
+    "name": "Silver",
+    "feeRateBps": 300
+  }
+}
