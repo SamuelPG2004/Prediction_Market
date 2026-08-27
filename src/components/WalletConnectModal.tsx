@@ -10,47 +10,42 @@ import {
   Loader2,
   Eye,
 } from 'lucide-react';
-import { useWallet, polygonscanAddressUrl } from '../services/web3Service';
+import { useWallet } from '../services/web3Service';
+import { useVenueBalances } from '../hooks/useVenueBalances';
+import { chainLabel, explorerAddressUrl } from '../config/chains';
 import { formatCurrency, shortenAddress } from '../utils/formatters';
 
 interface WalletConnectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onOpenFaucet: () => void;
 }
 
 /**
- * Conexión de wallet. Real, vía wagmi.
- *
- * Alcance: identidad y lectura. Conectar te da tu dirección y muestra tu saldo
- * real de USDC en Polygon en modo solo lectura. La app nunca firma ni envía
- * transacciones, y no gasta ese saldo: para apostar usa el saldo de práctica.
+ * Conexión de wallet, vía wagmi. Conectar te da tu dirección y muestra tus
+ * saldos reales de los tokens de apuesta de cada venue. Las operaciones se
+ * firman siempre una a una desde el panel de apuesta.
  */
 export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
   isOpen,
   onClose,
-  onOpenFaucet,
 }) => {
   const {
     address,
     isConnected,
-    isCorrectChain,
     connect,
     connectors,
     isConnecting,
     connectError,
     disconnect,
-    switchToPolygon,
-    usdcBalance,
-    isBalanceLoading,
   } = useWallet();
+  const { balances, isLoading: balancesLoading } = useVenueBalances();
 
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
 
   const handleCopy = () => {
-    if (!address) return;
+    if (address === null) return;
     navigator.clipboard.writeText(address);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
@@ -64,7 +59,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
       />
 
       <div className="relative w-full max-w-sm rounded-2xl bg-[#0f121a] border border-neutral-800 shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-150">
-        {/* Header */}
+        {/* Cabecera */}
         <div className="p-5 border-b border-neutral-800 flex items-center justify-between bg-[#131620]">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -75,7 +70,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                 {isConnected ? 'Wallet conectada' : 'Conectar wallet'}
               </h3>
               <p className="text-[11px] text-neutral-400">
-                Solo identidad y lectura
+                Cada operación se firma una a una
               </p>
             </div>
           </div>
@@ -89,7 +84,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
         </div>
 
         <div className="p-5 flex flex-col gap-4">
-          {isConnected && address ? (
+          {isConnected && address !== null ? (
             <>
               {/* Dirección */}
               <div className="rounded-xl bg-[#090b0f] border border-neutral-800 p-3.5 flex flex-col gap-3">
@@ -109,15 +104,17 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                         <Copy className="w-3.5 h-3.5" />
                       )}
                     </button>
-                    <a
-                      href={polygonscanAddressUrl(address)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Ver en Polygonscan"
-                      className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-emerald-400 transition-colors"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
+                    {explorerAddressUrl(137, address) !== null && (
+                      <a
+                        href={explorerAddressUrl(137, address) ?? '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Ver en el explorador"
+                        className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-emerald-400 transition-colors"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
                   </div>
                 </div>
                 <span className="text-sm font-mono text-neutral-100 break-all">
@@ -125,52 +122,37 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                 </span>
               </div>
 
-              {/* Red incorrecta */}
-              {!isCorrectChain && (
-                <div className="flex flex-col gap-2 rounded-xl bg-amber-500/10 border border-amber-500/25 p-3">
-                  <div className="flex items-start gap-2 text-[11px] text-amber-300">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    <span>
-                      Estás en otra red. Cambia a Polygon para leer tu saldo de
-                      USDC.
-                    </span>
-                  </div>
-                  <button
-                    onClick={switchToPolygon}
-                    className="py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition-all active:scale-95"
-                  >
-                    Cambiar a Polygon
-                  </button>
-                </div>
-              )}
-
-              {/* Saldo on-chain, solo lectura */}
-              <div className="rounded-xl bg-[#090b0f] border border-neutral-800 p-3.5 flex flex-col gap-1.5">
+              {/* Saldos por venue, solo lectura */}
+              <div className="rounded-xl bg-[#090b0f] border border-neutral-800 p-3.5 flex flex-col gap-2.5">
                 <div className="flex items-center gap-1.5">
                   <Eye className="w-3 h-3 text-neutral-500" />
                   <span className="text-[10px] uppercase font-mono text-neutral-500 tracking-wider">
-                    USDC en Polygon · solo lectura
+                    Saldos de apuesta · solo lectura
                   </span>
                 </div>
-                <span className="text-lg font-mono font-bold text-neutral-100">
-                  {isBalanceLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-neutral-500" />
-                  ) : (
-                    formatCurrency(usdcBalance)
-                  )}
-                </span>
+                {balances.map((b) => (
+                  <div
+                    key={b.venue}
+                    className="flex items-center justify-between text-xs font-mono"
+                  >
+                    <span className="text-neutral-500">
+                      {b.symbol} · {chainLabel(b.chainId)}
+                    </span>
+                    <span className="font-bold text-neutral-100">
+                      {balancesLoading && b.balance === null ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-500" />
+                      ) : b.balance === null ? (
+                        '—'
+                      ) : (
+                        formatCurrency(b.balance)
+                      )}
+                    </span>
+                  </div>
+                ))}
                 <p className="text-[11px] text-neutral-500 leading-relaxed">
-                  La app no toca este saldo. Para apostar usa tu saldo de
-                  práctica.
+                  La app no mueve estos saldos sin una firma tuya por operación.
                 </p>
               </div>
-
-              <button
-                onClick={onOpenFaucet}
-                className="w-full py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-xs font-semibold text-neutral-300 hover:text-amber-400 transition-all active:scale-95"
-              >
-                Gestionar saldo de práctica
-              </button>
 
               <button
                 onClick={() => {
@@ -186,9 +168,8 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
           ) : (
             <>
               <p className="text-xs text-neutral-400 leading-relaxed">
-                Conectar es opcional. Solo añade tu dirección como identidad y
-                te muestra tu saldo real de USDC. Puedes usar toda la app sin
-                conectar nada.
+                Puedes explorar los mercados sin conectar nada. Conectar añade
+                tu dirección y permite cotizar y apostar con fondos reales.
               </p>
 
               <div className="flex flex-col gap-2">

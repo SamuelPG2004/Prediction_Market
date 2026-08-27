@@ -1,34 +1,31 @@
 import { createConfig, fallback, http, injected } from 'wagmi'
-import { polygon } from 'wagmi/chains'
+import { base, polygon } from 'wagmi/chains'
 import { coinbaseWallet, metaMask } from '@wagmi/connectors'
-import { CUSTOM_RPC_URL, POLYGON_RPC_URLS } from './polymarket'
-
-// Re-export para no romper imports existentes.
-export { CONTRACTS as POLYMARKET_CONTRACTS, POLYGON_RPC_URLS } from './polymarket'
+import { rpcUrlsFor } from './chains'
 
 /**
- * Transportes con fallback: si un RPC falla, viem prueba el siguiente.
+ * wagmi multi-chain: Polygon (Azuro) + Base (Limitless).
  *
- * Los RPCs que traía el proyecto estaban todos caídos (ver polymarket.ts).
- * Si defines VITE_POLYGON_RPC_URL, ese va primero.
+ * Transportes con fallback: si un RPC falla, viem prueba el siguiente. El
+ * endpoint propio de VITE_*_RPC_URL, si existe, va primero (ver chains.ts).
  */
-const rpcUrls = [
-  ...(CUSTOM_RPC_URL ? [CUSTOM_RPC_URL] : []),
-  ...POLYGON_RPC_URLS,
-]
+function transportFor(chainId: number) {
+  return fallback(
+    rpcUrlsFor(chainId).map((url) => http(url, { timeout: 15_000 })),
+    { rank: false },
+  )
+}
 
 export const wagmiConfig = createConfig({
-  chains: [polygon],
+  chains: [polygon, base],
   connectors: [
     injected(),
     metaMask(),
     coinbaseWallet({ appName: 'Aether Markets' }),
   ],
   transports: {
-    [polygon.id]: fallback(
-      rpcUrls.map((url) => http(url, { timeout: 15_000 })),
-      { rank: false },
-    ),
+    [polygon.id]: transportFor(polygon.id),
+    [base.id]: transportFor(base.id),
   },
   ssr: false,
 })

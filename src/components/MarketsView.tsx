@@ -5,111 +5,88 @@ import {
   Search,
   AlertTriangle,
   ShieldCheck,
-  TrendingUp,
-  Sparkles,
 } from 'lucide-react';
-import { useRealEvents } from '../hooks/useRealEvents';
+import type { Market, MarketCategory } from '../domain/types';
+import { useDomainEvents } from '../hooks/useDomainEvents';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
-import { useOnchainAccount } from '../hooks/useOnchainAccount';
-import {
-  CATEGORIES,
-  type RealEvent,
-  type RealMarket,
-} from '../services/gammaApi';
+import { useVenueBalances } from '../hooks/useVenueBalances';
+import type { MarketEventView } from '../utils/eventGrouping';
 import { EventCard } from './EventCard';
-import { RealTradePanel } from './RealTradePanel';
+import { TradePanel } from './TradePanel';
 import { formatCurrency } from '../utils/formatters';
 
 /** Tarjetas pintadas por tanda. Renderizar cientos de golpe satura el navegador. */
 const PAGE_SIZE = 24;
 
-interface RealMarketsViewProps {
+/** Pestañas: la taxonomía del dominio, con el venue invisible. */
+const TABS: { label: string; category?: MarketCategory }[] = [
+  { label: 'Todo' },
+  { label: 'Deportes', category: 'sports' },
+  { label: 'Cripto', category: 'crypto' },
+  { label: 'Economía', category: 'economy' },
+  { label: 'Política', category: 'politics' },
+  { label: 'Tecnología', category: 'tech' },
+  { label: 'Cultura', category: 'culture' },
+  { label: 'Otros', category: 'other' },
+];
+
+interface MarketsViewProps {
   onConnectWallet: () => void;
 }
 
 /**
- * Terminal de eventos reales de Polymarket.
- *
- * Arquitectura centrada en EVENTOS, no en mercados sueltos: es lo que permite
- * mostrar imagen, contexto y varias opciones por tarjeta, igual que la
- * plataforma oficial.
- *
- * El filtro por categoría va contra `/events`. En `/markets` el parámetro
- * `tag_slug` se ignora en silencio y devolvería lo mismo en todas las
- * pestañas (medido).
+ * Terminal de mercados reales, alimentado por el registry de venues a través
+ * del dominio. La vista no sabe cuántas fuentes hay ni cuáles son.
  */
-export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
-  onConnectWallet,
-}) => {
+export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => {
   const [tabIndex, setTabIndex] = useState(0);
-  const tab = CATEGORIES[tabIndex];
-  const subs = tab.subs ?? [];
-
-  // Subcategoria activa. 0 = "Todo".
-  const [subIndex, setSubIndex] = useState(0);
-  const effectiveSlug = subs.length ? subs[subIndex]?.slug ?? tab.slug : tab.slug;
+  const tab = TABS[tabIndex];
 
   const [query, setQuery] = useState('');
-  /**
-   * La busqueda va contra /public-search, que alcanza el corpus completo.
-   * Se aplica con retardo para no lanzar una peticion por tecla.
-   */
+  // La búsqueda va al servidor de cada venue; con retardo para no lanzar una
+  // petición por tecla.
   const [debouncedQuery, setDebouncedQuery] = useState('');
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedQuery(query), 350);
     return () => window.clearTimeout(t);
   }, [query]);
-  const isSearching = debouncedQuery.trim().length > 0;
 
   const {
     events,
     isLoading,
     isLoadingMore,
     error,
+    degradedVenues,
     hasMore,
     loadMore,
     reload,
     lastSyncAt,
     isSyncing,
-  } = useRealEvents({
-    tagSlug: effectiveSlug,
-    order: tab.order ?? 'volume24hr',
+  } = useDomainEvents({
+    category: tab.category,
     search: debouncedQuery,
   });
 
-  const account = useOnchainAccount();
+  const { balances } = useVenueBalances();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [selected, setSelected] = useState<{
-    event: RealEvent;
-    market: RealMarket;
+    event: MarketEventView;
+    market: Market;
   } | null>(null);
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [tabIndex, subIndex, debouncedQuery]);
+  }, [tabIndex, debouncedQuery]);
 
-  // Al cambiar de pestana se vuelve a "Todo".
-  useEffect(() => {
-    setSubIndex(0);
-  }, [tabIndex]);
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
 
   /**
-   * En busqueda no se filtra en cliente: los resultados YA vienen del
-   * buscador global, y volver a filtrarlos descartaria coincidencias
-   * legitimas por descripcion o etiqueta.
-   */
-  const filtered = events;
-
-  // Se guarda en una ref para que el centinela no dependa del array completo.
-  const filteredRef = useRef(filtered);
-  filteredRef.current = filtered;
-
-  /**
-   * Un unico centinela cubre las dos paginaciones: primero revela mas de lo ya
-   * descargado y, cuando se agota, pide la siguiente pagina a la API.
+   * Un único centinela cubre las dos paginaciones: primero revela más de lo
+   * ya descargado y, cuando se agota, pide la página siguiente a las fuentes.
    */
   const reachEnd = useCallback(() => {
-    if (visibleCount < filteredRef.current.length) {
+    if (visibleCount < eventsRef.current.length) {
       setVisibleCount((n) => n + PAGE_SIZE);
     } else if (hasMore && !isLoadingMore) {
       loadMore();
@@ -117,21 +94,17 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
   }, [visibleCount, hasMore, isLoadingMore, loadMore]);
 
   const visible = useMemo(
-    () => filtered.slice(0, visibleCount),
-    [filtered, visibleCount],
+    () => events.slice(0, visibleCount),
+    [events, visibleCount],
   );
 
   const sentinelRef = useInfiniteScroll({
     onReachEnd: reachEnd,
-    enabled: !isLoading && (visibleCount < filtered.length || hasMore),
+    enabled: !isLoading && (visibleCount < events.length || hasMore),
   });
 
-  const totals = useMemo(
-    () => ({
-      liquidity: events.reduce((a, e) => a + e.liquidityUsd, 0),
-      volume24h: events.reduce((a, e) => a + e.volume24hUsd, 0),
-      markets: events.reduce((a, e) => a + e.markets.length, 0),
-    }),
+  const totalMarkets = useMemo(
+    () => events.reduce((a, e) => a + e.markets.length, 0),
     [events],
   );
 
@@ -146,51 +119,46 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
             </div>
             <div>
               <h2 className="text-sm font-bold text-neutral-100 leading-tight">
-                Mercados reales · Polygon
+                Mercados reales
               </h2>
               <p className="text-[11px] text-neutral-500 mt-0.5">
-                Operar mueve USDC de verdad. Cada orden la firmas tú.
+                Operar mueve fondos de verdad. Cada apuesta la firmas tú.
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-5">
-            <Metric label="Liquidez" value={formatCurrency(totals.liquidity)} />
-            <Metric label="Vol 24h" value={formatCurrency(totals.volume24h)} />
-            <Metric
-              label="Tu USDC"
-              value={
-                !account.isConnected
-                  ? '—'
-                  : account.isLoading
-                    ? '...'
-                    : formatCurrency(account.usdcBalance)
-              }
-              accent={account.isConnected}
-            />
+            {balances.map((b) => (
+              <Metric
+                key={b.venue}
+                label={`Tu ${b.symbol}`}
+                value={b.balance === null ? '—' : formatCurrency(b.balance)}
+                accent={b.balance !== null}
+              />
+            ))}
           </div>
         </div>
 
-        {!account.isConnected && (
+        {balances.every((b) => b.balance === null) && (
           <button
             onClick={onConnectWallet}
             className="w-full px-5 py-2.5 flex items-center justify-center gap-2 bg-amber-500/10 hover:bg-amber-500/15 text-[11px] font-semibold text-amber-300 transition-colors"
           >
             <AlertTriangle className="w-3.5 h-3.5" />
-            <span>Wallet no conectada — explora libremente, o conecta para operar</span>
+            <span>
+              Wallet no conectada — explora libremente, o conecta para operar
+            </span>
           </button>
         )}
       </div>
 
       {/* Pestañas de categoría */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-        {CATEGORIES.map((c, i) => {
+        {TABS.map((t, i) => {
           const active = i === tabIndex;
-          const isTrending = c.label === 'Tendencia';
-          const isNew = c.label === 'Nuevo';
           return (
             <button
-              key={c.label}
+              key={t.label}
               onClick={() => setTabIndex(i)}
               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                 active
@@ -198,43 +166,11 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
                   : 'bg-[#0f121a] text-neutral-400 border border-neutral-800 hover:text-neutral-200 hover:border-neutral-700'
               }`}
             >
-              {isTrending && (
-                <TrendingUp
-                  className={`w-3.5 h-3.5 ${active ? 'text-neutral-900' : 'text-emerald-400'}`}
-                />
-              )}
-              {isNew && (
-                <Sparkles
-                  className={`w-3.5 h-3.5 ${active ? 'text-neutral-900' : 'text-amber-400'}`}
-                />
-              )}
-              <span>{c.label}</span>
+              <span>{t.label}</span>
             </button>
           );
         })}
       </div>
-
-      {/* Subcategorías dinámicas de la pestaña activa */}
-      {subs.length > 0 && !isSearching && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 -mt-2">
-          {subs.map((sc, i) => {
-            const active = i === subIndex;
-            return (
-              <button
-                key={sc.slug}
-                onClick={() => setSubIndex(i)}
-                className={`px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 ${
-                  active
-                    ? 'bg-emerald-500 text-black'
-                    : 'bg-[#0d1017] text-neutral-500 border border-neutral-800 hover:text-neutral-300'
-                }`}
-              >
-                {sc.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       {/* Búsqueda */}
       <div className="flex items-center gap-2">
@@ -244,7 +180,7 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Buscar en ${tab.label}...`}
+            placeholder={`Buscar en ${tab.label.toLowerCase()}… (mínimo 3 letras)`}
             className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#0f121a] border border-neutral-800 focus:border-emerald-500/50 focus:outline-none text-sm text-neutral-100 placeholder:text-neutral-600"
           />
         </div>
@@ -258,13 +194,23 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
         </button>
       </div>
 
-      {error && (
+      {error !== null && (
         <div className="rounded-xl bg-rose-500/10 border border-rose-500/25 p-4 flex items-start gap-2 text-xs text-rose-300">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold">No se pudieron cargar los eventos.</p>
+            <p className="font-semibold">No se pudieron cargar los mercados.</p>
             <p className="mt-1 text-rose-300/80">{error}</p>
           </div>
+        </div>
+      )}
+
+      {degradedVenues.length > 0 && (
+        <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 px-4 py-2.5 flex items-center gap-2 text-[11px] text-amber-300">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+          <span>
+            {degradedVenues.join(', ')} no respondió; mostrando el resto de
+            fuentes.
+          </span>
         </div>
       )}
 
@@ -272,7 +218,7 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
         <div className="py-24 flex flex-col items-center gap-3">
           <Loader2 className="w-7 h-7 text-emerald-400 animate-spin" />
           <p className="text-xs text-neutral-500 font-mono">
-            Cargando {tab.label.toLowerCase()}...
+            Cargando {tab.label.toLowerCase()}…
           </p>
         </div>
       ) : (
@@ -281,8 +227,8 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-mono text-neutral-500">
               <span className="text-neutral-300">{visible.length}</span> de{' '}
-              <span className="text-neutral-300">{filtered.length}</span>{' '}
-              eventos · {totals.markets} mercados operables
+              <span className="text-neutral-300">{events.length}</span> eventos ·{' '}
+              {totalMarkets} mercados operables
             </p>
 
             <SyncIndicator isSyncing={isSyncing} lastSyncAt={lastSyncAt} />
@@ -296,8 +242,8 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
               </p>
               <p className="text-xs text-neutral-500 max-w-xs text-center">
                 {query
-                  ? 'Ningún evento cargado coincide con la búsqueda.'
-                  : 'Esta categoría no devolvió eventos operables.'}
+                  ? 'Ninguna fuente devolvió mercados para esa búsqueda.'
+                  : 'Esta categoría no tiene mercados operables ahora mismo.'}
               </p>
             </div>
           ) : (
@@ -307,34 +253,23 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
                   key={e.id}
                   event={e}
                   eagerImage={i < 6}
-                  onSelectMarket={(event, market) =>
-                    setSelected({ event, market })
-                  }
+                  onSelectMarket={(event, market) => setSelected({ event, market })}
                 />
               ))}
             </div>
           )}
 
-          {/* Centinela: dispara la carga al acercarse el final. Sustituye a los
-              botones de "cargar más": el flujo no depende de pulsar nada. */}
-          <div
-            ref={sentinelRef}
-            className="flex items-center justify-center py-6"
-          >
-            {visibleCount < filtered.length || hasMore ? (
+          {/* Centinela: dispara la carga al acercarse el final. */}
+          <div ref={sentinelRef} className="flex items-center justify-center py-6">
+            {visibleCount < events.length || hasMore ? (
               <div className="flex items-center gap-2 text-[11px] font-mono text-neutral-600">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>
-                  {isLoadingMore
-                    ? 'Trayendo más de Polymarket...'
-                    : 'Cargando más...'}
-                </span>
+                <span>{isLoadingMore ? 'Trayendo más mercados…' : 'Cargando más…'}</span>
               </div>
             ) : (
               events.length > 0 && (
                 <p className="text-[11px] font-mono text-neutral-700">
-                  {events.length} eventos · catálogo completo de{' '}
-                  {subs.length ? (subs[subIndex]?.label ?? tab.label) : tab.label}
+                  {events.length} eventos · catálogo completo de {tab.label}
                 </p>
               )
             )}
@@ -342,8 +277,8 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
         </>
       )}
 
-      {selected && (
-        <RealTradePanel
+      {selected !== null && (
+        <TradePanel
           event={selected.event}
           market={selected.market}
           onClose={() => setSelected(null)}
@@ -355,10 +290,8 @@ export const RealMarketsView: React.FC<RealMarketsViewProps> = ({
 };
 
 /**
- * Estado del refresco en vivo.
- *
- * Muestra hace cuánto se sincronizó para que un precio viejo no pase por
- * actual si la red falla.
+ * Estado del refresco en vivo. Muestra hace cuánto se sincronizó para que un
+ * precio viejo no pase por actual si la red falla.
  */
 const SyncIndicator: React.FC<{
   isSyncing: boolean;
@@ -366,7 +299,6 @@ const SyncIndicator: React.FC<{
 }> = ({ isSyncing, lastSyncAt }) => {
   const [, tick] = useState(0);
 
-  // Refresca el texto "hace Ns" sin depender de que llegue otro dato.
   useEffect(() => {
     const t = window.setInterval(() => tick((n) => n + 1), 5000);
     return () => window.clearInterval(t);

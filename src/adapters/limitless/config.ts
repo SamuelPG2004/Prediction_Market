@@ -10,6 +10,15 @@ export const LIMITLESS_CHAIN_ID = 8453 // Base
 export const LIMITLESS_API_URL = 'https://api.limitless.exchange'
 
 /**
+ * La API de Limitless solo permite CORS a sus propios dominios, así que desde
+ * el navegador hay que pasar por un proxy same-origin (configurado en
+ * vite.config.ts; en producción, un reverse proxy equivalente). La firma HMAC
+ * no se ve afectada: firma la ruta real (`/orders`), que es la que el proxy
+ * reenvía al servidor.
+ */
+export const LIMITLESS_PROXY_PATH = '/api/limitless'
+
+/**
  * Credenciales de token API con alcance (`trading`): firman cada petición
  * autenticada con HMAC-SHA256. Se derivan en limitless.exchange → API Tokens.
  */
@@ -61,6 +70,9 @@ function readViteEnv(name: string): string | undefined {
  * - `VITE_LIMITLESS_API_TOKEN_ID` + `VITE_LIMITLESS_API_TOKEN_SECRET`:
  *   opcionales; ambas o ninguna. Sin ellas no hay órdenes ni posiciones.
  * - `VITE_LIMITLESS_INCLUDE_SPORTS`: opcional, 'true' para listar deportes.
+ * - `VITE_LIMITLESS_API_URL`: opcional. Por defecto, la ruta del proxy
+ *   same-origin (ver `LIMITLESS_PROXY_PATH`): el navegador no puede llamar a
+ *   la API directa por su allowlist de CORS.
  */
 export function loadLimitlessConfigFromEnv(): LimitlessConfig {
   const tokenId = readViteEnv('VITE_LIMITLESS_API_TOKEN_ID')
@@ -73,5 +85,6 @@ export function loadLimitlessConfigFromEnv(): LimitlessConfig {
   return makeLimitlessConfig({
     auth: tokenId !== undefined && secret !== undefined ? { tokenId, secret } : null,
     includeSports: readViteEnv('VITE_LIMITLESS_INCLUDE_SPORTS') === 'true',
+    apiUrl: readViteEnv('VITE_LIMITLESS_API_URL') ?? LIMITLESS_PROXY_PATH,
   })
 }

@@ -21,6 +21,25 @@ export default defineConfig(() => {
       // HMR se desactiva en AI Studio via DISABLE_HMR.
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      proxy: limitlessProxy,
+    },
+    preview: {
+      proxy: limitlessProxy,
     },
   };
 });
+
+/**
+ * La API de Limitless tiene allowlist de CORS (solo responde con
+ * Access-Control-Allow-Origin a sus propios dominios), así que el navegador
+ * no puede llamarla directamente desde este origen. El adaptador pide a
+ * `/api/limitless/...` (same-origin) y este proxy reenvía. En producción, el
+ * host que sirva la app necesita un reverse proxy equivalente.
+ */
+const limitlessProxy = {
+  '/api/limitless': {
+    target: 'https://api.limitless.exchange',
+    changeOrigin: true,
+    rewrite: (path: string) => path.replace(/^\/api\/limitless/, ''),
+  },
+};
