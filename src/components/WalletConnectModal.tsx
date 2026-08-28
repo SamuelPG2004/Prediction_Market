@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   Wallet,
@@ -61,8 +61,18 @@ function humanConnectError(error: Error): string {
   if (/rejected|denied/i.test(message)) {
     return 'Has cancelado la conexión en la wallet.';
   }
+  if (/already (pending|processing)|-32002/i.test(message)) {
+    return 'La wallet ya tiene una petición de conexión pendiente de otro intento. Abre la extensión desde la barra del navegador, resuélvela (o desbloquéala) y vuelve a intentarlo.';
+  }
   return message;
 }
+
+/**
+ * Tras este tiempo conectando se enseña una pista: las extensiones (Binance
+ * Wallet en Edge, típicamente) dejan la petición colgada en silencio si están
+ * bloqueadas o su popup no llegó a abrirse.
+ */
+const SLOW_CONNECT_HINT_MS = 6_000;
 
 /**
  * Conexión de wallet, vía wagmi. Conectar te da tu dirección y muestra tus
@@ -85,9 +95,37 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
   const { balances, isLoading: balancesLoading } = useVenueBalances();
 
   const [copied, setCopied] = useState(false);
+  /** uid del conector cuyo intento sigue vivo; null si no hay ninguno. */
+  const [pendingUid, setPendingUid] = useState<string | null>(null);
+  const [showSlowHint, setShowSlowHint] = useState(false);
   const connectorList = dedupeConnectors(connectors);
 
+  // La pista de "esto va lento" solo tras un rato con un intento colgado.
+  useEffect(() => {
+    if (pendingUid === null || !isConnecting) {
+      setShowSlowHint(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setShowSlowHint(true), SLOW_CONNECT_HINT_MS);
+    return () => window.clearTimeout(timer);
+  }, [pendingUid, isConnecting]);
+
   if (!isOpen) return null;
+
+  const handleConnect = (connector: (typeof connectors)[number]) => {
+    const uid = connector.uid;
+    setPendingUid(uid);
+    connect(
+      { connector },
+      {
+        // Solo limpia si el intento que terminó es el último lanzado; un
+        // intento colgado que muera tarde no debe pisar un reintento nuevo.
+        onSettled: () => {
+          setPendingUid((current) => (current === uid ? null : current));
+        },
+      },
+    );
+  };
 
   const handleCopy = () => {
     if (address === null) return;
@@ -218,21 +256,40 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
               </p>
 
               <div className="flex flex-col gap-2">
-                {connectorList.map((connector) => (
-                  <button
-                    key={connector.uid}
-                    onClick={() => connect({ connector })}
-                    disabled={isConnecting}
-                    className="flex items-center justify-between px-4 py-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/30 text-sm font-semibold text-neutral-200 transition-all active:scale-98 disabled:opacity-50"
-                  >
-                    <span>{connector.name}</span>
-                    {isConnecting ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-neutral-500" />
-                    ) : (
-                      <Wallet className="w-4 h-4 text-emerald-400" />
-                    )}
-                  </button>
-                ))}
+                {connectorList.map((connector) => {
+                  const isThisPending =
+                    isConnecting && pendingUid === connector.uid;
+                  return (
+                    <button
+                      key={connector.uid}
+                      onClick={() => handleConnect(connector)}
+                      // Un intento colgado (pista visible) reabre el botón
+                      // para poder reintentar sin recargar la página.
+                      disabled={isThisPending && !showSlowHint}
+                      className="flex items-center justify-between px-4 py-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/30 text-sm font-semibold text-neutral-200 transition-all active:scale-98 disabled:opacity-50"
+                    >
+                      <span>{connector.name}</span>
+                      {isThisPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-neutral-500" />
+                      ) : (
+                        <Wallet className="w-4 h-4 text-emerald-400" />
+                      )}
+                    </button>
+                  );
+                })}
+
+                {showSlowHint && (
+                  <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/25 p-3 text-[11px] text-amber-200/90">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>
+                      La wallet no responde. Suele pasar cuando la extensión
+                      está bloqueada o su ventana no llegó a abrirse: pincha en
+                      el icono de la extensión en la barra del navegador,
+                      desbloquéala y acepta la conexión pendiente — o vuelve a
+                      pulsar el botón para reintentar.
+                    </span>
+                  </div>
+                )}
 
                 {connectorList.length === 0 && (
                   <div className="flex items-start gap-2 rounded-xl bg-neutral-900/70 border border-neutral-800 p-3 text-[11px] text-neutral-400">
