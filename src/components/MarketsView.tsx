@@ -19,16 +19,21 @@ import { formatCurrency } from '../utils/formatters';
 /** Tarjetas pintadas por tanda. Renderizar cientos de golpe satura el navegador. */
 const PAGE_SIZE = 24;
 
-/** Pestañas: la taxonomía del dominio, con el venue invisible. */
+/**
+ * Pestañas: la taxonomía del dominio, con el venue invisible.
+ *
+ * Solo categorías con oferta real hoy. Tecnología, Cultura y Otros se
+ * quitaron a propósito (2026-08-28): ningún venue publica mercados con esos
+ * domains y la pestaña vacía confunde más de lo que aporta. Sus mercados,
+ * si algún día llegan, siguen saliendo en "Todo"; para reponer una pestaña
+ * basta añadir su línea aquí.
+ */
 const TABS: { label: string; category?: MarketCategory }[] = [
   { label: 'Todo' },
   { label: 'Deportes', category: 'sports' },
   { label: 'Cripto', category: 'crypto' },
   { label: 'Economía', category: 'economy' },
   { label: 'Política', category: 'politics' },
-  { label: 'Tecnología', category: 'tech' },
-  { label: 'Cultura', category: 'culture' },
-  { label: 'Otros', category: 'other' },
 ];
 
 /**
