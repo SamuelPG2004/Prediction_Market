@@ -292,7 +292,16 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
             <SyncIndicator isSyncing={isSyncing} lastSyncAt={lastSyncAt} />
           </div>
 
-          {visible.length === 0 ? (
+          {visible.length === 0 && (hasMore || isLoadingMore) ? (
+            /* El filtro es en cliente en algunos venues: se sigue barriendo
+               el catálogo en segundo plano hasta encontrar algo o agotarlo. */
+            <div className="py-20 flex flex-col items-center gap-3 rounded-2xl bg-[#0d1017] border border-dashed border-neutral-800">
+              <Loader2 className="w-7 h-7 text-neutral-600 animate-spin" />
+              <p className="text-xs text-neutral-500 max-w-xs text-center">
+                Buscando en el catálogo…
+              </p>
+            </div>
+          ) : visible.length === 0 ? (
             <div className="py-20 flex flex-col items-center gap-3 rounded-2xl bg-[#0d1017] border border-dashed border-neutral-800">
               <Search className="w-7 h-7 text-neutral-700" />
               <p className="text-sm font-semibold text-neutral-300">

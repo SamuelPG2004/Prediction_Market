@@ -65,6 +65,16 @@ export const LIMITLESS_VENUE_ID = 'limitless'
 
 /** Máximo que admite la API por página. */
 const PAGE_LIMIT = 25
+
+/**
+ * La API no filtra por categoría en servidor (cualquier parámetro de filtro
+ * devuelve 400), así que se filtra aquí, en cliente, página a página. Con el
+ * catálogo dominado por deporte y cripto, una categoría minoritaria puede
+ * tardar muchas páginas en asomar: una llamada a `listMarkets` encadena hasta
+ * este número de peticiones antes de devolver lo que haya; el cursor permite
+ * a la siguiente llamada continuar donde se quedó.
+ */
+const MAX_PAGES_PER_LIST_CALL = 5
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 
 /**
@@ -195,51 +205,64 @@ export class LimitlessAdapter implements MarketSource {
     }
 
     const query = filter.query?.trim() ?? ''
-    const cursor = parseCursor(filter.cursor, query !== '')
+    let cursor = parseCursor(filter.cursor, query !== '')
     if (cursor === null) {
       return this.fail('unknown', 'Cursor de paginación no reconocido.')
     }
 
-    let rawPage: unknown
-    try {
-      rawPage =
-        cursor.kind === 'search'
-          ? await this.gateway.searchMarkets({
-              query,
-              page: cursor.page,
-              limit: PAGE_LIMIT,
-            })
-          : await this.gateway.listActiveMarkets({
-              tradeType: cursor.kind,
-              page: cursor.page,
-              limit: PAGE_LIMIT,
-            })
-    } catch (cause) {
-      return this.networkFail('el listado de mercados', cause)
-    }
+    const collected: Market[] = []
+    let next: string | null = null
 
-    const parsed =
-      cursor.kind === 'search' ? parseSearchPage(rawPage) : parseActivePage(rawPage)
-    if (parsed === null) {
-      return this.invalidResponseFail('listar mercados')
-    }
-
-    let markets = this.mapListing(parsed.value)
-    markets = markets.filter((market) => {
-      if (!this.config.includeSports && market.category === 'sports') return false
-      if (filter.category !== undefined && market.category !== filter.category) {
-        return false
+    // El filtrado es en cliente: una página entera puede quedar vacía tras
+    // filtrar. Se encadenan páginas hasta encontrar algo (o agotar el tope)
+    // para que una categoría minoritaria no parezca vacía solo por estar lejos.
+    for (let fetched = 0; fetched < MAX_PAGES_PER_LIST_CALL; fetched++) {
+      let rawPage: unknown
+      try {
+        rawPage =
+          cursor.kind === 'search'
+            ? await this.gateway.searchMarkets({
+                query,
+                page: cursor.page,
+                limit: PAGE_LIMIT,
+              })
+            : await this.gateway.listActiveMarkets({
+                tradeType: cursor.kind,
+                page: cursor.page,
+                limit: PAGE_LIMIT,
+              })
+      } catch (cause) {
+        return this.networkFail('el listado de mercados', cause)
       }
-      return isListable(market, filter)
-    })
+
+      const parsed =
+        cursor.kind === 'search' ? parseSearchPage(rawPage) : parseActivePage(rawPage)
+      if (parsed === null) {
+        return this.invalidResponseFail('listar mercados')
+      }
+
+      const markets = this.mapListing(parsed.value).filter((market) => {
+        if (!this.config.includeSports && market.category === 'sports') return false
+        if (filter.category !== undefined && market.category !== filter.category) {
+          return false
+        }
+        return isListable(market, filter)
+      })
+      collected.push(...markets)
+      next = this.nextCursor(cursor, parsed.value)
+
+      if (collected.length > 0 || next === null) break
+      const advanced = parseCursor(next, query !== '')
+      if (advanced === null) break
+      cursor = advanced
+    }
+
+    let markets = collected
     if (filter.limit !== undefined && filter.limit >= 0) {
       markets = markets.slice(0, filter.limit)
     }
 
-    return {
-      ok: true,
-      data: { markets, nextCursor: this.nextCursor(cursor, parsed.value) },
-    }
+    return { ok: true, data: { markets, nextCursor: next } }
   }
 
   async listSubcategories(

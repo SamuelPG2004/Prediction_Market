@@ -182,11 +182,13 @@ describe('listMarkets', () => {
     const result = await adapter.listMarkets({ cursor: 'group:1' })
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(gateway.lastListParams).toEqual({ tradeType: 'group', page: 1, limit: 25 })
     // Los dos grupos del fixture son de fútbol: el plan asigna deportes a
-    // Azuro, así que por defecto aquí no sale nada...
+    // Azuro, así que por defecto aquí no sale nada... y al quedar vacía la
+    // página se encadenan más hasta el tope por llamada (5).
     expect(result.data.markets.length).toBe(0)
-    expect(result.data.nextCursor).toBe('group:2')
+    expect(gateway.calls.length).toBe(5)
+    expect(gateway.lastListParams).toEqual({ tradeType: 'group', page: 5, limit: 25 })
+    expect(result.data.nextCursor).toBe('group:6')
   })
 
   it('...salvo que se configure includeSports', async () => {
@@ -209,7 +211,10 @@ describe('listMarkets', () => {
     const { adapter, gateway } = makeAdapter()
     const porCategoria = await adapter.listMarkets({ category: 'politics' })
     expect(porCategoria.ok && porCategoria.data.markets.length).toBe(0)
-    expect(gateway.calls.length).toBe(1) // la página se pidió, el filtro es local
+    // El filtro es local: la página se pidió, quedó vacía y se encadenaron
+    // más hasta el tope por llamada; el cursor queda listo para continuar.
+    expect(gateway.calls.length).toBe(5)
+    expect(porCategoria.ok && porCategoria.data.nextCursor).toBe('clob:6')
 
     gateway.calls = []
     const porVenue = await adapter.listMarkets({ venues: ['azuro'] })
@@ -217,6 +222,38 @@ describe('listMarkets', () => {
     const deportes = await adapter.listMarkets({ category: 'sports' })
     expect(deportes.ok && deportes.data.markets.length).toBe(0)
     expect(gateway.calls.length).toBe(0)
+  })
+
+  it('una categoría minoritaria en páginas lejanas acaba apareciendo', async () => {
+    const { adapter, gateway } = makeAdapter()
+    // Página 3 con un mercado de política, derivado del fixture real; las
+    // dos primeras solo traen los cripto del fixture (que el filtro descarta).
+    const base = (activeFixture as { data: Record<string, unknown>[] }).data[0]
+    const politico = {
+      ...base,
+      slug: 'trump-ufc-333',
+      title: 'Will Donald Trump attend UFC 333?',
+      properties: [{ propertyKeySlug: 'domain', value: ['politics'] }],
+    }
+    gateway.listActiveMarkets = (params: unknown) => {
+      gateway.calls.push('listActiveMarkets')
+      gateway.lastListParams = params
+      const { page } = params as { page: number }
+      return Promise.resolve(
+        page === 3
+          ? { data: [politico], totalMarketsCount: 665 }
+          : activeFixture,
+      )
+    }
+
+    const result = await adapter.listMarkets({ category: 'politics' })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(gateway.calls.length).toBe(3)
+    expect(result.data.markets.length).toBe(1)
+    expect(result.data.markets[0].category).toBe('politics')
+    expect(result.data.markets[0].id).toBe('limitless:trump-ufc-333')
+    expect(result.data.nextCursor).toBe('clob:4')
   })
 
   it('busca por texto con su propio cursor', async () => {

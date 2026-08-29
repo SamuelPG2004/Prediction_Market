@@ -26,6 +26,14 @@ import {
 
 const DEFAULT_REFRESH_MS = 25_000
 
+/**
+ * Tope de cargas automáticas cuando el filtro deja la vista vacía. El scroll
+ * infinito no puede disparar sin contenido que desplazar, así que el hook
+ * sigue pidiendo solo; el tope evita martillear a un venue caído o barrer un
+ * catálogo entero sin fin.
+ */
+const MAX_AUTO_LOAD_MORE = 40
+
 interface SourceFeed {
   venue: string
   markets: Market[]
@@ -99,6 +107,7 @@ export function useDomainEvents(options: {
   const [nonce, setNonce] = useState(0)
 
   const loadingRef = useRef(false)
+  const autoLoadsRef = useRef(0)
   const feedsRef = useRef(feeds)
   feedsRef.current = feeds
 
@@ -111,6 +120,7 @@ export function useDomainEvents(options: {
   // Carga inicial; se repite al cambiar categoría, búsqueda o al recargar.
   useEffect(() => {
     let alive = true
+    autoLoadsRef.current = 0
     setIsLoading(true)
     setError(null)
     setDegradedVenues([])
@@ -199,6 +209,23 @@ export function useDomainEvents(options: {
     }
   }, [category, subcategory, search])
 
+  const events = useMemo(
+    () => interleave(feeds.map((feed) => groupMarketsIntoEvents(feed.markets))),
+    [feeds],
+  )
+
+  // Con el filtro activo la primera página puede quedar vacía aunque queden
+  // más (el filtrado por categoría de algún venue es en cliente). El scroll
+  // infinito no dispara sin contenido, así que aquí se sigue pidiendo solo.
+  useEffect(() => {
+    if (isLoading || isLoadingMore) return
+    if (events.length > 0) return
+    if (!feeds.some((feed) => feed.cursor !== null)) return
+    if (autoLoadsRef.current >= MAX_AUTO_LOAD_MORE) return
+    autoLoadsRef.current += 1
+    void loadMore()
+  }, [isLoading, isLoadingMore, events, feeds, loadMore])
+
   // Refresco en vivo: actualiza precios de lo ya cargado, sin reordenar.
   useEffect(() => {
     if (refreshMs <= 0) return
@@ -251,11 +278,6 @@ export function useDomainEvents(options: {
       document.removeEventListener('visibilitychange', onVisible)
     }
   }, [fetchFirstPage, refreshMs])
-
-  const events = useMemo(
-    () => interleave(feeds.map((feed) => groupMarketsIntoEvents(feed.markets))),
-    [feeds],
-  )
 
   return {
     events,
