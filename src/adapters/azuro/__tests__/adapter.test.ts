@@ -15,6 +15,7 @@ import betOrdersFixture from './fixtures/bets-by-bettor.synthetic.json'
 import conditionsFixture from './fixtures/conditions-by-game.json'
 import conditionsStateFixture from './fixtures/conditions-state.json'
 import gamesFixture from './fixtures/games-prematch.json'
+import navigationFixture from './fixtures/navigation.json'
 
 const AFFILIATE = '0x1111111111111111111111111111111111111111' as Address
 const BETTOR = '0x2222222222222222222222222222222222222222'
@@ -58,6 +59,9 @@ class FakeGateway implements AzuroGateway {
   }
   searchGames() {
     return this.answer('searchGames', gamesFixture)
+  }
+  listSports() {
+    return this.answer('listSports', navigationFixture)
   }
   getGamesByIds() {
     return this.answer('getGamesByIds', (gamesFixture as { games: unknown[] }).games)
@@ -151,10 +155,50 @@ describe('capacidades', () => {
       canReadPositions: true,
       canSubscribe: false,
       canSearch: true,
+      canListSubcategories: true,
     })
 
     const sinAfiliado = makeAdapter({ config: makeAzuroConfig(137, null) })
     expect(sinAfiliado.adapter.capabilities.canPlaceBet).toBe(false)
+  })
+})
+
+describe('listSubcategories', () => {
+  it('lista los deportes con partidos prematch, ordenados por actividad', async () => {
+    const { adapter, gateway } = makeAdapter()
+    const result = await adapter.listSubcategories('sports')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(gateway.calls).toContain('listSports')
+    // El fixture real trae 15 deportes; table-tennis está sin prematch y se cae.
+    expect(result.data).toHaveLength(14)
+    expect(result.data.map((s) => s.id)).not.toContain('table-tennis')
+    expect(result.data[0]).toEqual({
+      id: 'football',
+      label: 'Football',
+      activeCount: 661,
+    })
+    // Esports incluidos: comparten la categoría 'sports' del dominio.
+    expect(result.data.map((s) => s.id)).toContain('cs2')
+  })
+
+  it('otra categoría devuelve lista vacía sin tocar la red', async () => {
+    const { adapter, gateway } = makeAdapter()
+    const result = await adapter.listSubcategories('crypto')
+    expect(result).toEqual({ ok: true, data: [] })
+    expect(gateway.calls).toHaveLength(0)
+  })
+
+  it('respuesta corrupta → invalid_response; red caída → network', async () => {
+    const { adapter, gateway } = makeAdapter()
+    gateway.responses.listSports = { esto: 'no es una navegación' }
+    const corrupt = await adapter.listSubcategories('sports')
+    expect(!corrupt.ok && corrupt.error.kind).toBe('invalid_response')
+
+    gateway.errors.listSports = new Error('ECONNRESET')
+    const offline = await adapter.listSubcategories('sports')
+    expect(!offline.ok && offline.error.kind).toBe('network')
   })
 })
 

@@ -141,11 +141,18 @@ describe('capacidades', () => {
       canReadPositions: false,
       canSubscribe: false,
       canSearch: true,
+      canListSubcategories: false,
     })
 
     const conAuth = makeAdapter()
     expect(conAuth.adapter.capabilities.canPlaceBet).toBe(true)
     expect(conAuth.adapter.capabilities.canReadPositions).toBe(true)
+  })
+
+  it('listSubcategories no está soportado', async () => {
+    const { adapter } = makeAdapter()
+    const result = await adapter.listSubcategories('sports')
+    expect(!result.ok && result.error.kind).toBe('unsupported')
   })
 })
 

@@ -21,6 +21,7 @@ import {
   getConditionsState,
   getGamesByFilters,
   getGamesByIds,
+  getNavigation,
   searchGames,
   type BET_DATA_TYPES,
   type ChainId,
@@ -52,6 +53,8 @@ export interface SearchGamesParams {
 export interface AzuroGateway {
   listGames(params: ListGamesParams): Promise<unknown>
   searchGames(params: SearchGamesParams): Promise<unknown>
+  /** Navegación: deportes con recuento de partidos activos. */
+  listSports(): Promise<unknown>
   getGamesByIds(gameIds: string[]): Promise<unknown>
   getConditionsByGameIds(gameIds: string[]): Promise<unknown>
   getConditionsState(conditionIds: string[]): Promise<unknown>
@@ -90,6 +93,9 @@ export function createAzuroGateway(chainId: AzuroChainId): AzuroGateway {
       }),
     searchGames: ({ query, page, perPage }) =>
       searchGames({ chainId: id, query, page, perPage }),
+    // Sin sportHub a propósito: deportes clásicos Y esports, que el dominio
+    // agrupa bajo la misma categoría 'sports'.
+    listSports: () => getNavigation({ chainId: id }),
     getGamesByIds: (gameIds) => getGamesByIds({ chainId: id, gameIds }),
     getConditionsByGameIds: (gameIds) =>
       getConditionsByGameIds({ chainId: id, gameIds }),

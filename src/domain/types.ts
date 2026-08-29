@@ -368,6 +368,21 @@ export interface VenueCapabilities {
   canSubscribe: boolean
   /** Búsqueda por texto en el servidor del venue. */
   canSearch: boolean
+  /** Enumerar las subcategorías activas de una categoría (deportes, etc.). */
+  canListSubcategories: boolean
+}
+
+/**
+ * Subcategoría activa de una categoría del dominio (un deporte dentro de
+ * 'sports', por ejemplo). `id` es el valor que se pasa en
+ * `MarketFilter.subcategory` y coincide con `Market.subcategory`.
+ */
+export interface Subcategory {
+  id: string
+  /** Nombre tal y como lo publica el venue. La UI puede traducirlo. */
+  label: string
+  /** Mercados/eventos activos ahora mismo, o `null` si el venue no lo da. */
+  activeCount: number | null
 }
 
 export interface MarketSource {
@@ -379,6 +394,13 @@ export interface MarketSource {
 
   listMarkets(filter: MarketFilter): Promise<Result<MarketPage>>
   getMarket(id: string): Promise<Result<Market | null>>
+
+  /**
+   * Subcategorías con actividad dentro de `category` (p. ej. los deportes de
+   * 'sports'). Si el venue no lo soporta (`canListSubcategories: false`),
+   * devuelve `unsupported`; si la categoría no le aplica, lista vacía.
+   */
+  listSubcategories(category: MarketCategory): Promise<Result<Subcategory[]>>
 
   getQuote(
     marketId: string,
@@ -405,8 +427,19 @@ export interface MarketSource {
  */
 export function isListable(
   market: Market,
-  filter: Pick<MarketFilter, 'includeClosed' | 'includeNonQuotable'> = {},
+  filter: Pick<
+    MarketFilter,
+    'includeClosed' | 'includeNonQuotable' | 'subcategory'
+  > = {},
 ): boolean {
+  // Filtro por subcategoría también aquí: aunque un venue filtre en servidor,
+  // hay rutas (la búsqueda de Azuro, por ejemplo) que no lo permiten.
+  if (
+    filter.subcategory !== undefined &&
+    market.subcategory !== filter.subcategory
+  ) {
+    return false
+  }
   if (!filter.includeClosed) {
     if (market.status !== 'open') return false
     if (market.closesAt !== null && market.closesAt.getTime() <= Date.now()) {

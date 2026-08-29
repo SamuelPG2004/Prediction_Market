@@ -98,6 +98,14 @@ export interface RawBetOrder {
   conditions: RawBetOrderCondition[]
 }
 
+/** Deporte de la navegación: solo lo que consume el adaptador. */
+export interface RawNavigationSport {
+  slug: string
+  name: string
+  /** El listado usa estado Prematch; este recuento es el que le corresponde. */
+  activePrematchGamesCount: number | null
+}
+
 export interface Parsed<T> {
   value: T
   /** Elementos individuales descartados por no validar. */
@@ -190,6 +198,30 @@ export function parseGamesPage(u: unknown): Parsed<RawGamesPage> | null {
     else games.push(game)
   }
   return { value: { games, page, totalPages }, dropped }
+}
+
+function parseNavigationSport(u: unknown): RawNavigationSport | null {
+  if (!isRecord(u)) return null
+  const slug = asString(u.slug)
+  const name = asString(u.name)
+  if (slug === null || name === null) return null
+  return {
+    slug,
+    name,
+    activePrematchGamesCount: asFiniteNumber(u.activePrematchGamesCount),
+  }
+}
+
+export function parseNavigation(u: unknown): Parsed<RawNavigationSport[]> | null {
+  if (!Array.isArray(u)) return null
+  const sports: RawNavigationSport[] = []
+  let dropped = 0
+  for (const raw of u) {
+    const sport = parseNavigationSport(raw)
+    if (sport === null) dropped += 1
+    else sports.push(sport)
+  }
+  return { value: sports, dropped }
 }
 
 export function parseGames(u: unknown): Parsed<RawGame[]> | null {

@@ -24,10 +24,12 @@ import {
   type BetReceipt,
   type DecimalString,
   type Market,
+  type MarketCategory,
   type MarketFilter,
   type MarketPage,
   type MarketSource,
   type Position,
+  type Subcategory,
   type Quote,
   type Result,
   type VenueCapabilities,
@@ -50,6 +52,7 @@ import {
   parseCreateBetResponse,
   parseGames,
   parseGamesPage,
+  parseNavigation,
   type RawGame,
 } from './validate.ts'
 
@@ -113,6 +116,7 @@ export class AzuroAdapter implements MarketSource {
       canReadPositions: true,
       canSubscribe: false,
       canSearch: true,
+      canListSubcategories: true,
     }
   }
 
@@ -204,6 +208,41 @@ export class AzuroAdapter implements MarketSource {
         nextCursor: page < totalPages ? String(page + 1) : null,
       },
     }
+  }
+
+  async listSubcategories(
+    category: MarketCategory,
+  ): Promise<Result<Subcategory[]>> {
+    // Azuro solo sirve deportes: cualquier otra categoría, lista vacía sin red.
+    if (category !== 'sports') return { ok: true, data: [] }
+
+    let raw: unknown
+    try {
+      raw = await this.gateway.listSports()
+    } catch (cause) {
+      return this.networkFail('los deportes disponibles', cause)
+    }
+
+    const parsed = parseNavigation(raw)
+    if (parsed === null) {
+      return this.invalidResponseFail('listar los deportes')
+    }
+
+    // Solo deportes con partidos prematch, que es lo que lista el catálogo;
+    // ordenados por actividad para que los chips relevantes salgan primero.
+    const sports = parsed.value
+      .filter((s) => (s.activePrematchGamesCount ?? 0) > 0)
+      .sort(
+        (a, b) =>
+          (b.activePrematchGamesCount ?? 0) - (a.activePrematchGamesCount ?? 0),
+      )
+      .map((s) => ({
+        id: s.slug,
+        label: s.name,
+        activeCount: s.activePrematchGamesCount,
+      }))
+
+    return { ok: true, data: sports }
   }
 
   private pageFromCursor(cursor: string | undefined): number | null {

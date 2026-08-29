@@ -50,11 +50,13 @@ export interface UseDomainEventsState {
 
 function buildFilter(
   category: MarketCategory | undefined,
+  subcategory: string | undefined,
   search: string,
   cursor?: string,
 ): MarketFilter {
   return {
     ...(category !== undefined ? { category } : {}),
+    ...(subcategory !== undefined ? { subcategory } : {}),
     ...(search.trim() !== '' ? { query: search.trim() } : {}),
     ...(cursor !== undefined ? { cursor } : {}),
   }
@@ -75,10 +77,17 @@ function interleave(perSource: MarketEventView[][]): MarketEventView[] {
 
 export function useDomainEvents(options: {
   category?: MarketCategory
+  /** Subcategoría dentro de `category` (un deporte de 'sports', p. ej.). */
+  subcategory?: string
   search?: string
   refreshMs?: number
 }): UseDomainEventsState {
-  const { category, search = '', refreshMs = DEFAULT_REFRESH_MS } = options
+  const {
+    category,
+    subcategory,
+    search = '',
+    refreshMs = DEFAULT_REFRESH_MS,
+  } = options
 
   const [feeds, setFeeds] = useState<SourceFeed[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -95,8 +104,8 @@ export function useDomainEvents(options: {
 
   const fetchFirstPage = useCallback(
     async (source: MarketSource) =>
-      source.listMarkets(buildFilter(category, search)),
-    [category, search],
+      source.listMarkets(buildFilter(category, subcategory, search)),
+    [category, subcategory, search],
   )
 
   // Carga inicial; se repite al cambiar categoría, búsqueda o al recargar.
@@ -162,7 +171,7 @@ export function useDomainEvents(options: {
           const source = marketSources.byVenue(feed.venue)
           if (source === null || feed.cursor === null) return null
           const result = await source.listMarkets(
-            buildFilter(category, search, feed.cursor),
+            buildFilter(category, subcategory, search, feed.cursor),
           )
           return { venue: feed.venue, result }
         }),
@@ -188,7 +197,7 @@ export function useDomainEvents(options: {
       loadingRef.current = false
       setIsLoadingMore(false)
     }
-  }, [category, search])
+  }, [category, subcategory, search])
 
   // Refresco en vivo: actualiza precios de lo ya cargado, sin reordenar.
   useEffect(() => {

@@ -10,6 +10,10 @@ capturadas el 2026-08-27 vía `@azuro-org/toolkit`:
 - `conditions-state.json` — `getConditionsState` (endpoint `condition-batch`).
 - `bet-calculation.json` — `POST /bet/calculation` (minBet 1, maxBet 825).
 - `bet-fee.json` — `GET /bet/gas-info`.
+- `navigation.json` — `getNavigation` sin `sportHub` (deportes clásicos y
+  esports). Capturado el 2026-08-28: 15 deportes; `table-tennis` con 0
+  partidos prematch y `football` con 661, anclas del test de
+  `listSubcategories`.
 
 Excepción: `bets-by-bettor.synthetic.json` es **sintético** (no había una
 cartera real con apuestas que consultar). Sigue la forma `BetOrderData` del

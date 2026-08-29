@@ -9,6 +9,7 @@ import {
 import type { Market, MarketCategory } from '../domain/types';
 import { useDomainEvents } from '../hooks/useDomainEvents';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import { useSubcategories } from '../hooks/useSubcategories';
 import { useVenueBalances } from '../hooks/useVenueBalances';
 import type { MarketEventView } from '../utils/eventGrouping';
 import { EventCard } from './EventCard';
@@ -30,6 +31,31 @@ const TABS: { label: string; category?: MarketCategory }[] = [
   { label: 'Otros', category: 'other' },
 ];
 
+/**
+ * Nombres en español para las subcategorías conocidas; lo que no esté aquí se
+ * muestra con el nombre que publica el venue. Solo presentación: el filtro
+ * viaja siempre por `id`.
+ */
+const SUBCATEGORY_LABELS_ES: Record<string, string> = {
+  football: 'Fútbol',
+  tennis: 'Tenis',
+  basketball: 'Baloncesto',
+  baseball: 'Béisbol',
+  'ice-hockey': 'Hockey hielo',
+  'american-football': 'Fútbol americano',
+  boxing: 'Boxeo',
+  mma: 'MMA',
+  volleyball: 'Voleibol',
+  'table-tennis': 'Tenis de mesa',
+  cricket: 'Críquet',
+  handball: 'Balonmano',
+  'rugby-union': 'Rugby',
+  'rugby-league': 'Rugby League',
+  cs2: 'CS2',
+  'dota-2': 'Dota 2',
+  lol: 'LoL',
+};
+
 interface MarketsViewProps {
   onConnectWallet: () => void;
 }
@@ -41,6 +67,10 @@ interface MarketsViewProps {
 export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => {
   const [tabIndex, setTabIndex] = useState(0);
   const tab = TABS[tabIndex];
+
+  // Subcategoría activa (un deporte dentro de Deportes); undefined = todas.
+  const [subcategory, setSubcategory] = useState<string | undefined>(undefined);
+  const { subcategories } = useSubcategories(tab.category);
 
   const [query, setQuery] = useState('');
   // La búsqueda va al servidor de cada venue; con retardo para no lanzar una
@@ -64,6 +94,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
     isSyncing,
   } = useDomainEvents({
     category: tab.category,
+    subcategory,
     search: debouncedQuery,
   });
 
@@ -76,7 +107,12 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [tabIndex, debouncedQuery]);
+  }, [tabIndex, subcategory, debouncedQuery]);
+
+  // Cambiar de pestaña abandona el filtro de subcategoría de la anterior.
+  useEffect(() => {
+    setSubcategory(undefined);
+  }, [tabIndex]);
 
   const eventsRef = useRef(events);
   eventsRef.current = events;
@@ -171,6 +207,28 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
           );
         })}
       </div>
+
+      {/* Chips de subcategoría (deportes dentro de Deportes, etc.) */}
+      {subcategories.length > 0 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 -mt-2">
+          <SubcategoryChip
+            label="Todos"
+            active={subcategory === undefined}
+            onClick={() => setSubcategory(undefined)}
+          />
+          {subcategories.map((s) => (
+            <SubcategoryChip
+              key={s.id}
+              label={SUBCATEGORY_LABELS_ES[s.id] ?? s.label}
+              count={s.activeCount}
+              active={subcategory === s.id}
+              onClick={() =>
+                setSubcategory((current) => (current === s.id ? undefined : s.id))
+              }
+            />
+          ))}
+        </div>
+      )}
 
       {/* Búsqueda */}
       <div className="flex items-center gap-2">
@@ -334,6 +392,31 @@ const SyncIndicator: React.FC<{
     </span>
   );
 };
+
+const SubcategoryChip: React.FC<{
+  label: string;
+  count?: number | null;
+  active: boolean;
+  onClick: () => void;
+}> = ({ label, count, active, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 border ${
+      active
+        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
+        : 'bg-[#0f121a] text-neutral-500 border-neutral-800/80 hover:text-neutral-300 hover:border-neutral-700'
+    }`}
+  >
+    <span>{label}</span>
+    {count != null && (
+      <span
+        className={`text-[9px] font-mono ${active ? 'text-emerald-400/80' : 'text-neutral-600'}`}
+      >
+        {count}
+      </span>
+    )}
+  </button>
+);
 
 const Metric: React.FC<{
   label: string;

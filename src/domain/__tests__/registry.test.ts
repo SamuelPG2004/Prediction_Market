@@ -17,12 +17,14 @@ function fakeSource(venue: string): MarketSource {
       canReadPositions: false,
       canSubscribe: false,
       canSearch: false,
+      canListSubcategories: false,
     },
     listMarkets: unsupported,
     getMarket: unsupported,
     getQuote: unsupported,
     placeBet: unsupported,
     getPositions: unsupported,
+    listSubcategories: unsupported,
   }
 }
 

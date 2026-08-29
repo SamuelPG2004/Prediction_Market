@@ -9,6 +9,7 @@ import {
   getConditionsState,
   getBetCalculation,
   getBetFee,
+  getNavigation,
 } from '@azuro-org/toolkit'
 
 const outDir = process.argv[2]
@@ -52,3 +53,8 @@ if (first) {
 
 const fee = await getBetFee(chainId)
 save('bet-fee.json', fee)
+
+// Sin sportHub a propósito: trae deportes clásicos Y esports, que el dominio
+// agrupa ambos bajo la categoría 'sports'.
+const navigation = await getNavigation({ chainId })
+save('navigation.json', navigation)

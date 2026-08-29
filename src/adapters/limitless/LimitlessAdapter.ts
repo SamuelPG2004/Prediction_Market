@@ -22,12 +22,14 @@ import {
   type BetReceipt,
   type DecimalString,
   type Market,
+  type MarketCategory,
   type MarketFilter,
   type MarketPage,
   type MarketSource,
   type Position,
   type Quote,
   type Result,
+  type Subcategory,
   type VenueCapabilities,
   type VenueError,
   type VenueErrorKind,
@@ -151,6 +153,8 @@ export class LimitlessAdapter implements MarketSource {
       canReadPositions: hasAuth,
       canSubscribe: false,
       canSearch: true,
+      // La API no expone un listado de subcategorías activas.
+      canListSubcategories: false,
     }
   }
 
@@ -236,6 +240,15 @@ export class LimitlessAdapter implements MarketSource {
       ok: true,
       data: { markets, nextCursor: this.nextCursor(cursor, parsed.value) },
     }
+  }
+
+  async listSubcategories(
+    _category: MarketCategory,
+  ): Promise<Result<Subcategory[]>> {
+    return this.fail(
+      'unsupported',
+      'Limitless no publica un listado de subcategorías.',
+    )
   }
 
   private mapListing(page: RawListingPage): Market[] {
