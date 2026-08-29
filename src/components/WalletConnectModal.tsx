@@ -7,6 +7,7 @@ import {
   LogOut,
   ExternalLink,
   AlertTriangle,
+  ArrowLeftRight,
   Loader2,
   Eye,
 } from 'lucide-react';
@@ -18,6 +19,8 @@ import { formatCurrency, shortenAddress } from '../utils/formatters';
 interface WalletConnectModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Abre el modal de bridge (traer fondos desde otra red). */
+  onOpenBridge: () => void;
 }
 
 /** Forma mínima del conector que usa este modal. */
@@ -82,6 +85,7 @@ const SLOW_CONNECT_HINT_MS = 6_000;
 export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
   isOpen,
   onClose,
+  onOpenBridge,
 }) => {
   const {
     address,
@@ -234,8 +238,18 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                 ))}
                 <p className="text-[11px] text-neutral-500 leading-relaxed">
                   La app no mueve estos saldos sin una firma tuya por operación.
+                  ¿Tu dinero está en otra red (p. ej. BNB Chain)? Tráelo con el
+                  botón de abajo.
                 </p>
               </div>
+
+              <button
+                onClick={onOpenBridge}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-xs font-bold text-emerald-400 transition-all active:scale-95"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+                <span>Traer fondos desde otra red</span>
+              </button>
 
               <button
                 onClick={() => {
@@ -309,6 +323,14 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                   <span>{humanConnectError(connectError)}</span>
                 </div>
               )}
+
+              <button
+                onClick={onOpenBridge}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/30 text-xs font-semibold text-neutral-300 transition-all active:scale-95"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5 text-emerald-400" />
+                <span>¿Fondos en otra red (BNB Chain)? Tráelos aquí</span>
+              </button>
 
               <div className="rounded-xl bg-neutral-900/70 border border-neutral-800 p-3 text-[11px] text-neutral-400 leading-relaxed">
                 <p className="font-semibold text-neutral-300 mb-1">

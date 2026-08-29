@@ -39,6 +39,8 @@ import { wagmiConfig } from '../config/wagmi'
 /** Token con el que se apuesta en cada venue, para mostrar saldos en la UI. */
 export interface VenueTokenInfo {
   venue: VenueId
+  /** Nombre para mostrar del venue (viene de su adaptador). */
+  displayName: string
   chainId: number
   address: `0x${string}`
   symbol: string
@@ -122,6 +124,7 @@ export const marketSources: MarketSourceRegistry = createRegistry([
 export const venueTokens: VenueTokenInfo[] = [
   {
     venue: azuro.venue,
+    displayName: azuro.displayName,
     chainId: azuroConfig.chainId,
     address: azuroConfig.betToken.address,
     symbol: azuroConfig.betToken.symbol,
@@ -129,6 +132,7 @@ export const venueTokens: VenueTokenInfo[] = [
   },
   {
     venue: limitless.venue,
+    displayName: limitless.displayName,
     chainId: limitlessConfig.chainId,
     ...BASE_USDC,
   },

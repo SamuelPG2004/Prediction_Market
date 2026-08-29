@@ -13,6 +13,13 @@
 
 export const POLYGON_CHAIN_ID = 137 as const
 export const BASE_CHAIN_ID = 8453 as const
+/**
+ * BNB Chain no aloja ningún venue: está solo como red de ORIGEN del bridge
+ * de fondos (mucha gente guarda su dinero en Binance/BSC). RPCs verificados
+ * a mano el 2026-08-28 (eth_chainId == 0x38); drpc va último porque su plan
+ * público rate-limita IPs compartidas (VPN).
+ */
+export const BSC_CHAIN_ID = 56 as const
 
 export const POLYGON_RPC_URLS = [
   'https://polygon-bor-rpc.publicnode.com',
@@ -24,6 +31,12 @@ export const BASE_RPC_URLS = [
   'https://mainnet.base.org',
   'https://base-rpc.publicnode.com',
   'https://base.drpc.org',
+] as const
+
+export const BSC_RPC_URLS = [
+  'https://bsc-rpc.publicnode.com',
+  'https://bsc-dataseed.bnbchain.org',
+  'https://bsc.drpc.org',
 ] as const
 
 function readViteEnv(name: string): string | undefined {
@@ -42,12 +55,17 @@ export function rpcUrlsFor(chainId: number): string[] {
     const custom = readViteEnv('VITE_BASE_RPC_URL')
     return [...(custom ? [custom] : []), ...BASE_RPC_URLS]
   }
+  if (chainId === BSC_CHAIN_ID) {
+    const custom = readViteEnv('VITE_BSC_RPC_URL')
+    return [...(custom ? [custom] : []), ...BSC_RPC_URLS]
+  }
   return []
 }
 
 const EXPLORERS: Record<number, { name: string; base: string }> = {
   [POLYGON_CHAIN_ID]: { name: 'Polygonscan', base: 'https://polygonscan.com' },
   [BASE_CHAIN_ID]: { name: 'Basescan', base: 'https://basescan.org' },
+  [BSC_CHAIN_ID]: { name: 'BscScan', base: 'https://bscscan.com' },
 }
 
 export function explorerAddressUrl(chainId: number, address: string): string | null {
@@ -58,5 +76,6 @@ export function explorerAddressUrl(chainId: number, address: string): string | n
 export function chainLabel(chainId: number): string {
   if (chainId === POLYGON_CHAIN_ID) return 'Polygon'
   if (chainId === BASE_CHAIN_ID) return 'Base'
+  if (chainId === BSC_CHAIN_ID) return 'BNB Chain'
   return `Cadena ${chainId}`
 }

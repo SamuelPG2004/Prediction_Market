@@ -1,10 +1,12 @@
 import { createConfig, fallback, http, injected } from 'wagmi'
-import { base, polygon } from 'wagmi/chains'
+import { base, bsc, polygon } from 'wagmi/chains'
 import { walletConnect } from '@wagmi/connectors'
 import { rpcUrlsFor } from './chains'
 
 /**
- * wagmi multi-chain: Polygon (Azuro) + Base (Limitless).
+ * wagmi multi-chain: Polygon (Azuro) + Base (Limitless) + BNB Chain, que NO
+ * aloja ningún venue: está solo para que el widget de bridge pueda leer saldos
+ * y firmar la transacción de salida desde BSC (ver BridgeModal).
  *
  * Transportes con fallback: si un RPC falla, viem prueba el siguiente. El
  * endpoint propio de VITE_*_RPC_URL, si existe, va primero (ver chains.ts).
@@ -43,7 +45,7 @@ function readViteEnv(name: string): string | undefined {
 const walletConnectProjectId = readViteEnv('VITE_WALLETCONNECT_PROJECT_ID')
 
 export const wagmiConfig = createConfig({
-  chains: [polygon, base],
+  chains: [polygon, base, bsc],
   connectors: [
     injected(),
     ...(walletConnectProjectId !== undefined
@@ -64,6 +66,7 @@ export const wagmiConfig = createConfig({
   transports: {
     [polygon.id]: transportFor(polygon.id),
     [base.id]: transportFor(base.id),
+    [bsc.id]: transportFor(bsc.id),
   },
   ssr: false,
 })

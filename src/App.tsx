@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 
+import { BridgeModal } from './components/BridgeModal';
 import { ClientOnly } from './components/ClientOnly';
 import { MarketsView } from './components/MarketsView';
 import { Navbar } from './components/Navbar';
@@ -19,6 +20,7 @@ import { WalletConnectModal } from './components/WalletConnectModal';
 export default function App() {
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isPositionsOpen, setIsPositionsOpen] = useState(false);
+  const [isBridgeOpen, setIsBridgeOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#090b0f] text-neutral-100 flex flex-col selection:bg-emerald-500/30 selection:text-emerald-300">
@@ -61,7 +63,15 @@ export default function App() {
         <WalletConnectModal
           isOpen={isWalletModalOpen}
           onClose={() => setIsWalletModalOpen(false)}
+          onOpenBridge={() => {
+            setIsWalletModalOpen(false);
+            setIsBridgeOpen(true);
+          }}
         />
+      </ClientOnly>
+
+      <ClientOnly>
+        <BridgeModal isOpen={isBridgeOpen} onClose={() => setIsBridgeOpen(false)} />
       </ClientOnly>
 
       <ClientOnly>
