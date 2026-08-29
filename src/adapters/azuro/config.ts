@@ -56,10 +56,12 @@ export function makeAzuroConfig(
 }
 
 function readViteEnv(name: string): string | undefined {
-  // Acceso defensivo: en los tests (vitest, entorno node) `import.meta.env`
-  // puede no tener la variable, y no queremos depender de tipos de Vite aquí.
-  const meta = import.meta as unknown as { env?: Record<string, unknown> }
-  const value = meta.env?.[name]
+  // `import.meta.env` tiene que aparecer LITERAL en este módulo: Vite solo
+  // inyecta (dev) o reemplaza (build) el objeto env cuando encuentra esa
+  // expresión exacta en el fuente. Aliasear import.meta a una variable dejaba
+  // `env` undefined en runtime y todas las variables se leían vacías.
+  const env: Record<string, unknown> = import.meta.env ?? {}
+  const value = env[name]
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined
 }
 

@@ -29,8 +29,10 @@ function transportFor(chainId: number) {
 }
 
 function readViteEnv(name: string): string | undefined {
-  const meta = import.meta as unknown as { env?: Record<string, unknown> }
-  const value = meta.env?.[name]
+  // `import.meta.env` literal a propósito; ver el comentario homólogo en
+  // adapters/azuro/config.ts (aliasear import.meta rompe la inyección de Vite).
+  const env: Record<string, unknown> = import.meta.env ?? {}
+  const value = env[name]
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined
 }
 
