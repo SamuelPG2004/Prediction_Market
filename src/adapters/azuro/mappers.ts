@@ -262,6 +262,7 @@ export function mapOrderToPosition(
   }
 
   return {
+    id: order.id,
     marketId: makeMarketId(venue, makeNativeId(leg.gameId, leg.conditionId)),
     outcomeId: leg.outcomeId,
     marketQuestion:
@@ -272,5 +273,10 @@ export function mapOrderToPosition(
     currentValue: null,
     status,
     openedAt: new Date(openedAtMs),
+    // Lo mínimo para cobrarla on-chain (LP.withdrawPayout). Si el relayer aún
+    // no minó la apuesta no hay betId, y la posición no se puede operar.
+    ...(order.betId !== null && order.core !== null
+      ? { venueData: { betId: order.betId, core: order.core } }
+      : {}),
   }
 }

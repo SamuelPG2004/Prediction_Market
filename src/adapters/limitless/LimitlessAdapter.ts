@@ -28,6 +28,7 @@ import {
   type MarketSource,
   type Position,
   type Quote,
+  type RedeemReceipt,
   type Result,
   type Subcategory,
   type VenueCapabilities,
@@ -165,6 +166,8 @@ export class LimitlessAdapter implements MarketSource {
       canSearch: true,
       // La API no expone un listado de subcategorías activas.
       canListSubcategories: false,
+      // El cobro CTF (redeemPositions del condicional) queda fuera de alcance.
+      canRedeem: false,
     }
   }
 
@@ -271,6 +274,16 @@ export class LimitlessAdapter implements MarketSource {
     return this.fail(
       'unsupported',
       'Limitless no publica un listado de subcategorías.',
+    )
+  }
+
+  async redeemPosition(
+    _position: Position,
+    _opts: { from: string },
+  ): Promise<Result<RedeemReceipt>> {
+    return this.fail(
+      'unsupported',
+      'El cobro de posiciones de Limitless aún no está soportado en esta app.',
     )
   }
 

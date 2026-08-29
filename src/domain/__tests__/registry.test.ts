@@ -18,6 +18,7 @@ function fakeSource(venue: string): MarketSource {
       canSubscribe: false,
       canSearch: false,
       canListSubcategories: false,
+      canRedeem: false,
     },
     listMarkets: unsupported,
     getMarket: unsupported,
@@ -25,6 +26,7 @@ function fakeSource(venue: string): MarketSource {
     placeBet: unsupported,
     getPositions: unsupported,
     listSubcategories: unsupported,
+    redeemPosition: unsupported,
   }
 }
 

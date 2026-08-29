@@ -142,6 +142,7 @@ describe('capacidades', () => {
       canSubscribe: false,
       canSearch: true,
       canListSubcategories: false,
+      canRedeem: false,
     })
 
     const conAuth = makeAdapter()
@@ -149,10 +150,27 @@ describe('capacidades', () => {
     expect(conAuth.adapter.capabilities.canReadPositions).toBe(true)
   })
 
-  it('listSubcategories no está soportado', async () => {
+  it('listSubcategories y redeemPosition no están soportados', async () => {
     const { adapter } = makeAdapter()
-    const result = await adapter.listSubcategories('sports')
-    expect(!result.ok && result.error.kind).toBe('unsupported')
+    const subcats = await adapter.listSubcategories('sports')
+    expect(!subcats.ok && subcats.error.kind).toBe('unsupported')
+
+    const cobro = await adapter.redeemPosition(
+      {
+        id: 'x:yes',
+        marketId: 'limitless:x',
+        outcomeId: 'yes',
+        marketQuestion: 'x',
+        outcomeLabel: 'Yes',
+        stake: '1' as never,
+        potentialPayout: '2' as never,
+        currentValue: null,
+        status: 'redeemable',
+        openedAt: null,
+      },
+      { from: BETTOR },
+    )
+    expect(!cobro.ok && cobro.error.kind).toBe('unsupported')
   })
 })
 

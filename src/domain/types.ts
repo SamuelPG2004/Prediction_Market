@@ -242,6 +242,8 @@ export interface BetReceipt {
 }
 
 export interface Position {
+  /** Id único de la posición dentro del venue. Necesario para operarla. */
+  id: string
   marketId: string
   outcomeId: string
   /** Etiquetas desnormalizadas para no exigir un fetch extra al listar. */
@@ -261,6 +263,23 @@ export interface Position {
    * mentir; `null` obliga a la UI a tratar el caso "sin fecha".
    */
   openedAt: Date | null
+  /**
+   * Datos opacos del venue para OPERAR la posición (cobrarla, por ejemplo);
+   * mismo contrato que `Quote.venueData`: solo el adaptador que los creó los
+   * interpreta, la UI no los lee jamás. Ausente si la posición no admite
+   * ninguna operación.
+   */
+  venueData?: unknown
+}
+
+/** Recibo del cobro de una posición ('redeemable' → 'redeemed'). */
+export interface RedeemReceipt {
+  positionId: string
+  /** Hash de la transacción on-chain del cobro. */
+  reference: string
+  /** URL al explorador, ya construida por el adaptador, o null. */
+  explorerUrl: string | null
+  redeemedAt: Date
 }
 
 // ---------------------------------------------------------------------------
@@ -370,6 +389,8 @@ export interface VenueCapabilities {
   canSearch: boolean
   /** Enumerar las subcategorías activas de una categoría (deportes, etc.). */
   canListSubcategories: boolean
+  /** Cobrar posiciones ganadoras/canceladas ('redeemable'). */
+  canRedeem: boolean
 }
 
 /**
@@ -410,6 +431,16 @@ export interface MarketSource {
 
   placeBet(quote: Quote, opts: BetOptions): Promise<Result<BetReceipt>>
   getPositions(address: string): Promise<Result<Position[]>>
+
+  /**
+   * Cobra una posición 'redeemable' (premio de una ganada o devolución de una
+   * cancelada). Firma una transacción on-chain con la wallet. Si el venue no
+   * lo soporta (`canRedeem: false`), devuelve `unsupported`.
+   */
+  redeemPosition(
+    position: Position,
+    opts: { from: string },
+  ): Promise<Result<RedeemReceipt>>
 
   /** Suscripción en vivo. Devuelve la función de baja. */
   subscribe?(marketIds: string[], cb: (m: Market) => void): () => void

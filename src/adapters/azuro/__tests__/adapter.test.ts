@@ -92,6 +92,8 @@ class FakeWallet implements AzuroWalletBridge {
   approvals: { spender: Address; amount: bigint }[] = []
   signedTypedData: BetTypedData | null = null
   signError: unknown = null
+  withdrawals: { lp: Address; core: Address; tokenId: bigint }[] = []
+  withdrawError: unknown = null
 
   async readAllowance() {
     return this.allowance
@@ -104,6 +106,11 @@ class FakeWallet implements AzuroWalletBridge {
     if (this.signError !== null) throw this.signError
     this.signedTypedData = typedData
     return '0xfirma'
+  }
+  async withdrawPayout(lp: Address, core: Address, tokenId: bigint): Promise<Hex> {
+    if (this.withdrawError !== null) throw this.withdrawError
+    this.withdrawals.push({ lp, core, tokenId })
+    return '0xcobro'
   }
 }
 
@@ -156,6 +163,7 @@ describe('capacidades', () => {
       canSubscribe: false,
       canSearch: true,
       canListSubcategories: true,
+      canRedeem: true,
     })
 
     const sinAfiliado = makeAdapter({ config: makeAzuroConfig(137, null) })
@@ -501,5 +509,74 @@ describe('getPositions', () => {
     gateway.responses.getBetsByBettor = { orders: 'mal' }
     const malformada = await adapter.getPositions(BETTOR)
     expect(!malformada.ok && malformada.error.kind).toBe('invalid_response')
+  })
+})
+
+describe('redeemPosition', () => {
+  /** La posición 'Cobrable' del fixture sintético (orden ganada, betId 102). */
+  async function redeemablePosition(adapter: AzuroAdapter) {
+    const result = await adapter.getPositions(BETTOR)
+    if (!result.ok) throw new Error('getPositions falló')
+    const position = result.data.find((p) => p.status === 'redeemable')
+    if (position === undefined) throw new Error('sin posición cobrable')
+    return position
+  }
+
+  it('cobra vía LP.withdrawPayout con el LP fijado y el core de la orden', async () => {
+    const wallet = new FakeWallet()
+    const { adapter } = makeAdapter({ wallet })
+    const position = await redeemablePosition(adapter)
+
+    const result = await adapter.redeemPosition(position, { from: BETTOR })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(wallet.withdrawals).toEqual([
+      {
+        lp: makeAzuroConfig(137, AFFILIATE).lpAddress,
+        core: '0x0223b3b0f01a1e69c9b1f8b6f8de71b6de5f1d8a',
+        tokenId: 102n,
+      },
+    ])
+    expect(result.data.positionId).toBe(position.id)
+    expect(result.data.reference).toBe('0xcobro')
+    expect(result.data.explorerUrl).toBe('https://polygonscan.com/tx/0xcobro')
+  })
+
+  it('exige wallet, posición cobrable y datos de cobro presentes', async () => {
+    const sinWallet = makeAdapter().adapter
+    const wallet = new FakeWallet()
+    const { adapter } = makeAdapter({ wallet })
+    const position = await redeemablePosition(adapter)
+
+    const faltaWallet = await sinWallet.redeemPosition(position, { from: BETTOR })
+    expect(!faltaWallet.ok && faltaWallet.error.kind).toBe('wallet')
+
+    const noCobrable = await adapter.redeemPosition(
+      { ...position, status: 'open' },
+      { from: BETTOR },
+    )
+    expect(!noCobrable.ok && noCobrable.error.kind).toBe('not_quotable')
+
+    const sinDatos = await adapter.redeemPosition(
+      { ...position, venueData: undefined },
+      { from: BETTOR },
+    )
+    expect(!sinDatos.ok && sinDatos.error.kind).toBe('invalid_response')
+    expect(wallet.withdrawals).toHaveLength(0)
+  })
+
+  it('rechazo del usuario → rejected; otros fallos → wallet', async () => {
+    const wallet = new FakeWallet()
+    const { adapter } = makeAdapter({ wallet })
+    const position = await redeemablePosition(adapter)
+
+    wallet.withdrawError = { code: 4001 }
+    const rechazado = await adapter.redeemPosition(position, { from: BETTOR })
+    expect(!rechazado.ok && rechazado.error.kind).toBe('rejected')
+
+    wallet.withdrawError = new Error('insufficient funds for gas')
+    const sinGas = await adapter.redeemPosition(position, { from: BETTOR })
+    expect(!sinGas.ok && sinGas.error.kind).toBe('wallet')
   })
 })

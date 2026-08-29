@@ -271,6 +271,7 @@ export function mapClobPositionToDomain(
     }
 
     positions.push({
+      id: `${raw.market.slug}:${side}`,
       marketId: makeMarketId(venue, raw.market.slug),
       outcomeId: side,
       marketQuestion: raw.market.title ?? raw.market.slug,

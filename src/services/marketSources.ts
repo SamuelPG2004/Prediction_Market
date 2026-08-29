@@ -80,6 +80,7 @@ function lazyAzuroBridge(chainId: number): AzuroWalletBridge {
     readAllowance: async (...args) => (await bridge()).readAllowance(...args),
     approve: async (...args) => (await bridge()).approve(...args),
     signBetTypedData: async (...args) => (await bridge()).signBetTypedData(...args),
+    withdrawPayout: async (...args) => (await bridge()).withdrawPayout(...args),
   }
 }
 

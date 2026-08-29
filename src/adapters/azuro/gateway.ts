@@ -77,7 +77,30 @@ export interface AzuroWalletBridge {
   approve(token: Address, spender: Address, amount: bigint): Promise<void>
   /** Firma EIP-712 de la apuesta. */
   signBetTypedData(typedData: BetTypedData): Promise<Hex>
+  /**
+   * Cobra el premio de la apuesta `tokenId` llamando a `LP.withdrawPayout`.
+   * Espera la confirmación y devuelve el hash de la transacción.
+   */
+  withdrawPayout(lp: Address, core: Address, tokenId: bigint): Promise<Hex>
 }
+
+/**
+ * Fragmento mínimo del ABI del LP de Azuro: solo la función de cobro. La
+ * dirección del LP viene de `chainsData` del toolkit (constante verificada),
+ * nunca de una respuesta de API.
+ */
+const LP_WITHDRAW_PAYOUT_ABI = [
+  {
+    inputs: [
+      { internalType: 'address', name: 'core', type: 'address' },
+      { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
+    ],
+    name: 'withdrawPayout',
+    outputs: [{ internalType: 'uint128', name: 'amount', type: 'uint128' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+] as const
 
 /** Implementación real contra el Backend API, vía el toolkit oficial. */
 export function createAzuroGateway(chainId: AzuroChainId): AzuroGateway {
@@ -138,6 +161,20 @@ export function createViemWalletBridge(
     },
     async signBetTypedData(typedData) {
       return walletClient.signTypedData(typedData)
+    },
+    async withdrawPayout(lp, core, tokenId) {
+      const account = walletClient.account
+      if (!account) throw new Error('La wallet no tiene cuenta activa')
+      const hash = await walletClient.writeContract({
+        address: lp,
+        abi: LP_WITHDRAW_PAYOUT_ABI,
+        functionName: 'withdrawPayout',
+        args: [core, tokenId],
+        account,
+        chain: walletClient.chain,
+      })
+      await publicClient.waitForTransactionReceipt({ hash })
+      return hash
     },
   }
 }

@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { X, Loader2, AlertTriangle, Layers, RefreshCw } from 'lucide-react';
-import type { Position } from '../domain/types';
+import {
+  X,
+  Loader2,
+  AlertTriangle,
+  Layers,
+  RefreshCw,
+  Coins,
+  ExternalLink,
+} from 'lucide-react';
+import type { Position, RedeemReceipt, Result } from '../domain/types';
 import { marketSources } from '../services/marketSources';
 import { useWallet } from '../services/web3Service';
 import { formatCurrency } from '../utils/formatters';
@@ -154,8 +162,12 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
                     Sin posiciones en {feed.displayName}.
                   </p>
                 ) : (
-                  feed.positions.map((p, i) => (
-                    <PositionCard key={`${p.marketId}:${p.outcomeId}:${i}`} position={p} />
+                  feed.positions.map((p) => (
+                    <PositionCard
+                      key={p.id}
+                      position={p}
+                      onRedeem={redeemerFor(feed.venue, wallet.address)}
+                    />
                   ))
                 )}
               </div>
@@ -167,8 +179,48 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
   );
 };
 
-const PositionCard: React.FC<{ position: Position }> = ({ position }) => {
-  const status = STATUS_LABEL[position.status];
+type Redeemer = (position: Position) => Promise<Result<RedeemReceipt>>;
+
+/**
+ * Cobrador para las posiciones de un venue, o null si no aplica (el venue no
+ * sabe cobrar, o no hay wallet). Cada posición 'redeemable' lo usa en su botón.
+ */
+function redeemerFor(venue: string, address: string | null): Redeemer | null {
+  const source = marketSources.byVenue(venue);
+  if (source === null || !source.capabilities.canRedeem || address === null) {
+    return null;
+  }
+  return (position) => source.redeemPosition(position, { from: address });
+}
+
+type RedeemState =
+  | { status: 'idle' }
+  | { status: 'redeeming' }
+  | { status: 'done'; receipt: RedeemReceipt }
+  | { status: 'error'; message: string };
+
+const PositionCard: React.FC<{
+  position: Position;
+  onRedeem: Redeemer | null;
+}> = ({ position, onRedeem }) => {
+  const [redeem, setRedeem] = useState<RedeemState>({ status: 'idle' });
+
+  // Tras cobrar con éxito, la tarjeta pasa a 'Cobrada' sin esperar a que el
+  // indexador del venue refleje el redeemedAt (puede tardar unos segundos).
+  const effectiveStatus = redeem.status === 'done' ? 'redeemed' : position.status;
+  const status = STATUS_LABEL[effectiveStatus];
+
+  const runRedeem = async () => {
+    if (onRedeem === null || redeem.status === 'redeeming') return;
+    setRedeem({ status: 'redeeming' });
+    const result = await onRedeem(position);
+    setRedeem(
+      result.ok
+        ? { status: 'done', receipt: result.data }
+        : { status: 'error', message: result.error.message },
+    );
+  };
+
   return (
     <div className="rounded-xl bg-[#0d1017] border border-neutral-800 p-3 flex flex-col gap-2">
       <div className="flex items-start justify-between gap-2">
@@ -211,6 +263,51 @@ const PositionCard: React.FC<{ position: Position }> = ({ position }) => {
           <span>{position.openedAt.toLocaleDateString()}</span>
         )}
       </div>
+
+      {/* Cobro: solo posiciones cobrables de venues que saben cobrar. */}
+      {effectiveStatus === 'redeemable' && onRedeem !== null && (
+        <button
+          onClick={() => void runRedeem()}
+          disabled={redeem.status === 'redeeming'}
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-[11px] font-bold text-emerald-300 transition-all active:scale-95 disabled:opacity-60"
+        >
+          {redeem.status === 'redeeming' ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>Cobrando… firma en tu wallet</span>
+            </>
+          ) : (
+            <>
+              <Coins className="w-3.5 h-3.5" />
+              <span>Cobrar {formatCurrency(Number(position.potentialPayout))}</span>
+            </>
+          )}
+        </button>
+      )}
+
+      {redeem.status === 'error' && (
+        <div className="flex items-start gap-2 rounded-lg bg-rose-500/10 border border-rose-500/25 p-2.5 text-[11px] text-rose-300">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>{redeem.message}</span>
+        </div>
+      )}
+
+      {redeem.status === 'done' && (
+        <div className="flex items-center justify-between gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 p-2.5 text-[11px] text-emerald-300">
+          <span>Premio cobrado. Ya está en tu wallet.</span>
+          {redeem.receipt.explorerUrl !== null && (
+            <a
+              href={redeem.receipt.explorerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Ver la transacción en el explorador"
+              className="p-1 rounded hover:bg-emerald-500/20 shrink-0"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          )}
+        </div>
+      )}
     </div>
   );
 };

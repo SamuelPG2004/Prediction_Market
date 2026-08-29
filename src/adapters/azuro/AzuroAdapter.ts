@@ -31,6 +31,7 @@ import {
   type Position,
   type Subcategory,
   type Quote,
+  type RedeemReceipt,
   type Result,
   type VenueCapabilities,
   type VenueError,
@@ -71,6 +72,23 @@ interface AzuroQuoteData {
   outcomeId: string
   /** Cuota decimal al cotizar, p. ej. "1.85". Base del `minOdds` firmado. */
   odds: string
+}
+
+/** Contenido de `Position.venueData` para Azuro. Solo este adaptador lo lee. */
+interface AzuroPositionData {
+  /** Token id on-chain de la apuesta, argumento de `LP.withdrawPayout`. */
+  betId: number
+  /** Contrato core de ESTA apuesta (puede diferir del core de config). */
+  core: string
+}
+
+function isAzuroPositionData(u: unknown): u is AzuroPositionData {
+  return (
+    typeof u === 'object' &&
+    u !== null &&
+    typeof (u as Record<string, unknown>).betId === 'number' &&
+    typeof (u as Record<string, unknown>).core === 'string'
+  )
 }
 
 function isAzuroQuoteData(u: unknown): u is AzuroQuoteData {
@@ -117,6 +135,7 @@ export class AzuroAdapter implements MarketSource {
       canSubscribe: false,
       canSearch: true,
       canListSubcategories: true,
+      canRedeem: true,
     }
   }
 
@@ -585,6 +604,62 @@ export class AzuroAdapter implements MarketSource {
         explorerUrl: null,
         placedAt: new Date(nowMs),
         status: response.state === 'Accepted' ? 'confirmed' : 'pending',
+      },
+    }
+  }
+
+  // --- Cobro -----------------------------------------------------------------
+
+  async redeemPosition(
+    position: Position,
+    opts: { from: string },
+  ): Promise<Result<RedeemReceipt>> {
+    if (this.wallet === null) {
+      return this.fail('wallet', 'Conecta una wallet para cobrar.')
+    }
+    if (!isAddress(opts.from)) {
+      return this.fail('wallet', 'La dirección de la wallet no es válida.')
+    }
+    if (position.status !== 'redeemable') {
+      return this.fail('not_quotable', 'Esta posición no está lista para cobrar.')
+    }
+    if (!isAzuroPositionData(position.venueData)) {
+      return this.fail(
+        'invalid_response',
+        'La posición no trae los datos de cobro de Azuro. Recarga tus posiciones e inténtalo de nuevo.',
+      )
+    }
+    const { betId, core } = position.venueData
+    if (!isAddress(core) || !Number.isInteger(betId) || betId <= 0) {
+      return this.fail(
+        'invalid_response',
+        'Los datos de cobro de la posición no son válidos.',
+      )
+    }
+
+    // El LP es constante verificada del toolkit; el core viaja por apuesta y
+    // el propio LP lo valida on-chain (revierte con un core desconocido).
+    let txHash: Hex
+    try {
+      txHash = await this.wallet.withdrawPayout(
+        this.config.lpAddress,
+        core,
+        BigInt(betId),
+      )
+    } catch (cause) {
+      return this.walletFail('No se pudo cobrar la posición.', cause)
+    }
+
+    return {
+      ok: true,
+      data: {
+        positionId: position.id,
+        reference: txHash,
+        explorerUrl:
+          this.config.explorerBase !== null
+            ? `${this.config.explorerBase}/tx/${txHash}`
+            : null,
+        redeemedAt: new Date(this.now()),
       },
     }
   }

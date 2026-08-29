@@ -95,6 +95,10 @@ export interface RawBetOrder {
   redeemedAt: string | null
   createdAt: string
   txHash: string | null
+  /** Token id on-chain de la apuesta; null hasta que el relayer la mina. */
+  betId: number | null
+  /** Contrato core de ESTA apuesta (puede diferir del core de config). */
+  core: string | null
   conditions: RawBetOrderCondition[]
 }
 
@@ -428,6 +432,8 @@ export function parseBetOrders(u: unknown): Parsed<RawBetOrder[]> | null {
       result: asOptionalString(raw.result),
       redeemedAt: asOptionalString(raw.redeemedAt),
       txHash: asOptionalString(raw.txHash),
+      betId: asFiniteNumber(raw.betId),
+      core: asOptionalString(raw.core),
       conditions,
     })
   }

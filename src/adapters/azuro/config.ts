@@ -30,6 +30,18 @@ export interface AzuroConfig {
   relayerAddress: Address
   /** Dirección del contrato core, dominio de la firma EIP-712. */
   coreAddress: Address
+  /** Dirección del LP, contra el que se cobran los premios (withdrawPayout). */
+  lpAddress: Address
+  /** Base del explorador de bloques de la cadena, o null si no hay conocido. */
+  explorerBase: string | null
+}
+
+/** Exploradores por cadena soportada; para construir enlaces a transacciones. */
+const EXPLORER_BASES: Partial<Record<AzuroChainId, string>> = {
+  137: 'https://polygonscan.com',
+  8453: 'https://basescan.org',
+  80002: 'https://amoy.polygonscan.com',
+  84532: 'https://sepolia.basescan.org',
 }
 
 function isSupportedChainId(value: number): value is AzuroChainId {
@@ -52,6 +64,8 @@ export function makeAzuroConfig(
     },
     relayerAddress: data.contracts.relayer.address,
     coreAddress: data.contracts.core.address,
+    lpAddress: data.contracts.lp.address,
+    explorerBase: EXPLORER_BASES[chainId] ?? null,
   }
 }
 
