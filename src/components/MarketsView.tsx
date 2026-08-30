@@ -12,9 +12,11 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useSubcategories } from '../hooks/useSubcategories';
 import { useVenueBalances } from '../hooks/useVenueBalances';
 import type { MarketEventView } from '../utils/eventGrouping';
+import { BetSlip } from './BetSlip';
 import { EventCard } from './EventCard';
 import { FeaturedMatches } from './FeaturedMatches';
 import { TradePanel } from './TradePanel';
+import { toggleSelection } from '../hooks/useBetSlip';
 import { formatCurrency } from '../utils/formatters';
 import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
 
@@ -89,9 +91,19 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
     outcomeId?: string;
   } | null>(null);
 
+  /**
+   * Clic en una cuota concreta (hay `outcomeId`): la selección va al boleto,
+   * para acumular varias apuestas. Clic en la cabecera o en una fila sin
+   * resultado concreto: se abre el panel de detalle del evento.
+   */
   const selectMarket = useCallback(
-    (event: MarketEventView, market: Market, outcomeId?: string) =>
-      setSelected({ event, market, ...(outcomeId !== undefined ? { outcomeId } : {}) }),
+    (event: MarketEventView, market: Market, outcomeId?: string) => {
+      if (outcomeId !== undefined) {
+        toggleSelection(event.title, market, outcomeId);
+        return;
+      }
+      setSelected({ event, market });
+    },
     [],
   );
 
@@ -353,6 +365,9 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
           onConnectWallet={onConnectWallet}
         />
       )}
+
+      {/* Boleto flotante: solo aparece cuando hay selecciones acumuladas. */}
+      <BetSlip onConnectWallet={onConnectWallet} />
     </div>
   );
 };

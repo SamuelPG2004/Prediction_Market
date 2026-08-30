@@ -251,6 +251,46 @@ export interface BetReceipt {
   status: 'pending' | 'confirmed' | 'failed'
 }
 
+// ---------------------------------------------------------------------------
+// Combinadas
+// ---------------------------------------------------------------------------
+
+/** Una pata de una combinada: un resultado concreto de un mercado. */
+export interface ComboSelection {
+  marketId: string
+  outcomeId: string
+}
+
+/**
+ * Cotización ejecutable de una combinada: todas las selecciones deben acertar,
+ * la cuota total es el producto de las cuotas y se firma UNA sola orden.
+ *
+ * Solo la ofrecen los venues con `canCombo`. Las reglas de combinabilidad
+ * (partidos distintos, mercados vetados…) las valida el adaptador al cotizar,
+ * devolviendo `not_quotable` con el motivo, nunca una excepción.
+ */
+export interface ComboQuote {
+  selections: ComboSelection[]
+  stake: DecimalString
+  /** Cuota combinada (producto), como cuota decimal. */
+  totalOdds: DecimalString
+  /** Pago total esperado si aciertan todas, stake incluido. */
+  expectedPayout: DecimalString
+  expiresAt: Date | null
+  /** Mismo contrato que `Quote.venueData`: solo su adaptador lo interpreta. */
+  venueData: unknown
+}
+
+export interface ComboBetReceipt {
+  selections: ComboSelection[]
+  stake: DecimalString
+  /** Hash on-chain o id de orden del relayer, según el venue. */
+  reference: string
+  explorerUrl: string | null
+  placedAt: Date
+  status: 'pending' | 'confirmed' | 'failed'
+}
+
 export interface Position {
   /** Id único de la posición dentro del venue. Necesario para operarla. */
   id: string
@@ -410,6 +450,8 @@ export interface VenueCapabilities {
   canRedeem: boolean
   /** Listar ordenado por popularidad (`MarketFilter.orderBy: 'popularity'`). */
   canRankPopular: boolean
+  /** Apuestas combinadas (`getComboQuote` / `placeComboBet`). */
+  canCombo: boolean
 }
 
 /**
@@ -449,6 +491,23 @@ export interface MarketSource {
   ): Promise<Result<Quote>>
 
   placeBet(quote: Quote, opts: BetOptions): Promise<Result<BetReceipt>>
+
+  /**
+   * Cotización de una combinada. Si el venue no las soporta
+   * (`canCombo: false`), devuelve `unsupported`; si las selecciones no son
+   * combinables (mismo partido, mercado vetado), `not_quotable` con el motivo.
+   */
+  getComboQuote(
+    selections: ComboSelection[],
+    stake: DecimalString,
+  ): Promise<Result<ComboQuote>>
+
+  /** Coloca la combinada cotizada: una sola firma para todas las patas. */
+  placeComboBet(
+    quote: ComboQuote,
+    opts: BetOptions,
+  ): Promise<Result<ComboBetReceipt>>
+
   getPositions(address: string): Promise<Result<Position[]>>
 
   /**

@@ -16,6 +16,7 @@ import {
   GameState,
   OrderDirection,
   createBet,
+  createComboBet,
   getBetCalculation,
   getBetFee,
   getBetsByBettor,
@@ -26,8 +27,10 @@ import {
   getNavigation,
   searchGames,
   type BET_DATA_TYPES,
+  type COMBO_BET_DATA_TYPES,
   type ChainId,
   type CreateBetParams,
+  type CreateComboBetParams,
 } from '@azuro-org/toolkit'
 import {
   erc20Abi,
@@ -62,16 +65,21 @@ export interface AzuroGateway {
   getGamesByIds(gameIds: string[]): Promise<unknown>
   getConditionsByGameIds(gameIds: string[]): Promise<unknown>
   getConditionsState(conditionIds: string[]): Promise<unknown>
+  /** Límites de apuesta; con varias selecciones calcula la combinada. */
   getBetCalculation(
-    selection: { conditionId: string; outcomeId: string },
+    selections: { conditionId: string; outcomeId: string }[],
     account: Address | undefined,
   ): Promise<unknown>
   getBetFee(): Promise<unknown>
   getBetsByBettor(bettor: Address): Promise<unknown>
   submitBet(params: CreateBetParams): Promise<unknown>
+  submitComboBet(params: CreateComboBetParams): Promise<unknown>
 }
 
 export type BetTypedData = SignTypedDataParameters<typeof BET_DATA_TYPES>
+export type ComboBetTypedData = SignTypedDataParameters<
+  typeof COMBO_BET_DATA_TYPES
+>
 
 /** Operaciones que exigen wallet. Separadas para poder operar sin ella. */
 export interface AzuroWalletBridge {
@@ -81,6 +89,8 @@ export interface AzuroWalletBridge {
   approve(token: Address, spender: Address, amount: bigint): Promise<void>
   /** Firma EIP-712 de la apuesta. */
   signBetTypedData(typedData: BetTypedData): Promise<Hex>
+  /** Firma EIP-712 de una combinada. */
+  signComboBetTypedData(typedData: ComboBetTypedData): Promise<Hex>
   /**
    * Cobra el premio de la apuesta `tokenId` llamando a `LP.withdrawPayout`.
    * Espera la confirmación y devuelve el hash de la transacción.
@@ -131,11 +141,12 @@ export function createAzuroGateway(chainId: AzuroChainId): AzuroGateway {
       getConditionsByGameIds({ chainId: id, gameIds }),
     getConditionsState: (conditionIds) =>
       getConditionsState({ chainId: id, conditionIds }),
-    getBetCalculation: (selection, account) =>
-      getBetCalculation({ chainId: id, selections: [selection], account }),
+    getBetCalculation: (selections, account) =>
+      getBetCalculation({ chainId: id, selections, account }),
     getBetFee: () => getBetFee(id),
     getBetsByBettor: (bettor) => getBetsByBettor({ chainId: id, bettor }),
     submitBet: (params) => createBet(params),
+    submitComboBet: (params) => createComboBet(params),
   }
 }
 
@@ -167,6 +178,9 @@ export function createViemWalletBridge(
       await publicClient.waitForTransactionReceipt({ hash })
     },
     async signBetTypedData(typedData) {
+      return walletClient.signTypedData(typedData)
+    },
+    async signComboBetTypedData(typedData) {
       return walletClient.signTypedData(typedData)
     },
     async withdrawPayout(lp, core, tokenId) {

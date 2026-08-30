@@ -20,6 +20,9 @@ import {
   toDecimal,
   type BetOptions,
   type BetReceipt,
+  type ComboBetReceipt,
+  type ComboQuote,
+  type ComboSelection,
   type DecimalString,
   type Market,
   type MarketCategory,
@@ -169,6 +172,8 @@ export class LimitlessAdapter implements MarketSource {
       // La API pública no expone un orden por volumen utilizable; antes que
       // fingir popularidad con el orden por defecto: no se ofrece.
       canRankPopular: false,
+      // Order book por mercado: no existe el producto "combinada".
+      canCombo: false,
       // El cobro CTF (redeemPositions del condicional) queda fuera de alcance.
       canRedeem: false,
     }
@@ -277,6 +282,26 @@ export class LimitlessAdapter implements MarketSource {
     return this.fail(
       'unsupported',
       'Limitless no publica un listado de subcategorías.',
+    )
+  }
+
+  async getComboQuote(
+    _selections: ComboSelection[],
+    _stake: DecimalString,
+  ): Promise<Result<ComboQuote>> {
+    return this.fail(
+      'unsupported',
+      'Limitless es un order book por mercado: no existen apuestas combinadas.',
+    )
+  }
+
+  async placeComboBet(
+    _quote: ComboQuote,
+    _opts: BetOptions,
+  ): Promise<Result<ComboBetReceipt>> {
+    return this.fail(
+      'unsupported',
+      'Limitless es un order book por mercado: no existen apuestas combinadas.',
     )
   }
 

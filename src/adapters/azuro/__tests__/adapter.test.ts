@@ -11,6 +11,7 @@ import type {
   AzuroGateway,
   AzuroWalletBridge,
   BetTypedData,
+  ComboBetTypedData,
   ListGamesParams,
 } from '../gateway.ts'
 import { makeNativeId } from '../mappers.ts'
@@ -80,7 +81,10 @@ class FakeGateway implements AzuroGateway {
   getConditionsState() {
     return this.answer('getConditionsState', activeConditionState)
   }
-  getBetCalculation() {
+  lastCalcSelections: { conditionId: string; outcomeId: string }[] | null = null
+
+  getBetCalculation(selections: { conditionId: string; outcomeId: string }[]) {
+    this.lastCalcSelections = selections
     return this.answer('getBetCalculation', betCalculationFixture)
   }
   getBetFee() {
@@ -92,6 +96,13 @@ class FakeGateway implements AzuroGateway {
   submitBet(params: unknown) {
     this.lastSubmit = params
     return this.answer('submitBet', { id: 'order-1', state: 'Created' })
+  }
+
+  lastComboSubmit: unknown = null
+
+  submitComboBet(params: unknown) {
+    this.lastComboSubmit = params
+    return this.answer('submitComboBet', { id: 'combo-1', state: 'Created' })
   }
 }
 
@@ -114,6 +125,12 @@ class FakeWallet implements AzuroWalletBridge {
     if (this.signError !== null) throw this.signError
     this.signedTypedData = typedData
     return '0xfirma'
+  }
+  signedComboTypedData: ComboBetTypedData | null = null
+  async signComboBetTypedData(typedData: ComboBetTypedData): Promise<Hex> {
+    if (this.signError !== null) throw this.signError
+    this.signedComboTypedData = typedData
+    return '0xfirmacombo'
   }
   async withdrawPayout(lp: Address, core: Address, tokenId: bigint): Promise<Hex> {
     if (this.withdrawError !== null) throw this.withdrawError
@@ -173,6 +190,7 @@ describe('capacidades', () => {
       canListSubcategories: true,
       canRedeem: true,
       canRankPopular: true,
+      canCombo: true,
     })
 
     const sinAfiliado = makeAdapter({ config: makeAzuroConfig(137, null) })
@@ -493,12 +511,14 @@ describe('getPositions', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
 
-    // 5 órdenes en el fixture: combo y rechazada fuera.
-    expect(result.data.length).toBe(3)
+    // 5 órdenes en el fixture: solo la rechazada queda fuera (la combinada
+    // se mapea como una posición).
+    expect(result.data.length).toBe(4)
     expect(result.data.map((p) => p.status)).toEqual([
       'open',
       'redeemable',
       'lost',
+      'open',
     ])
     expect(result.data[0].marketQuestion).toContain('Sebastian Heinrich')
   })
@@ -650,5 +670,116 @@ describe('listMarkets por popularidad (Destacados)', () => {
     const result = await adapter.listMarkets({})
     expect(result.ok).toBe(true)
     expect(gateway.lastListGamesParams?.orderByTurnover).toBe(false)
+  })
+})
+
+describe('combinadas', () => {
+  const SECOND_CONDITION_ID = '300610060000000000306992750000000000009999999999'
+  const SECOND_MARKET_ID = `azuro:${makeNativeId(STOPPED_GAME_ID, SECOND_CONDITION_ID)}`
+  const SELECTIONS = [
+    { marketId: ACTIVE_MARKET_ID, outcomeId: '405' },
+    { marketId: SECOND_MARKET_ID, outcomeId: '405' },
+  ]
+
+  /** Dos condiciones activas: la real del fixture y un clon en otro partido. */
+  function withTwoActiveConditions(gateway: FakeGateway) {
+    const base = activeConditionState[0] as Record<string, unknown>
+    gateway.responses.getConditionsState = [
+      base,
+      { ...base, conditionId: SECOND_CONDITION_ID },
+    ]
+  }
+
+  it('cotiza el producto de las cuotas y valida contra el protocolo', async () => {
+    const { adapter, gateway } = makeAdapter()
+    withTwoActiveConditions(gateway)
+
+    const result = await adapter.getComboQuote(SELECTIONS, toDecimal('10'))
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    // La cuota de la pata sale del estado fresco; la total es el producto.
+    const legOdds = Number(
+      (activeConditionState[0].outcomes as { outcomeId: string; odds: string }[])
+        .find((o) => o.outcomeId === '405')!.odds,
+    )
+    expect(Number(result.data.totalOdds)).toBeCloseTo(legOdds * legOdds, 6)
+    expect(Number(result.data.expectedPayout)).toBeCloseTo(10 * legOdds * legOdds, 4)
+    // Los límites se pidieron para la combinada completa, no por pata.
+    expect(gateway.lastCalcSelections).toHaveLength(2)
+  })
+
+  it('dos selecciones del mismo partido no son combinables', async () => {
+    const { adapter } = makeAdapter()
+    const result = await adapter.getComboQuote(
+      [
+        { marketId: ACTIVE_MARKET_ID, outcomeId: '405' },
+        {
+          marketId: `azuro:${makeNativeId(PREMATCH_GAME_ID, 'otra-condicion')}`,
+          outcomeId: '406',
+        },
+      ],
+      toDecimal('10'),
+    )
+    expect(!result.ok && result.error.kind).toBe('not_quotable')
+    expect(!result.ok && result.error.message).toContain('partidos distintos')
+  })
+
+  it('una sola selección no es una combinada', async () => {
+    const { adapter } = makeAdapter()
+    const result = await adapter.getComboQuote(
+      [{ marketId: ACTIVE_MARKET_ID, outcomeId: '405' }],
+      toDecimal('10'),
+    )
+    expect(!result.ok && result.error.kind).toBe('not_quotable')
+  })
+
+  it('coloca la combinada con una sola firma y todas las patas en la orden', async () => {
+    const wallet = new FakeWallet()
+    const { adapter, gateway } = makeAdapter({ wallet })
+    withTwoActiveConditions(gateway)
+
+    const quoted = await adapter.getComboQuote(SELECTIONS, toDecimal('10'))
+    expect(quoted.ok).toBe(true)
+    if (!quoted.ok) return
+
+    const placed = await adapter.placeComboBet(quoted.data, {
+      slippageTolerance: 0.05,
+      from: BETTOR,
+    })
+    expect(placed.ok).toBe(true)
+    if (!placed.ok) return
+
+    expect(placed.data.reference).toBe('combo-1')
+    expect(placed.data.status).toBe('pending') // state 'Created'
+    expect(placed.data.selections).toHaveLength(2)
+
+    // Una única firma combo, y la orden lleva las dos patas.
+    expect(wallet.signedComboTypedData).not.toBeNull()
+    const submit = gateway.lastComboSubmit as {
+      bets: unknown[]
+      minOdds: string
+    }
+    expect(submit.bets).toHaveLength(2)
+    // minOdds < cuota combinada (slippage aplicado sobre el producto).
+    const totalOddsUnits = Number(quoted.data.totalOdds) * 1e12
+    expect(Number(submit.minOdds)).toBeLessThan(totalOddsUnits)
+    expect(Number(submit.minOdds)).toBeGreaterThan(0)
+    // La allowance cubrió apuesta + tarifa con una aprobación.
+    expect(wallet.approvals).toHaveLength(1)
+  })
+
+  it('sin wallet no se puede colocar; la cotización sí funciona', async () => {
+    const { adapter, gateway } = makeAdapter()
+    withTwoActiveConditions(gateway)
+    const quoted = await adapter.getComboQuote(SELECTIONS, toDecimal('10'))
+    expect(quoted.ok).toBe(true)
+    if (!quoted.ok) return
+
+    const placed = await adapter.placeComboBet(quoted.data, {
+      slippageTolerance: 0.05,
+      from: BETTOR,
+    })
+    expect(!placed.ok && placed.error.kind).toBe('wallet')
   })
 })

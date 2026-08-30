@@ -291,13 +291,13 @@ describe('mapOrderToPosition', () => {
     expect(loadOrders().length).toBe(5)
   })
 
-  it('mapea abierta, ganada sin cobrar y perdida; salta combos y rechazadas', () => {
+  it('mapea abierta, ganada sin cobrar, perdida y combinada; salta rechazadas', () => {
     const positions = loadOrders()
       .map((order) => mapOrderToPosition(order, titles, VENUE))
       .filter((p) => p !== null)
 
-    // 5 órdenes: abierta + ganada + perdida; el combo y la rechazada se saltan.
-    expect(positions.length).toBe(3)
+    // 5 órdenes: abierta + ganada + perdida + combinada; la rechazada se salta.
+    expect(positions.length).toBe(4)
 
     const open = positions[0]
     expect(open.status).toBe('open')
@@ -313,6 +313,27 @@ describe('mapOrderToPosition', () => {
 
     const lost = positions[2]
     expect(lost.status).toBe('lost')
+  })
+
+  it('una COMBO se mapea como una posición con sus patas desnormalizadas', () => {
+    const combo = loadOrders()
+      .map((order) => mapOrderToPosition(order, titles, VENUE))
+      .find((p) => p !== null && p.outcomeId === 'combo')
+
+    expect(combo).toBeDefined()
+    if (combo == null) return
+    expect(combo.status).toBe('open')
+    expect(combo.stake).toBe('2')
+    expect(combo.potentialPayout).toBe('9') // 2 × cuota combinada 4.5
+    expect(combo.marketQuestion).toContain('Combinada · 2 selecciones')
+    // Las dos patas, unidas con "+" y con el partido entre paréntesis.
+    expect(combo.outcomeLabel).toContain(' + ')
+    expect(combo.outcomeLabel).toContain('Sebastian Heinrich')
+    // Cobrable con el mismo flujo que una simple: betId + core de la orden.
+    expect(combo.venueData).toEqual({
+      betId: 104,
+      core: '0x0223b3b0f01a1e69c9b1f8b6f8de71b6de5f1d8a',
+    })
   })
 
   it('una ganada ya cobrada pasa a redeemed', () => {

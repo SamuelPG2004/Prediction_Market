@@ -144,6 +144,7 @@ describe('capacidades', () => {
       canListSubcategories: false,
       canRedeem: false,
       canRankPopular: false,
+      canCombo: false,
     })
 
     const conAuth = makeAdapter()

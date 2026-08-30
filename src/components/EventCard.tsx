@@ -10,6 +10,7 @@ import {
 } from '../utils/eventGrouping';
 import { formatCompactNumber, formatEventDate } from '../utils/formatters';
 import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
+import { useBetSlip } from '../hooks/useBetSlip';
 
 /** Cuántas opciones se listan antes de resumir el resto. */
 const MAX_VISIBLE_OPTIONS = 4;
@@ -232,6 +233,7 @@ export const StarMarketRow: React.FC<{
   participants?: { name: string; imageUrl?: string }[];
   onPick: (outcomeId: string) => void;
 }> = ({ market, participants, onPick }) => {
+  const { isSelected } = useBetSlip();
   let outcomes = market.outcomes.slice(0, 3);
   const draw = outcomes.find((o) => isDrawOutcome(o.label));
   const byName = (name: string) =>
@@ -259,12 +261,23 @@ export const StarMarketRow: React.FC<{
     >
       {outcomes.map((o) => {
         const display = outcomeDisplay(o.price, o.probability, market.priceFormat);
+        const inSlip = isSelected(market.id, o.id);
         return (
           <button
             key={o.id}
             onClick={() => onPick(o.id)}
-            className="py-1.5 px-1 rounded-lg bg-emerald-500/[0.07] hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 transition-all active:scale-95 flex flex-col items-center min-w-0"
-            title={display.primary === null ? 'Sin cotización ahora mismo' : undefined}
+            className={`py-1.5 px-1 rounded-lg transition-all active:scale-95 flex flex-col items-center min-w-0 border ${
+              inSlip
+                ? 'bg-emerald-500/25 border-emerald-400 ring-1 ring-emerald-400/50'
+                : 'bg-emerald-500/[0.07] hover:bg-emerald-500/20 border-emerald-500/20 hover:border-emerald-500/40'
+            }`}
+            title={
+              display.primary === null
+                ? 'Sin cotización ahora mismo'
+                : inSlip
+                  ? 'En el boleto — clic para quitar'
+                  : 'Añadir al boleto'
+            }
           >
             <span className="text-[10px] text-neutral-400 truncate w-full text-center">
               {isDrawOutcome(o.label) ? 'Empate' : o.label}
@@ -478,8 +491,13 @@ const BinaryBody: React.FC<{
   market: Market;
   onPick: (m: Market, outcomeId?: string) => void;
 }> = ({ market, onPick }) => {
+  const { isSelected } = useBetSlip();
   const probability = market.outcomes[0]?.probability ?? null;
   const pct = probability === null ? null : Math.round(probability * 100);
+  const yesId = market.outcomes[0]?.id;
+  const noId = market.outcomes[1]?.id;
+  const yesInSlip = yesId !== undefined && isSelected(market.id, yesId);
+  const noInSlip = noId !== undefined && isSelected(market.id, noId);
 
   return (
     <div className="flex items-center gap-3">
@@ -504,14 +522,24 @@ const BinaryBody: React.FC<{
 
       <div className="flex-1 grid grid-cols-2 gap-2">
         <button
-          onClick={() => onPick(market, market.outcomes[0]?.id)}
-          className="py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-[11px] font-bold text-emerald-300 transition-all active:scale-95 truncate px-1"
+          onClick={() => onPick(market, yesId)}
+          className={`py-2 rounded-lg border text-[11px] font-bold text-emerald-300 transition-all active:scale-95 truncate px-1 ${
+            yesInSlip
+              ? 'bg-emerald-500/30 border-emerald-400 ring-1 ring-emerald-400/50'
+              : 'bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/25'
+          }`}
+          title={yesInSlip ? 'En el boleto — clic para quitar' : 'Añadir al boleto'}
         >
           {market.outcomes[0]?.label ?? 'Sí'}
         </button>
         <button
-          onClick={() => onPick(market, market.outcomes[1]?.id)}
-          className="py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-[11px] font-bold text-rose-300 transition-all active:scale-95 truncate px-1"
+          onClick={() => onPick(market, noId)}
+          className={`py-2 rounded-lg border text-[11px] font-bold text-rose-300 transition-all active:scale-95 truncate px-1 ${
+            noInSlip
+              ? 'bg-rose-500/30 border-rose-400 ring-1 ring-rose-400/50'
+              : 'bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/25'
+          }`}
+          title={noInSlip ? 'En el boleto — clic para quitar' : 'Añadir al boleto'}
         >
           {market.outcomes[1]?.label ?? 'No'}
         </button>

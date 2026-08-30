@@ -213,16 +213,18 @@ export function mapConditionToMarket(
 /**
  * Orden de apuesta → posición del dominio.
  *
- * Devuelve `null` para órdenes que no representan una posición del usuario:
- * combos (fuera del alcance de la Fase 2), órdenes rechazadas o canceladas
- * antes de aceptarse, o datos no representables.
+ * Las órdenes ORDINARY son una posición con su mercado; las COMBO se
+ * representan como UNA posición cuyo resultado es la lista de patas (todas
+ * deben acertar) — cobrarlas usa el mismo `withdrawPayout` con su `core`
+ * propio. Devuelve `null` para órdenes que no representan una posición:
+ * rechazadas o canceladas antes de aceptarse, o datos no representables.
  */
 export function mapOrderToPosition(
   order: RawBetOrder,
   gameTitleByGameId: ReadonlyMap<string, string>,
   venue: VenueId,
 ): Position | null {
-  if (order.betType !== 'ORDINARY') return null
+  if (order.betType !== 'ORDINARY' && order.betType !== 'COMBO') return null
   if (order.state === 'Rejected' || order.state === 'Canceled') return null
   const leg = order.conditions[0]
   if (leg === undefined) return null
@@ -256,26 +258,51 @@ export function mapOrderToPosition(
       break
   }
 
-  const gameTitle = gameTitleByGameId.get(leg.gameId)
-  let outcomeLabel: string
-  try {
-    outcomeLabel = getSelectionName({ outcomeId: leg.outcomeId, withPoint: true })
-  } catch {
-    outcomeLabel = `Resultado ${leg.outcomeId}`
+  const selectionNameOf = (outcomeId: string): string => {
+    try {
+      return getSelectionName({ outcomeId, withPoint: true })
+    } catch {
+      return `Resultado ${outcomeId}`
+    }
   }
-  let marketLabel: string
-  try {
-    marketLabel = getMarketName({ outcomeId: leg.outcomeId })
-  } catch {
-    marketLabel = 'Mercado'
+
+  let marketId: string
+  let outcomeId: string
+  let marketQuestion: string
+  let outcomeLabel: string
+  if (order.betType === 'COMBO') {
+    // Una combinada no vive en un mercado concreto: el id es sintético y las
+    // patas se desnormalizan en la etiqueta ("Equipo A + Más de 2.5 …").
+    marketId = makeMarketId(venue, `combo/${order.id}`)
+    outcomeId = 'combo'
+    marketQuestion = `Combinada · ${order.conditions.length} selecciones · cuota ${order.odds}`
+    outcomeLabel = order.conditions
+      .map((c) => {
+        const title = gameTitleByGameId.get(c.gameId)
+        const name = selectionNameOf(c.outcomeId)
+        return title !== undefined ? `${name} (${title})` : name
+      })
+      .join(' + ')
+  } else {
+    const gameTitle = gameTitleByGameId.get(leg.gameId)
+    let marketLabel: string
+    try {
+      marketLabel = getMarketName({ outcomeId: leg.outcomeId })
+    } catch {
+      marketLabel = 'Mercado'
+    }
+    marketId = makeMarketId(venue, makeNativeId(leg.gameId, leg.conditionId))
+    outcomeId = leg.outcomeId
+    marketQuestion =
+      gameTitle !== undefined ? `${gameTitle} · ${marketLabel}` : marketLabel
+    outcomeLabel = selectionNameOf(leg.outcomeId)
   }
 
   return {
     id: order.id,
-    marketId: makeMarketId(venue, makeNativeId(leg.gameId, leg.conditionId)),
-    outcomeId: leg.outcomeId,
-    marketQuestion:
-      gameTitle !== undefined ? `${gameTitle} · ${marketLabel}` : marketLabel,
+    marketId,
+    outcomeId,
+    marketQuestion,
     outcomeLabel,
     stake,
     potentialPayout,

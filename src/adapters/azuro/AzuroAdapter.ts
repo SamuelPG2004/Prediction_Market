@@ -14,6 +14,7 @@ import {
   ODDS_DECIMALS,
   calcMinOdds,
   getBetTypedData,
+  getComboBetTypedData,
 } from '@azuro-org/toolkit'
 import { isAddress, parseUnits, formatUnits, type Address, type Hex } from 'viem'
 import {
@@ -22,6 +23,9 @@ import {
   toDecimal,
   type BetOptions,
   type BetReceipt,
+  type ComboBetReceipt,
+  type ComboQuote,
+  type ComboSelection,
   type DecimalString,
   type Market,
   type MarketCategory,
@@ -72,6 +76,30 @@ interface AzuroQuoteData {
   outcomeId: string
   /** Cuota decimal al cotizar, p. ej. "1.85". Base del `minOdds` firmado. */
   odds: string
+}
+
+/** Contenido de `ComboQuote.venueData` para Azuro. Solo este adaptador lo lee. */
+interface AzuroComboQuoteData {
+  legs: { conditionId: string; outcomeId: string; odds: string }[]
+  /** Cuota combinada al cotizar (producto), base del `minOdds` firmado. */
+  totalOdds: string
+}
+
+function isAzuroComboQuoteData(u: unknown): u is AzuroComboQuoteData {
+  if (typeof u !== 'object' || u === null) return false
+  const record = u as Record<string, unknown>
+  return (
+    typeof record.totalOdds === 'string' &&
+    Array.isArray(record.legs) &&
+    record.legs.every(
+      (leg) =>
+        typeof leg === 'object' &&
+        leg !== null &&
+        typeof (leg as Record<string, unknown>).conditionId === 'string' &&
+        typeof (leg as Record<string, unknown>).outcomeId === 'string' &&
+        typeof (leg as Record<string, unknown>).odds === 'string',
+    )
+  )
 }
 
 /** Contenido de `Position.venueData` para Azuro. Solo este adaptador lo lee. */
@@ -137,6 +165,7 @@ export class AzuroAdapter implements MarketSource {
       canListSubcategories: true,
       canRedeem: true,
       canRankPopular: true,
+      canCombo: true,
     }
   }
 
@@ -418,7 +447,7 @@ export class AzuroAdapter implements MarketSource {
     let rawCalc: unknown
     try {
       rawCalc = await this.gateway.getBetCalculation(
-        { conditionId: ids.conditionId, outcomeId },
+        [{ conditionId: ids.conditionId, outcomeId }],
         undefined,
       )
     } catch (cause) {
@@ -480,6 +509,311 @@ export class AzuroAdapter implements MarketSource {
     const parsed = parseMarketId(marketId)
     if (parsed === null || parsed.venue !== this.venue) return null
     return parseNativeId(parsed.nativeId)
+  }
+
+  // --- Combinadas -----------------------------------------------------------------
+
+  async getComboQuote(
+    selections: ComboSelection[],
+    stake: DecimalString,
+  ): Promise<Result<ComboQuote>> {
+    if (selections.length < 2) {
+      return this.fail(
+        'not_quotable',
+        'Una combinada necesita al menos dos selecciones.',
+      )
+    }
+    const stakeNumber = Number(stake)
+    if (!Number.isFinite(stakeNumber) || stakeNumber <= 0) {
+      return this.fail('not_quotable', 'El importe de la apuesta debe ser mayor que cero.')
+    }
+
+    // Cada selección debe ser de este venue, y de PARTIDOS distintos: el
+    // protocolo no combina dos mercados del mismo juego.
+    const legs: { gameId: string; conditionId: string; outcomeId: string }[] = []
+    for (const s of selections) {
+      const ids = this.nativeIdsOf(s.marketId)
+      if (ids === null) {
+        return this.fail('not_found', 'Hay una selección que no es de Azuro.')
+      }
+      legs.push({ ...ids, outcomeId: s.outcomeId })
+    }
+    if (new Set(legs.map((l) => l.gameId)).size !== legs.length) {
+      return this.fail(
+        'not_quotable',
+        'Las selecciones de una combinada deben ser de partidos distintos.',
+      )
+    }
+    if (new Set(legs.map((l) => l.conditionId)).size !== legs.length) {
+      return this.fail(
+        'not_quotable',
+        'Hay dos selecciones del mismo mercado en la combinada.',
+      )
+    }
+
+    // Estado fresco de TODAS las condiciones: si una pata no cotiza, la
+    // combinada entera no cotiza.
+    let rawStates: unknown
+    try {
+      rawStates = await this.gateway.getConditionsState(
+        legs.map((l) => l.conditionId),
+      )
+    } catch (cause) {
+      return this.networkFail('la cotización de la combinada', cause)
+    }
+    const states = parseConditionStates(rawStates)
+    if (states === null) {
+      return this.invalidResponseFail('cotizar la combinada')
+    }
+
+    const quotedLegs: AzuroComboQuoteData['legs'] = []
+    for (const leg of legs) {
+      const condition = states.value.find((c) => c.conditionId === leg.conditionId)
+      if (condition === undefined) {
+        return this.fail('not_found', 'Una de las selecciones ya no existe en Azuro.')
+      }
+      if (condition.state !== 'Active') {
+        return this.fail(
+          'not_quotable',
+          'Una de las selecciones no acepta apuestas ahora mismo.',
+        )
+      }
+      const outcome = condition.outcomes.find((o) => o.outcomeId === leg.outcomeId)
+      const oddsNumber = outcome === undefined ? NaN : Number(outcome.odds)
+      if (
+        outcome === undefined ||
+        outcome.hidden ||
+        (outcome.state !== null && outcome.state !== 'Active') ||
+        !Number.isFinite(oddsNumber) ||
+        oddsNumber <= 1
+      ) {
+        return this.fail(
+          'not_quotable',
+          'Una de las selecciones no tiene cotización ahora mismo.',
+        )
+      }
+      quotedLegs.push({
+        conditionId: leg.conditionId,
+        outcomeId: leg.outcomeId,
+        odds: outcome.odds,
+      })
+    }
+
+    // Límites del protocolo para la combinada completa. Aquí es donde Azuro
+    // rechaza también las combinaciones vetadas (mercados no combinables).
+    let rawCalc: unknown
+    try {
+      rawCalc = await this.gateway.getBetCalculation(
+        quotedLegs.map((l) => ({
+          conditionId: l.conditionId,
+          outcomeId: l.outcomeId,
+        })),
+        undefined,
+      )
+    } catch (cause) {
+      return this.networkFail('los límites de la combinada', cause)
+    }
+    const calc = parseBetCalculation(rawCalc)
+    if (calc === null) {
+      return this.invalidResponseFail('calcular los límites de la combinada')
+    }
+    if (calc.minBet !== null && stakeNumber < calc.minBet) {
+      return this.fail(
+        'not_quotable',
+        `La apuesta mínima para esta combinada es ${calc.minBet} ${this.config.betToken.symbol}.`,
+      )
+    }
+    if (stakeNumber > calc.maxBet) {
+      return this.fail(
+        'not_quotable',
+        `La apuesta máxima para esta combinada es ${calc.maxBet} ${this.config.betToken.symbol}.`,
+      )
+    }
+
+    // Cuota total y pago con aritmética entera: producto de cuotas escaladas
+    // a 12 decimales, sin coma flotante.
+    const { decimals } = this.config.betToken
+    const oddsScale = 10n ** BigInt(ODDS_DECIMALS)
+    let totalOdds: DecimalString
+    let expectedPayout: DecimalString
+    try {
+      let totalOddsUnits = oddsScale
+      for (const leg of quotedLegs) {
+        totalOddsUnits =
+          (totalOddsUnits * parseUnits(leg.odds, ODDS_DECIMALS)) / oddsScale
+      }
+      totalOdds = toDecimal(formatUnits(totalOddsUnits, ODDS_DECIMALS))
+      const stakeUnits = parseUnits(stake, decimals)
+      expectedPayout = toDecimal(
+        formatUnits((stakeUnits * totalOddsUnits) / oddsScale, decimals),
+      )
+    } catch (cause) {
+      return this.fail('unknown', 'No se pudo calcular el pago de la combinada.', cause)
+    }
+
+    const venueData: AzuroComboQuoteData = { legs: quotedLegs, totalOdds }
+    return {
+      ok: true,
+      data: {
+        selections,
+        stake,
+        totalOdds,
+        expectedPayout,
+        expiresAt: null,
+        venueData,
+      },
+    }
+  }
+
+  async placeComboBet(
+    quote: ComboQuote,
+    opts: BetOptions,
+  ): Promise<Result<ComboBetReceipt>> {
+    const affiliate = this.config.affiliate
+    if (affiliate === null) {
+      return this.fail(
+        'unsupported',
+        'Este despliegue no tiene configurada la dirección de afiliado de Azuro (VITE_AZURO_AFFILIATE_ADDRESS), así que no puede colocar apuestas.',
+      )
+    }
+    if (this.wallet === null) {
+      return this.fail('wallet', 'Conecta una wallet para apostar.')
+    }
+    if (!isAddress(opts.from)) {
+      return this.fail('wallet', 'La dirección de la wallet no es válida.')
+    }
+    if (!isAzuroComboQuoteData(quote.venueData)) {
+      return this.fail(
+        'invalid_response',
+        'La cotización no contiene los datos de Azuro. Vuelve a cotizar antes de apostar.',
+      )
+    }
+    if (
+      opts.slippageTolerance < 0 ||
+      opts.slippageTolerance >= 1 ||
+      !Number.isFinite(opts.slippageTolerance)
+    ) {
+      return this.fail('unknown', 'La tolerancia de slippage debe estar entre 0 y 1.')
+    }
+    const { legs, totalOdds } = quote.venueData
+
+    let rawFee: unknown
+    try {
+      rawFee = await this.gateway.getBetFee()
+    } catch (cause) {
+      return this.networkFail('la tarifa del relayer', cause)
+    }
+    const fee = parseBetFee(rawFee)
+    if (fee === null) {
+      return this.invalidResponseFail('obtener la tarifa del relayer')
+    }
+
+    const { decimals, address: tokenAddress } = this.config.betToken
+    let amount: bigint
+    try {
+      amount = parseUnits(quote.stake, decimals)
+    } catch (cause) {
+      return this.fail('unknown', 'El importe de la apuesta no es válido.', cause)
+    }
+    if (amount <= 0n) {
+      return this.fail('not_quotable', 'El importe de la apuesta debe ser mayor que cero.')
+    }
+
+    try {
+      const required = amount + BigInt(fee.relayerFeeAmount)
+      const current = await this.wallet.readAllowance(
+        tokenAddress,
+        opts.from,
+        this.config.relayerAddress,
+      )
+      if (current < required) {
+        await this.wallet.approve(tokenAddress, this.config.relayerAddress, required)
+      }
+    } catch (cause) {
+      return this.walletFail('No se pudo aprobar el gasto del token de apuesta.', cause)
+    }
+
+    // La cuota mínima aceptada se aplica sobre la cuota COMBINADA: el
+    // slippage tolera el movimiento del producto, no de cada pata.
+    const totalOddsNumber = Number(totalOdds)
+    if (!Number.isFinite(totalOddsNumber) || totalOddsNumber <= 1) {
+      return this.fail('not_quotable', 'La cotización ya no es válida. Vuelve a cotizar.')
+    }
+    const minOdds = parseUnits(
+      calcMinOdds({ odds: totalOddsNumber, slippage: opts.slippageTolerance * 100 }),
+      ODDS_DECIMALS,
+    )
+
+    const nowMs = this.now()
+    const clientData = {
+      attention: '',
+      affiliate,
+      core: this.config.coreAddress,
+      expiresAt: Math.floor((nowMs + (opts.deadlineMs ?? DEFAULT_BET_DEADLINE_MS)) / 1000),
+      chainId: this.config.chainId,
+      relayerFeeAmount: fee.relayerFeeAmount,
+      isFeeSponsored: false,
+      isBetSponsored: false,
+      isSponsoredBetReturnable: false,
+    }
+    const bets = legs.map((leg) => ({
+      conditionId: leg.conditionId,
+      outcomeId: leg.outcomeId,
+    }))
+
+    let signature: Hex
+    try {
+      signature = await this.wallet.signComboBetTypedData(
+        getComboBetTypedData({
+          account: opts.from as Address,
+          clientData,
+          bets,
+          amount: String(amount),
+          minOdds: String(minOdds),
+          nonce: String(nowMs),
+        }),
+      )
+    } catch (cause) {
+      return this.walletFail('No se pudo firmar la combinada.', cause)
+    }
+
+    let rawResponse: unknown
+    try {
+      rawResponse = await this.gateway.submitComboBet({
+        account: opts.from as Address,
+        clientData,
+        bets,
+        amount: String(amount),
+        minOdds: String(minOdds),
+        nonce: String(nowMs),
+        signature,
+      })
+    } catch (cause) {
+      return this.networkFail('el envío de la combinada', cause)
+    }
+    const response = parseCreateBetResponse(rawResponse)
+    if (response === null) {
+      return this.invalidResponseFail('enviar la combinada')
+    }
+    if (response.state === 'Rejected' || response.state === 'Canceled') {
+      return this.fail(
+        'not_quotable',
+        response.errorMessage ??
+          'Azuro rechazó la combinada. Vuelve a cotizar e inténtalo de nuevo.',
+      )
+    }
+
+    return {
+      ok: true,
+      data: {
+        selections: quote.selections,
+        stake: quote.stake,
+        reference: response.id,
+        explorerUrl: null,
+        placedAt: new Date(nowMs),
+        status: response.state === 'Accepted' ? 'confirmed' : 'pending',
+      },
+    }
   }
 
   // --- Colocación ----------------------------------------------------------------
