@@ -40,6 +40,99 @@ export function optionLabelOf(market: Market): string {
     : market.question
 }
 
+/**
+ * Mercados "principales" de un evento, por orden de preferencia: el ganador
+ * del partido es lo primero que busca quien mira un evento deportivo.
+ */
+export const PREFERRED_MARKET_LABELS: RegExp[] = [
+  /^full time result$/i,
+  /^match winner$/i,
+  /^1x2$/i,
+  /^winner$/i,
+  /^money ?line$/i,
+]
+
+function labelRankOf(label: string): number {
+  const i = PREFERRED_MARKET_LABELS.findIndex((p) => p.test(label))
+  return i === -1 ? PREFERRED_MARKET_LABELS.length : i
+}
+
+/**
+ * Línea numérica del mercado, si sus resultados la llevan entre paréntesis:
+ * "Over (17.5)" → 17.5, "Lan Mi (-7)" → -7. `null` si no hay línea.
+ */
+export function marketLineOf(market: Market): number | null {
+  for (const o of market.outcomes) {
+    const m = o.label.match(/\((-?\d+(?:\.\d+)?)\)/)
+    if (m !== null) return Number(m[1])
+  }
+  return null
+}
+
+/**
+ * Etiqueta que distingue una línea dentro de su grupo: el número solo en
+ * totales simétricos ("17.5", el lado ya lo dan los botones Over/Under); en
+ * hándicaps el número es ambiguo —no dice de quién es— así que se usa el
+ * primer resultado completo ("Hanlei Lu (-1.5)").
+ */
+export function marketVariantLabelOf(market: Market): string {
+  const [a, b] = market.outcomes
+  const overUnder = /^(over|under)\s*\(/i
+  if (
+    market.outcomes.length === 2 &&
+    a !== undefined &&
+    b !== undefined &&
+    overUnder.test(a.label) &&
+    overUnder.test(b.label)
+  ) {
+    const line = marketLineOf(market)
+    if (line !== null) return String(line)
+  }
+  return a?.label ?? '—'
+}
+
+export interface MarketDisplayGroup {
+  /** Título compartido ("Total Games"); cada mercado del grupo es una línea. */
+  label: string
+  markets: Market[]
+}
+
+/**
+ * Ordena los mercados de un evento para mostrarlos: agrupados por título, con
+ * el ganador del partido primero y el resto alfabético; dentro de un grupo,
+ * las líneas de menor a mayor. Sin esto, un evento con 30 mercados es una
+ * lista donde "Total Games" aparece diez veces seguidas en orden aleatorio.
+ */
+export function groupMarketsForDisplay(markets: Market[]): MarketDisplayGroup[] {
+  const byLabel = new Map<string, Market[]>()
+  for (const m of markets) {
+    const label = optionLabelOf(m)
+    const list = byLabel.get(label)
+    if (list === undefined) byLabel.set(label, [m])
+    else list.push(m)
+  }
+
+  const groups = [...byLabel.entries()].map(([label, ms]) => ({
+    label,
+    markets: [...ms].sort((a, b) => {
+      const la = marketLineOf(a)
+      const lb = marketLineOf(b)
+      if (la === null && lb === null) return 0
+      if (la === null) return 1
+      if (lb === null) return -1
+      return la - lb
+    }),
+  }))
+
+  groups.sort((a, b) => {
+    const ra = labelRankOf(a.label)
+    const rb = labelRankOf(b.label)
+    if (ra !== rb) return ra - rb
+    return a.label.localeCompare(b.label, 'es')
+  })
+  return groups
+}
+
 function sumOrNull(values: (number | null)[]): number | null {
   const known = values.filter((v): v is number => v !== null)
   if (known.length === 0) return null

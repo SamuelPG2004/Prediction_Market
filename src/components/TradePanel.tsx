@@ -20,7 +20,12 @@ import { marketSources } from '../services/marketSources';
 import { useWallet } from '../services/web3Service';
 import { useVenueBalances } from '../hooks/useVenueBalances';
 import { chainLabel } from '../config/chains';
-import { optionLabelOf, type MarketEventView } from '../utils/eventGrouping';
+import {
+  groupMarketsForDisplay,
+  marketVariantLabelOf,
+  optionLabelOf,
+  type MarketEventView,
+} from '../utils/eventGrouping';
 import { formatCurrency } from '../utils/formatters';
 
 interface TradePanelProps {
@@ -51,6 +56,45 @@ type PlaceState =
   | { status: 'done'; receipt: BetReceipt }
   | { status: 'error'; error: VenueError };
 
+/** Botón del selector de mercado: etiqueta + cotización de un vistazo. */
+const MarketPickButton: React.FC<{
+  label: string;
+  quote: string;
+  active: boolean;
+  onClick: () => void;
+  fullWidth?: boolean;
+}> = ({ label, quote, active, onClick, fullWidth = false }) => (
+  <button
+    onClick={onClick}
+    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+      fullWidth ? 'w-full justify-between text-left' : 'shrink-0'
+    } ${
+      active
+        ? 'bg-neutral-100 text-neutral-900'
+        : 'bg-[#12151d] text-neutral-400 border border-neutral-800 hover:text-neutral-200'
+    }`}
+  >
+    <span className="truncate max-w-[220px]">{label}</span>
+    <span className={`font-mono ${active ? 'text-neutral-600' : 'text-neutral-500'}`}>
+      {quote}
+    </span>
+  </button>
+);
+
+/**
+ * Cotización de un vistazo para el selector: cuota decimal en venues de
+ * cuotas, % en el resto. Sin precio: raya, nunca 0.
+ */
+function firstQuoteOf(m: Market): string {
+  const o = m.outcomes[0];
+  if (o === undefined) return '—';
+  if (m.priceFormat === 'decimal-odds' && o.price !== null) {
+    return Number(o.price).toFixed(2);
+  }
+  return o.probability === null ? '—' : `${Math.round(o.probability * 100)}%`;
+}
+
+
 /**
  * Operativa real contra el puerto del dominio: cotización ejecutable
  * (`getQuote`) y colocación de la apuesta (`placeBet`). Este componente no
@@ -80,6 +124,11 @@ export const TradePanel: React.FC<TradePanelProps> = ({
   const source = marketSources.sourceFor(market.id);
   const venueToken = balances.find((b) => b.venue === market.venue) ?? null;
   const outcome = market.outcomes.find((o) => o.id === outcomeId) ?? null;
+
+  const marketGroups = useMemo(
+    () => groupMarketsForDisplay(event.markets),
+    [event.markets],
+  );
 
   // Al cambiar de opción dentro del evento, se reinicia la selección.
   useEffect(() => {
@@ -216,36 +265,48 @@ export const TradePanel: React.FC<TradePanelProps> = ({
           </button>
         </div>
 
-        {/* Selector de opción, solo si el evento tiene varias */}
+        {/* Selector de mercado, solo si el evento tiene varios. Agrupado por
+            tipo (Total Games, Handicap…) con las líneas ordenadas: 30 chips
+            iguales en una fila no se pueden recorrer. */}
         {event.markets.length > 1 && (
           <div className="px-5 py-3 border-b border-neutral-800 bg-[#0d1017]">
             <p className="text-[10px] uppercase font-mono text-neutral-600 tracking-wider mb-2">
-              Opción del evento ({event.markets.length})
+              Mercados del evento ({event.markets.length})
             </p>
-            <div className="flex gap-1.5 overflow-x-auto pb-1">
-              {event.markets.map((m) => {
-                const active = m.id === market.id;
-                const p = m.outcomes[0]?.probability ?? null;
-                const pct = p === null ? null : Math.round(p * 100);
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => setMarket(m)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 ${
-                      active
-                        ? 'bg-neutral-100 text-neutral-900'
-                        : 'bg-[#12151d] text-neutral-400 border border-neutral-800 hover:text-neutral-200'
-                    }`}
-                  >
-                    <span className="max-w-[160px] truncate">{optionLabelOf(m)}</span>
-                    <span
-                      className={`font-mono ${active ? 'text-neutral-600' : 'text-neutral-500'}`}
-                    >
-                      {pct === null ? '—' : `${pct}%`}
-                    </span>
-                  </button>
-                );
-              })}
+            <div className="max-h-56 overflow-y-auto flex flex-col gap-2.5 pr-1">
+              {marketGroups.map((g) =>
+                g.markets.length === 1 ? (
+                  <MarketPickButton
+                    key={g.markets[0].id}
+                    label={g.label}
+                    quote={firstQuoteOf(g.markets[0])}
+                    active={g.markets[0].id === market.id}
+                    onClick={() => setMarket(g.markets[0])}
+                    fullWidth
+                  />
+                ) : (
+                  <div key={g.label} className="flex flex-col gap-1">
+                    <p className="text-[10px] font-mono text-neutral-500">
+                      {g.label}
+                      <span className="text-neutral-700">
+                        {' '}
+                        · {g.markets.length} líneas
+                      </span>
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {g.markets.map((m) => (
+                        <MarketPickButton
+                          key={m.id}
+                          label={marketVariantLabelOf(m)}
+                          quote={firstQuoteOf(m)}
+                          active={m.id === market.id}
+                          onClick={() => setMarket(m)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ),
+              )}
             </div>
           </div>
         )}

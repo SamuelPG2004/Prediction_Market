@@ -1,25 +1,18 @@
 import React, { useState } from 'react';
 import { Activity, Droplets } from 'lucide-react';
 import type { Market } from '../domain/types';
-import { optionLabelOf, type MarketEventView } from '../utils/eventGrouping';
+import {
+  groupMarketsForDisplay,
+  marketVariantLabelOf,
+  optionLabelOf,
+  PREFERRED_MARKET_LABELS,
+  type MarketEventView,
+} from '../utils/eventGrouping';
 import { formatCompactNumber, formatEventDate } from '../utils/formatters';
 import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
 
 /** Cuántas opciones se listan antes de resumir el resto. */
 const MAX_VISIBLE_OPTIONS = 4;
-
-/**
- * Mercados "estrella" de un enfrentamiento, por orden de preferencia: el
- * ganador del partido es lo primero que busca quien mira la tarjeta. El resto
- * de mercados (hándicaps, totales…) se opera desde el panel.
- */
-const STAR_MARKET_PATTERNS = [
-  /^full time result$/i,
-  /^match winner$/i,
-  /^1x2$/i,
-  /^winner$/i,
-  /^money ?line$/i,
-];
 
 interface EventCardProps {
   event: MarketEventView;
@@ -51,10 +44,17 @@ export const EventCard: React.FC<EventCardProps> = ({
 }) => {
   const isMatchup = event.participants !== undefined && event.participants.length === 2;
 
-  /** Clic en la cabecera: abre el panel en el primer mercado cotizable. */
+  /**
+   * Clic en la cabecera o en "Ver los N mercados": abre el panel en el mercado
+   * estrella si cotiza (llegar a un partido por "Ver los 26 mercados" y caer
+   * en un hándicap cualquiera desorienta), o en el primer cotizable.
+   */
   const openEvent = () => {
+    const star = findStarMarket(event.markets);
     const target =
-      event.markets.find((m) => m.isQuotable) ?? event.markets[0];
+      (star !== null && star.isQuotable ? star : undefined) ??
+      event.markets.find((m) => m.isQuotable) ??
+      event.markets[0];
     if (target !== undefined) onSelectMarket(event, target);
   };
 
@@ -107,7 +107,7 @@ export const EventCard: React.FC<EventCardProps> = ({
 /** El mercado ganador del partido, si el evento lo tiene y cotiza. */
 function findStarMarket(markets: Market[]): Market | null {
   if (markets.length === 1) return markets[0];
-  for (const pattern of STAR_MARKET_PATTERNS) {
+  for (const pattern of PREFERRED_MARKET_LABELS) {
     const candidates = markets.filter((m) => pattern.test(optionLabelOf(m)));
     const best = candidates.find((m) => m.isQuotable) ?? candidates[0];
     if (best !== undefined) return best;
@@ -335,22 +335,38 @@ const GenericBody: React.FC<{
   </>
 );
 
-/** Lista de opciones con expandir/plegar, común a varias presentaciones. */
+/**
+ * Lista de opciones con expandir/plegar, común a varias presentaciones.
+ * Ordenada por grupos (ganador primero, líneas de menor a mayor) y con la
+ * línea en la etiqueta cuando el título se repite: tres "Total Games" seguidos
+ * sin más contexto no se pueden distinguir.
+ */
 const OptionList: React.FC<{
   event: MarketEventView;
   onSelectMarket: (event: MarketEventView, market: Market) => void;
 }> = ({ event, onSelectMarket }) => {
   const [expanded, setExpanded] = useState(false);
 
-  const visibleMarkets = expanded
-    ? event.markets
-    : event.markets.slice(0, MAX_VISIBLE_OPTIONS);
-  const hiddenCount = event.markets.length - visibleMarkets.length;
+  const rows = groupMarketsForDisplay(event.markets).flatMap((g) =>
+    g.markets.map((m) =>
+      g.markets.length === 1
+        ? { market: m, label: g.label }
+        : { market: m, label: `${g.label} · ${marketVariantLabelOf(m)}` },
+    ),
+  );
+
+  const visibleRows = expanded ? rows : rows.slice(0, MAX_VISIBLE_OPTIONS);
+  const hiddenCount = rows.length - visibleRows.length;
 
   return (
     <div className="flex flex-col gap-1">
-      {visibleMarkets.map((m) => (
-        <OptionRow key={m.id} market={m} onPick={() => onSelectMarket(event, m)} />
+      {visibleRows.map((r) => (
+        <OptionRow
+          key={r.market.id}
+          market={r.market}
+          label={r.label}
+          onPick={() => onSelectMarket(event, r.market)}
+        />
       ))}
 
       {hiddenCount > 0 && (
@@ -512,8 +528,10 @@ const BinaryBody: React.FC<{
  */
 const OptionRow: React.FC<{
   market: Market;
+  /** Etiqueta ya desambiguada por la lista; sin ella, la del mercado. */
+  label?: string;
   onPick: () => void;
-}> = ({ market, onPick }) => {
+}> = ({ market, label, onPick }) => {
   const outcome = market.outcomes[0];
   const probability = outcome?.probability ?? null;
   const pct = probability === null ? null : Math.round(probability * 100);
@@ -529,7 +547,7 @@ const OptionRow: React.FC<{
       className="w-full flex items-center gap-2.5 py-1.5 px-2 -mx-2 rounded-lg hover:bg-neutral-800/50 transition-colors text-left"
     >
       <span className="flex-1 text-[11.5px] text-neutral-300 truncate">
-        {optionLabelOf(market)}
+        {label ?? optionLabelOf(market)}
       </span>
 
       {/* Barra de probabilidad, compacta. Sin precio no se dibuja. */}
