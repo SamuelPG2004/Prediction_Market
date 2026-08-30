@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ExternalLink,
   CheckCircle2,
+  ReceiptText,
   Wallet,
   RefreshCw,
 } from 'lucide-react';
@@ -27,6 +28,7 @@ import {
   type MarketEventView,
 } from '../utils/eventGrouping';
 import { formatCurrency } from '../utils/formatters';
+import { toggleSelection, useBetSlip } from '../hooks/useBetSlip';
 
 interface TradePanelProps {
   /** Evento al que pertenece el mercado, para dar contexto y cambiar de opción. */
@@ -133,6 +135,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
 
   const wallet = useWallet();
   const { balances } = useVenueBalances();
+  const { isSelected } = useBetSlip();
 
   const source = marketSources.sourceFor(market.id);
   const venueToken = balances.find((b) => b.venue === market.venue) ?? null;
@@ -359,6 +362,26 @@ export const TradePanel: React.FC<TradePanelProps> = ({
               </button>
             ))}
           </div>
+
+          {/* Al boleto: acumula esta selección para apostarla en tanda o en
+              combinada, sin salir del panel (se puede seguir añadiendo). */}
+          {outcome !== null && (
+            <button
+              onClick={() => toggleSelection(event.title, market, outcomeId)}
+              className={`w-full py-2 rounded-xl text-[11px] font-bold transition-all active:scale-98 flex items-center justify-center gap-1.5 border ${
+                isSelected(market.id, outcomeId)
+                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                  : 'bg-neutral-900 border-neutral-800 text-neutral-300 hover:border-neutral-700 hover:text-neutral-100'
+              }`}
+            >
+              <ReceiptText className="w-3.5 h-3.5" />
+              <span>
+                {isSelected(market.id, outcomeId)
+                  ? 'En el boleto — clic para quitar'
+                  : `Añadir al boleto (${outcome.label})`}
+              </span>
+            </button>
+          )}
 
           {/* Importe */}
           <div className="flex flex-col gap-1.5">
