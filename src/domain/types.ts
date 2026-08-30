@@ -126,6 +126,16 @@ export interface MarketGroup {
   id: string
   label: string
   imageUrl?: string
+  /**
+   * Participantes del evento (equipos, jugadores), en el orden que publica el
+   * venue. Solo presentación: la UI puede pintar un enfrentamiento "A vs B"
+   * cuando hay exactamente dos.
+   */
+  participants?: { name: string; imageUrl?: string }[]
+  /** Nombre de la competición (liga, torneo), si el venue lo aporta. */
+  leagueName?: string
+  /** El evento está en juego ahora mismo (partido en vivo). */
+  isLive?: boolean
 }
 
 export interface Market {

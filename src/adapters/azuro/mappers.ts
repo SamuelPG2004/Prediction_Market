@@ -173,6 +173,12 @@ export function mapConditionToMarket(
         : null
 
   const groupImage = game.participants[0]?.image ?? undefined
+  // Presentación del enfrentamiento: la tarjeta puede pintar "A vs B" con los
+  // escudos de ambos equipos, la liga y el estado en vivo.
+  const participants = game.participants.map((p) => ({
+    name: p.name,
+    ...(p.image !== null ? { imageUrl: p.image } : {}),
+  }))
 
   return {
     id: makeMarketId(venue, makeNativeId(game.gameId, condition.conditionId)),
@@ -194,6 +200,9 @@ export function mapConditionToMarket(
       id: game.gameId,
       label: game.title,
       ...(groupImage !== undefined ? { imageUrl: groupImage } : {}),
+      ...(participants.length > 0 ? { participants } : {}),
+      leagueName: game.league.name,
+      isLive: game.state === 'Live',
     },
     raw: { game, condition },
   }

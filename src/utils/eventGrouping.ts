@@ -21,6 +21,12 @@ export interface MarketEventView {
   /** Suma de las métricas conocidas, o `null` si ningún mercado las aporta. */
   liquidityUsd: number | null
   volume24hUsd: number | null
+  /** Participantes del grupo (equipos/jugadores), si el venue los publica. */
+  participants?: { name: string; imageUrl?: string }[]
+  /** Nombre de la competición, si el venue lo publica. */
+  leagueName?: string
+  /** El evento está en juego ahora mismo. */
+  isLive: boolean
 }
 
 /** Etiqueta corta de un mercado dentro de su tarjeta. */
@@ -59,6 +65,7 @@ export function groupMarketsIntoEvents(markets: Market[]): MarketEventView[] {
         isBinary: market.outcomes.length === 2,
         liquidityUsd: market.liquidityUsd,
         volume24hUsd: market.volume24hUsd,
+        isLive: false,
       })
       continue
     }
@@ -90,6 +97,13 @@ export function groupMarketsIntoEvents(markets: Market[]): MarketEventView[] {
       isBinary: market.outcomes.length === 2,
       liquidityUsd: market.liquidityUsd,
       volume24hUsd: market.volume24hUsd,
+      ...(market.group.participants !== undefined
+        ? { participants: market.group.participants }
+        : {}),
+      ...(market.group.leagueName !== undefined
+        ? { leagueName: market.group.leagueName }
+        : {}),
+      isLive: market.group.isLive === true,
     }
     byGroupId.set(key, view)
     events.push(view)

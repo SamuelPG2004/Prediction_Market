@@ -15,6 +15,7 @@ import type { MarketEventView } from '../utils/eventGrouping';
 import { EventCard } from './EventCard';
 import { TradePanel } from './TradePanel';
 import { formatCurrency } from '../utils/formatters';
+import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
 
 /** Tarjetas pintadas por tanda. Renderizar cientos de golpe satura el navegador. */
 const PAGE_SIZE = 24;
@@ -35,31 +36,6 @@ const TABS: { label: string; category?: MarketCategory }[] = [
   { label: 'Economía', category: 'economy' },
   { label: 'Política', category: 'politics' },
 ];
-
-/**
- * Nombres en español para las subcategorías conocidas; lo que no esté aquí se
- * muestra con el nombre que publica el venue. Solo presentación: el filtro
- * viaja siempre por `id`.
- */
-const SUBCATEGORY_LABELS_ES: Record<string, string> = {
-  football: 'Fútbol',
-  tennis: 'Tenis',
-  basketball: 'Baloncesto',
-  baseball: 'Béisbol',
-  'ice-hockey': 'Hockey hielo',
-  'american-football': 'Fútbol americano',
-  boxing: 'Boxeo',
-  mma: 'MMA',
-  volleyball: 'Voleibol',
-  'table-tennis': 'Tenis de mesa',
-  cricket: 'Críquet',
-  handball: 'Balonmano',
-  'rugby-union': 'Rugby',
-  'rugby-league': 'Rugby League',
-  cs2: 'CS2',
-  'dota-2': 'Dota 2',
-  lol: 'LoL',
-};
 
 interface MarketsViewProps {
   onConnectWallet: () => void;
@@ -224,7 +200,8 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
           {subcategories.map((s) => (
             <SubcategoryChip
               key={s.id}
-              label={SUBCATEGORY_LABELS_ES[s.id] ?? s.label}
+              label={subcategoryLabel(s.id, s.label)}
+              icon={subcategoryIcon(s.id)}
               count={s.activeCount}
               active={subcategory === s.id}
               onClick={() =>
@@ -278,11 +255,10 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
       )}
 
       {isLoading ? (
-        <div className="py-24 flex flex-col items-center gap-3">
-          <Loader2 className="w-7 h-7 text-emerald-400 animate-spin" />
-          <p className="text-xs text-neutral-500 font-mono">
-            Cargando {tab.label.toLowerCase()}…
-          </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+          {Array.from({ length: 6 }, (_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       ) : (
         <>
@@ -409,10 +385,11 @@ const SyncIndicator: React.FC<{
 
 const SubcategoryChip: React.FC<{
   label: string;
+  icon?: string | null;
   count?: number | null;
   active: boolean;
   onClick: () => void;
-}> = ({ label, count, active, onClick }) => (
+}> = ({ label, icon, count, active, onClick }) => (
   <button
     onClick={onClick}
     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 border ${
@@ -421,6 +398,7 @@ const SubcategoryChip: React.FC<{
         : 'bg-[#0f121a] text-neutral-500 border-neutral-800/80 hover:text-neutral-300 hover:border-neutral-700'
     }`}
   >
+    {icon != null && <span className="text-[13px] leading-none">{icon}</span>}
     <span>{label}</span>
     {count != null && (
       <span
@@ -430,6 +408,24 @@ const SubcategoryChip: React.FC<{
       </span>
     )}
   </button>
+);
+
+/** Silueta de tarjeta durante la carga: la parrilla no salta al llegar datos. */
+const SkeletonCard: React.FC = () => (
+  <div className="rounded-2xl bg-[#0d1017] border border-neutral-800/80 p-4 flex flex-col gap-3 animate-pulse">
+    <div className="flex items-start gap-3">
+      <div className="w-11 h-11 rounded-xl bg-neutral-800/80" />
+      <div className="flex-1 flex flex-col gap-2 pt-1">
+        <div className="h-3 rounded bg-neutral-800/80 w-4/5" />
+        <div className="h-2.5 rounded bg-neutral-800/60 w-2/5" />
+      </div>
+    </div>
+    <div className="grid grid-cols-2 gap-2">
+      <div className="h-9 rounded-lg bg-neutral-800/50" />
+      <div className="h-9 rounded-lg bg-neutral-800/50" />
+    </div>
+    <div className="h-2.5 rounded bg-neutral-800/40 w-3/5 mt-1" />
+  </div>
 );
 
 const Metric: React.FC<{

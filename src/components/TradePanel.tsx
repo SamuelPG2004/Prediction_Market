@@ -272,7 +272,9 @@ export const TradePanel: React.FC<TradePanelProps> = ({
                 <div className="font-mono text-[11px] mt-0.5 opacity-80">
                   {o.probability === null
                     ? 'sin cotización'
-                    : `${Math.round(o.probability * 100)}%`}
+                    : market.priceFormat === 'decimal-odds' && o.price !== null
+                      ? `${Number(o.price).toFixed(2)} · ${Math.round(o.probability * 100)}%`
+                      : `${Math.round(o.probability * 100)}%`}
                 </div>
               </button>
             ))}

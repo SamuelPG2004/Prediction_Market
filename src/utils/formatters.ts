@@ -27,6 +27,34 @@ export function formatPercent(value: number, includeSign: boolean = false): stri
   return formatted;
 }
 
+/**
+ * Fecha de un evento, en español y relativa cuando cae cerca:
+ * "Hoy 21:00", "Mañana 12:30", "sáb 30 ago · 21:00".
+ */
+export function formatEventDate(date: Date): string {
+  const time = date.toLocaleTimeString('es', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  const startOfDay = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dayDiff = Math.round(
+    (startOfDay(date) - startOfDay(new Date())) / (24 * 60 * 60 * 1000),
+  );
+
+  if (dayDiff === 0) return `Hoy ${time}`;
+  if (dayDiff === 1) return `Mañana ${time}`;
+
+  const day = date.toLocaleDateString('es', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+  return `${day} · ${time}`;
+}
+
 export function shortenAddress(address: string, chars: number = 4): string {
   if (!address) return '';
   if (address.length <= chars * 2 + 2) return address;
