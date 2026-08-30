@@ -19,6 +19,7 @@ function fakeSource(venue: string): MarketSource {
       canSearch: false,
       canListSubcategories: false,
       canRedeem: false,
+      canRankPopular: false,
     },
     listMarkets: unsupported,
     getMarket: unsupported,

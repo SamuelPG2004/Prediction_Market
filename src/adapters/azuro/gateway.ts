@@ -12,7 +12,9 @@
  * llega como número y `category` como null.)
  */
 import {
+  GameOrderBy,
   GameState,
+  OrderDirection,
   createBet,
   getBetCalculation,
   getBetFee,
@@ -41,6 +43,8 @@ export interface ListGamesParams {
   sportSlug?: string
   page: number
   perPage: number
+  /** Ordenar por volumen apostado descendente (lo más popular primero). */
+  orderByTurnover?: boolean
 }
 
 export interface SearchGamesParams {
@@ -106,13 +110,16 @@ const LP_WITHDRAW_PAYOUT_ABI = [
 export function createAzuroGateway(chainId: AzuroChainId): AzuroGateway {
   const id = chainId as ChainId
   return {
-    listGames: ({ sportSlug, page, perPage }) =>
+    listGames: ({ sportSlug, page, perPage, orderByTurnover }) =>
       getGamesByFilters({
         chainId: id,
         state: GameState.Prematch,
         sportSlug,
         page,
         perPage,
+        ...(orderByTurnover === true
+          ? { orderBy: GameOrderBy.Turnover, orderDir: OrderDirection.Desc }
+          : {}),
       }),
     searchGames: ({ query, page, perPage }) =>
       searchGames({ chainId: id, query, page, perPage }),

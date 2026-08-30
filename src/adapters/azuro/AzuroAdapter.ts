@@ -136,6 +136,7 @@ export class AzuroAdapter implements MarketSource {
       canSearch: true,
       canListSubcategories: true,
       canRedeem: true,
+      canRankPopular: true,
     }
   }
 
@@ -186,6 +187,8 @@ export class AzuroAdapter implements MarketSource {
       return this.fail('unknown', 'Cursor de paginación no reconocido.')
     }
 
+    const byPopularity = filter.orderBy === 'popularity'
+
     let rawPage: unknown
     try {
       rawPage =
@@ -199,6 +202,7 @@ export class AzuroAdapter implements MarketSource {
               sportSlug: filter.subcategory,
               page,
               perPage: GAMES_PER_PAGE,
+              orderByTurnover: byPopularity,
             })
     } catch (cause) {
       return this.networkFail('el listado de mercados', cause)
@@ -208,11 +212,32 @@ export class AzuroAdapter implements MarketSource {
     if (parsedPage === null) {
       return this.invalidResponseFail('listar mercados')
     }
-    const { games, totalPages } = parsedPage.value
+    const { totalPages } = parsedPage.value
+    // Por popularidad, las ligas top van delante conservando dentro de cada
+    // bloque el orden por turnover que ya trae la API. Los juegos ya vienen
+    // solo prematch (futuros): el estado lo fija la pasarela, no un filtro
+    // de fecha en cliente.
+    const games = byPopularity
+      ? [...parsedPage.value.games].sort(
+          (a, b) => Number(b.league.isTopLeague) - Number(a.league.isTopLeague),
+        )
+      : parsedPage.value.games
 
     let markets = await this.marketsForGames(games)
     if (markets === null) {
       return this.invalidResponseFail('listar mercados')
+    }
+
+    if (byPopularity) {
+      // El orden de los mercados sigue a la respuesta de condiciones, no a la
+      // de juegos: se reordena por el rango del juego para que la agrupación
+      // en eventos respete la popularidad.
+      const rank = new Map(games.map((g, i) => [g.gameId, i]))
+      markets = [...markets].sort(
+        (a, b) =>
+          (rank.get(a.group?.id ?? '') ?? Number.MAX_SAFE_INTEGER) -
+          (rank.get(b.group?.id ?? '') ?? Number.MAX_SAFE_INTEGER),
+      )
     }
 
     markets = markets.filter((market) => isListable(market, filter))

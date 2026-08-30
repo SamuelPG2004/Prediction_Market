@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { Activity, Droplets } from 'lucide-react';
 import type { Market } from '../domain/types';
 import {
+  findStarMarket,
   groupMarketsForDisplay,
   marketVariantLabelOf,
   optionLabelOf,
-  PREFERRED_MARKET_LABELS,
   type MarketEventView,
 } from '../utils/eventGrouping';
 import { formatCompactNumber, formatEventDate } from '../utils/formatters';
@@ -14,10 +14,19 @@ import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
 /** Cuántas opciones se listan antes de resumir el resto. */
 const MAX_VISIBLE_OPTIONS = 4;
 
+/**
+ * Abre el boleto de apuesta en un mercado concreto del evento; `outcomeId`
+ * preselecciona el resultado clicado (la cuota exacta que el usuario tocó).
+ */
+export type SelectMarketHandler = (
+  event: MarketEventView,
+  market: Market,
+  outcomeId?: string,
+) => void;
+
 interface EventCardProps {
   event: MarketEventView;
-  /** Abre el panel de operación en un mercado concreto del evento. */
-  onSelectMarket: (event: MarketEventView, market: Market) => void;
+  onSelectMarket: SelectMarketHandler;
   /**
    * Carga la imagen con prioridad. Se usa en las primeras tarjetas: con `lazy`
    * en todas, la parte visible aparece sin imágenes durante un instante.
@@ -104,22 +113,11 @@ export const EventCard: React.FC<EventCardProps> = ({
 // Presentación "enfrentamiento": escudos, liga y mercado estrella
 // ---------------------------------------------------------------------------
 
-/** El mercado ganador del partido, si el evento lo tiene y cotiza. */
-function findStarMarket(markets: Market[]): Market | null {
-  if (markets.length === 1) return markets[0];
-  for (const pattern of PREFERRED_MARKET_LABELS) {
-    const candidates = markets.filter((m) => pattern.test(optionLabelOf(m)));
-    const best = candidates.find((m) => m.isQuotable) ?? candidates[0];
-    if (best !== undefined) return best;
-  }
-  return null;
-}
-
 const MatchupBody: React.FC<{
   event: MarketEventView;
   eagerImage: boolean;
   onOpen: () => void;
-  onSelectMarket: (event: MarketEventView, market: Market) => void;
+  onSelectMarket: SelectMarketHandler;
 }> = ({ event, eagerImage, onOpen, onSelectMarket }) => {
   const [a, b] = event.participants!;
   const star = findStarMarket(event.markets);
@@ -154,7 +152,7 @@ const MatchupBody: React.FC<{
         <StarMarketRow
           market={star}
           participants={event.participants}
-          onPick={() => onSelectMarket(event, star)}
+          onPick={(outcomeId) => onSelectMarket(event, star, outcomeId)}
         />
       ) : (
         <OptionList event={event} onSelectMarket={onSelectMarket} />
@@ -222,16 +220,17 @@ function isDrawOutcome(label: string): boolean {
 
 /**
  * El mercado principal del enfrentamiento: un botón por resultado con la cuota
- * grande y la probabilidad pequeña. Sin cotización: raya, nunca 0%.
+ * grande y la probabilidad pequeña. Sin cotización: raya, nunca 0%. Cada botón
+ * entrega el `outcomeId` clicado para preseleccionarlo en el boleto.
  *
  * El orden de los botones sigue a la cabecera: local · (empate) · visitante,
  * casando cada resultado con su participante, aunque el venue publique otro
  * orden.
  */
-const StarMarketRow: React.FC<{
+export const StarMarketRow: React.FC<{
   market: Market;
   participants?: { name: string; imageUrl?: string }[];
-  onPick: () => void;
+  onPick: (outcomeId: string) => void;
 }> = ({ market, participants, onPick }) => {
   let outcomes = market.outcomes.slice(0, 3);
   const draw = outcomes.find((o) => isDrawOutcome(o.label));
@@ -263,7 +262,7 @@ const StarMarketRow: React.FC<{
         return (
           <button
             key={o.id}
-            onClick={onPick}
+            onClick={() => onPick(o.id)}
             className="py-1.5 px-1 rounded-lg bg-emerald-500/[0.07] hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 transition-all active:scale-95 flex flex-col items-center min-w-0"
             title={display.primary === null ? 'Sin cotización ahora mismo' : undefined}
           >
@@ -298,7 +297,7 @@ const GenericBody: React.FC<{
   event: MarketEventView;
   eagerImage: boolean;
   onOpen: () => void;
-  onSelectMarket: (event: MarketEventView, market: Market) => void;
+  onSelectMarket: SelectMarketHandler;
 }> = ({ event, eagerImage, onOpen, onSelectMarket }) => (
   <>
     {/* Cabecera: imagen + título. Clicable: abre el panel de operación. */}
@@ -327,7 +326,7 @@ const GenericBody: React.FC<{
     {event.isBinary ? (
       <BinaryBody
         market={event.markets[0]}
-        onPick={(m) => onSelectMarket(event, m)}
+        onPick={(m, outcomeId) => onSelectMarket(event, m, outcomeId)}
       />
     ) : (
       <OptionList event={event} onSelectMarket={onSelectMarket} />
@@ -343,7 +342,7 @@ const GenericBody: React.FC<{
  */
 const OptionList: React.FC<{
   event: MarketEventView;
-  onSelectMarket: (event: MarketEventView, market: Market) => void;
+  onSelectMarket: SelectMarketHandler;
 }> = ({ event, onSelectMarket }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -477,7 +476,7 @@ const EventImage: React.FC<{ event: MarketEventView; eager?: boolean }> = ({
 /** Evento binario: probabilidad grande y un botón por resultado. */
 const BinaryBody: React.FC<{
   market: Market;
-  onPick: (m: Market) => void;
+  onPick: (m: Market, outcomeId?: string) => void;
 }> = ({ market, onPick }) => {
   const probability = market.outcomes[0]?.probability ?? null;
   const pct = probability === null ? null : Math.round(probability * 100);
@@ -505,13 +504,13 @@ const BinaryBody: React.FC<{
 
       <div className="flex-1 grid grid-cols-2 gap-2">
         <button
-          onClick={() => onPick(market)}
+          onClick={() => onPick(market, market.outcomes[0]?.id)}
           className="py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-[11px] font-bold text-emerald-300 transition-all active:scale-95 truncate px-1"
         >
           {market.outcomes[0]?.label ?? 'Sí'}
         </button>
         <button
-          onClick={() => onPick(market)}
+          onClick={() => onPick(market, market.outcomes[1]?.id)}
           className="py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-[11px] font-bold text-rose-300 transition-all active:scale-95 truncate px-1"
         >
           {market.outcomes[1]?.label ?? 'No'}

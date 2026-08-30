@@ -366,6 +366,13 @@ export interface MarketFilter {
   limit?: number
   /** Cursor opaco de paginación. Cada venue define su forma. */
   cursor?: string
+  /**
+   * Orden del listado. `'popularity'` pide lo más apostado primero; cada venue
+   * lo traduce a su métrica nativa (turnover en Azuro). Solo lo honran los
+   * venues con `canRankPopular`; consultar a los demás con este orden es un
+   * error del llamante, no del venue.
+   */
+  orderBy?: 'popularity'
 }
 
 export interface MarketPage {
@@ -401,6 +408,8 @@ export interface VenueCapabilities {
   canListSubcategories: boolean
   /** Cobrar posiciones ganadoras/canceladas ('redeemable'). */
   canRedeem: boolean
+  /** Listar ordenado por popularidad (`MarketFilter.orderBy: 'popularity'`). */
+  canRankPopular: boolean
 }
 
 /**

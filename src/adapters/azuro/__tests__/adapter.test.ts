@@ -7,7 +7,12 @@ import type { Address, Hex } from 'viem'
 import { toDecimal, type Quote } from '../../../domain/types.ts'
 import { AzuroAdapter } from '../AzuroAdapter.ts'
 import { makeAzuroConfig, type AzuroConfig } from '../config.ts'
-import type { AzuroGateway, AzuroWalletBridge, BetTypedData } from '../gateway.ts'
+import type {
+  AzuroGateway,
+  AzuroWalletBridge,
+  BetTypedData,
+  ListGamesParams,
+} from '../gateway.ts'
 import { makeNativeId } from '../mappers.ts'
 import betCalculationFixture from './fixtures/bet-calculation.json'
 import betFeeFixture from './fixtures/bet-fee.json'
@@ -54,7 +59,10 @@ class FakeGateway implements AzuroGateway {
     )
   }
 
-  listGames() {
+  lastListGamesParams: ListGamesParams | null = null
+
+  listGames(params: ListGamesParams) {
+    this.lastListGamesParams = params
     return this.answer('listGames', gamesFixture)
   }
   searchGames() {
@@ -164,6 +172,7 @@ describe('capacidades', () => {
       canSearch: true,
       canListSubcategories: true,
       canRedeem: true,
+      canRankPopular: true,
     })
 
     const sinAfiliado = makeAdapter({ config: makeAzuroConfig(137, null) })
@@ -578,5 +587,68 @@ describe('redeemPosition', () => {
     wallet.withdrawError = new Error('insufficient funds for gas')
     const sinGas = await adapter.redeemPosition(position, { from: BETTOR })
     expect(!sinGas.ok && sinGas.error.kind).toBe('wallet')
+  })
+})
+
+describe('listMarkets por popularidad (Destacados)', () => {
+  it('pide el orden por turnover a la API y antepone las ligas top', async () => {
+    const { adapter, gateway } = makeAdapter()
+
+    // Dos juegos: el real del fixture (liga normal) y un clon en liga top con
+    // menos turnover. La API ya ordena por turnover; el adaptador solo debe
+    // anteponer la liga top conservando ese orden dentro de cada bloque.
+    const fixture = gamesFixture as { games: Record<string, unknown>[] }
+    const baseGame = fixture.games.find(
+      (g) => g.gameId === PREMATCH_GAME_ID,
+    ) as Record<string, unknown>
+    const topGame = {
+      ...baseGame,
+      gameId: 'top-game-1',
+      title: 'Partido de liga top',
+      league: {
+        ...(baseGame.league as Record<string, unknown>),
+        isTopLeague: true,
+      },
+    }
+    gateway.responses.listGames = {
+      games: [baseGame, topGame],
+      page: 1,
+      totalPages: 1,
+    }
+
+    const activeCondition = (conditionsFixture as { conditionId: string }[]).find(
+      (c) => c.conditionId === ACTIVE_CONDITION_ID,
+    ) as unknown as Record<string, unknown>
+    gateway.responses.getConditionsByGameIds = [
+      activeCondition,
+      {
+        ...activeCondition,
+        conditionId: 'cond-top-1',
+        // El gameId de una condición viaja anidado en `game.gameId`.
+        game: {
+          ...(activeCondition.game as Record<string, unknown>),
+          gameId: 'top-game-1',
+        },
+      },
+    ]
+
+    const result = await adapter.listMarkets({
+      category: 'sports',
+      orderBy: 'popularity',
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(gateway.lastListGamesParams?.orderByTurnover).toBe(true)
+    // La liga top va primero aunque la API la devolviera en segundo lugar.
+    expect(result.data.markets[0]?.group?.id).toBe('top-game-1')
+    expect(result.data.markets.at(-1)?.group?.id).toBe(PREMATCH_GAME_ID)
+  })
+
+  it('sin orderBy no se pide orden por turnover', async () => {
+    const { adapter, gateway } = makeAdapter()
+    const result = await adapter.listMarkets({})
+    expect(result.ok).toBe(true)
+    expect(gateway.lastListGamesParams?.orderByTurnover).toBe(false)
   })
 })

@@ -33,6 +33,11 @@ interface TradePanelProps {
   event: MarketEventView;
   /** Mercado (opción) seleccionado inicialmente. */
   market: Market;
+  /**
+   * Resultado a preseleccionar: la cuota exacta que se clicó en la tarjeta.
+   * Si no cotiza (o no existe ya), se cae al primer resultado cotizable.
+   */
+  initialOutcomeId?: string;
   onClose: () => void;
   onConnectWallet: () => void;
 }
@@ -103,15 +108,23 @@ function firstQuoteOf(m: Market): string {
 export const TradePanel: React.FC<TradePanelProps> = ({
   event,
   market: initialMarket,
+  initialOutcomeId,
   onClose,
   onConnectWallet,
 }) => {
   const [market, setMarket] = useState<Market>(initialMarket);
-  const [outcomeId, setOutcomeId] = useState<string>(
-    initialMarket.outcomes.find((o) => o.isQuotable)?.id ??
+  const [outcomeId, setOutcomeId] = useState<string>(() => {
+    // La cuota clicada manda, si sigue cotizando; si no, el primer cotizable.
+    const clicked = initialMarket.outcomes.find(
+      (o) => o.id === initialOutcomeId && o.isQuotable,
+    );
+    return (
+      clicked?.id ??
+      initialMarket.outcomes.find((o) => o.isQuotable)?.id ??
       initialMarket.outcomes[0]?.id ??
-      '',
-  );
+      ''
+    );
+  });
   const [amount, setAmount] = useState('');
   const [slippage, setSlippage] = useState<number>(0.05);
   const [quoteState, setQuoteState] = useState<QuoteState>({ status: 'idle' });
@@ -130,10 +143,16 @@ export const TradePanel: React.FC<TradePanelProps> = ({
     [event.markets],
   );
 
-  // Al cambiar de opción dentro del evento, se reinicia la selección.
+  // Al cambiar de opción dentro del evento, se reinicia la selección. En el
+  // mercado inicial se respeta la cuota clicada en la tarjeta.
   useEffect(() => {
+    const clicked =
+      market.id === initialMarket.id
+        ? market.outcomes.find((o) => o.id === initialOutcomeId && o.isQuotable)
+        : undefined;
     setOutcomeId(
-      market.outcomes.find((o) => o.isQuotable)?.id ??
+      clicked?.id ??
+        market.outcomes.find((o) => o.isQuotable)?.id ??
         market.outcomes[0]?.id ??
         '',
     );

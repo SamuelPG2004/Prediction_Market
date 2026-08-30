@@ -58,6 +58,21 @@ function labelRankOf(label: string): number {
 }
 
 /**
+ * El mercado "estrella" de un evento: el ganador del partido si existe (se
+ * prefiere el que cotiza), o el único mercado si solo hay uno. `null` si el
+ * evento no tiene un mercado principal claro.
+ */
+export function findStarMarket(markets: Market[]): Market | null {
+  if (markets.length === 1) return markets[0]
+  for (const pattern of PREFERRED_MARKET_LABELS) {
+    const candidates = markets.filter((m) => pattern.test(optionLabelOf(m)))
+    const best = candidates.find((m) => m.isQuotable) ?? candidates[0]
+    if (best !== undefined) return best
+  }
+  return null
+}
+
+/**
  * Línea numérica del mercado, si sus resultados la llevan entre paréntesis:
  * "Over (17.5)" → 17.5, "Lan Mi (-7)" → -7. `null` si no hay línea.
  */

@@ -24,8 +24,14 @@ export interface RawGame {
   startsAt: string
   state: string
   sport: { sportId: string; slug: string; name: string }
-  league: { slug: string; name: string }
+  league: { slug: string; name: string; isTopLeague: boolean }
   participants: { name: string; image: string | null }[]
+  /**
+   * Volumen apostado acumulado del juego, como string decimal, o `null` si la
+   * API no lo trae. NO es volumen 24h: solo sirve para ordenar por
+   * popularidad, nunca para mostrarse como métrica.
+   */
+  turnover: string | null
 }
 
 export interface RawGamesPage {
@@ -166,6 +172,9 @@ function parseGame(u: unknown): RawGame | null {
   const leagueSlug = asString(u.league.slug)
   const leagueName = asString(u.league.name)
   if (leagueSlug === null || leagueName === null) return null
+  // Opcional en la API: ausente o malformado se trata como "no es liga top",
+  // que solo degrada el orden de Destacados, nunca el catálogo.
+  const isTopLeague = u.league.isTopLeague === true
 
   const participants: RawGame['participants'] = []
   if (Array.isArray(u.participants)) {
@@ -177,14 +186,21 @@ function parseGame(u: unknown): RawGame | null {
     }
   }
 
+  // Solo un decimal no negativo cuenta como turnover; cualquier otra cosa es
+  // `null` para que un dato corrupto no infle la popularidad de un juego.
+  const rawTurnover = asString(u.turnover)
+  const turnover =
+    rawTurnover !== null && /^\d+(\.\d+)?$/.test(rawTurnover) ? rawTurnover : null
+
   return {
     gameId,
     title,
     startsAt,
     state,
     sport: { sportId, slug: sportSlug, name: sportName },
-    league: { slug: leagueSlug, name: leagueName },
+    league: { slug: leagueSlug, name: leagueName, isTopLeague },
     participants,
+    turnover,
   }
 }
 

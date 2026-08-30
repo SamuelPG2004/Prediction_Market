@@ -13,6 +13,7 @@ import { useSubcategories } from '../hooks/useSubcategories';
 import { useVenueBalances } from '../hooks/useVenueBalances';
 import type { MarketEventView } from '../utils/eventGrouping';
 import { EventCard } from './EventCard';
+import { FeaturedMatches } from './FeaturedMatches';
 import { TradePanel } from './TradePanel';
 import { formatCurrency } from '../utils/formatters';
 import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
@@ -84,7 +85,22 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
   const [selected, setSelected] = useState<{
     event: MarketEventView;
     market: Market;
+    /** Resultado clicado en la tarjeta, a preseleccionar en el boleto. */
+    outcomeId?: string;
   } | null>(null);
+
+  const selectMarket = useCallback(
+    (event: MarketEventView, market: Market, outcomeId?: string) =>
+      setSelected({ event, market, ...(outcomeId !== undefined ? { outcomeId } : {}) }),
+    [],
+  );
+
+  // Destacados solo donde aportan: portada y Deportes, sin búsqueda ni filtro
+  // de deporte activos (ahí el usuario ya está buscando otra cosa).
+  const showFeatured =
+    (tab.category === undefined || tab.category === 'sports') &&
+    debouncedQuery.trim() === '' &&
+    subcategory === undefined;
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
@@ -168,6 +184,9 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
           </button>
         )}
       </div>
+
+      {/* Partidos destacados: lo más apostado, según los venues que rankean */}
+      {showFeatured && <FeaturedMatches onSelectMarket={selectMarket} />}
 
       {/* Pestañas de categoría */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
@@ -301,7 +320,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
                   key={e.id}
                   event={e}
                   eagerImage={i < 6}
-                  onSelectMarket={(event, market) => setSelected({ event, market })}
+                  onSelectMarket={selectMarket}
                 />
               ))}
             </div>
@@ -329,6 +348,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
         <TradePanel
           event={selected.event}
           market={selected.market}
+          initialOutcomeId={selected.outcomeId}
           onClose={() => setSelected(null)}
           onConnectWallet={onConnectWallet}
         />

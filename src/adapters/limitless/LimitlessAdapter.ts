@@ -166,6 +166,9 @@ export class LimitlessAdapter implements MarketSource {
       canSearch: true,
       // La API no expone un listado de subcategorías activas.
       canListSubcategories: false,
+      // La API pública no expone un orden por volumen utilizable; antes que
+      // fingir popularidad con el orden por defecto: no se ofrece.
+      canRankPopular: false,
       // El cobro CTF (redeemPositions del condicional) queda fuera de alcance.
       canRedeem: false,
     }
