@@ -28,6 +28,7 @@ import {
   type MarketEventView,
 } from '../utils/eventGrouping';
 import { formatCurrency } from '../utils/formatters';
+import { translateOutcomeLabel } from '../utils/marketLabels';
 import { toggleSelection, useBetSlip } from '../hooks/useBetSlip';
 
 interface TradePanelProps {
@@ -351,7 +352,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
                     : 'bg-neutral-900/80 border-neutral-800 text-neutral-400 hover:border-neutral-700'
                 }`}
               >
-                <div className="truncate">{o.label}</div>
+                <div className="truncate">{translateOutcomeLabel(o.label)}</div>
                 <div className="font-mono text-[11px] mt-0.5 opacity-80">
                   {o.probability === null
                     ? 'sin cotización'
@@ -378,7 +379,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
               <span>
                 {isSelected(market.id, outcomeId)
                   ? 'En el boleto — clic para quitar'
-                  : `Añadir al boleto (${outcome.label})`}
+                  : `Añadir al boleto (${translateOutcomeLabel(outcome.label)})`}
               </span>
             </button>
           )}
@@ -532,7 +533,10 @@ export const TradePanel: React.FC<TradePanelProps> = ({
               <>
                 <Wallet className="w-4 h-4" />
                 <span>
-                  Apostar{outcome !== null ? ` a ${outcome.label}` : ''}
+                  Apostar
+                  {outcome !== null
+                    ? ` a ${translateOutcomeLabel(outcome.label)}`
+                    : ''}
                   {isValidAmount(amount) && venueToken !== null
                     ? ` · ${amount} ${venueToken.symbol}`
                     : ''}

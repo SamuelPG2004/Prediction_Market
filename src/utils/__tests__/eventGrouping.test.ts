@@ -68,9 +68,18 @@ describe('optionLabelOf', () => {
     const m = market({
       id: 'a:1',
       group: { id: 'g', label: 'Partido' },
+      question: 'Partido · Mercado Raro',
+    })
+    expect(optionLabelOf(m)).toBe('Mercado Raro')
+    expect(optionLabelOf(market({ id: 'a:2', question: 'Suelta' }))).toBe('Suelta')
+  })
+
+  it('traduce la etiqueta del venue al español', () => {
+    const m = market({
+      id: 'a:1',
+      group: { id: 'g', label: 'Partido' },
       question: 'Partido · Total Games',
     })
-    expect(optionLabelOf(m)).toBe('Total Games')
-    expect(optionLabelOf(market({ id: 'a:2', question: 'Suelta' }))).toBe('Suelta')
+    expect(optionLabelOf(m)).toBe('Juegos totales')
   })
 })

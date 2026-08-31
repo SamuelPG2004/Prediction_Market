@@ -9,8 +9,10 @@ import {
   type MarketEventView,
 } from '../utils/eventGrouping';
 import { formatCompactNumber, formatEventDate } from '../utils/formatters';
+import { translateOutcomeLabel } from '../utils/marketLabels';
 import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
 import { useBetSlip } from '../hooks/useBetSlip';
+import { usePriceFlash } from '../hooks/usePriceFlash';
 
 /** Cuántas opciones se listan antes de resumir el resto. */
 const MAX_VISIBLE_OPTIONS = 4;
@@ -90,17 +92,19 @@ export const EventCard: React.FC<EventCardProps> = ({
             {formatCompactNumber(event.volume24hUsd)}
           </span>
         )}
-        {event.isLive ? (
-          <span className="text-rose-400" title="En juego ahora mismo">
-            En juego
-          </span>
-        ) : (
-          event.markets[0]?.closesAt != null && (
-            <span title="Comienzo">
-              {formatEventDate(event.markets[0].closesAt)}
+        {/* En un enfrentamiento, el estado/hora ya va en su cabecera. */}
+        {!isMatchup &&
+          (event.isLive ? (
+            <span className="text-rose-400" title="En juego ahora mismo">
+              En juego
             </span>
-          )
-        )}
+          ) : (
+            event.markets[0]?.closesAt != null && (
+              <span title="Comienzo">
+                {formatEventDate(event.markets[0].closesAt)}
+              </span>
+            )
+          ))}
         <span className="ml-auto text-neutral-600">
           {event.markets.length}{' '}
           {event.markets.length === 1 ? 'mercado' : 'mercados'}
@@ -126,13 +130,24 @@ const MatchupBody: React.FC<{
 
   return (
     <>
-      {/* Liga y estado en vivo */}
+      {/* Liga y, a la derecha, en vivo o la hora del partido */}
       <div className="flex items-center justify-between gap-2">
         <ContextLine
           subcategory={event.markets[0]?.subcategory}
           leagueName={event.leagueName}
         />
-        {event.isLive && <LiveBadge />}
+        {event.isLive ? (
+          <LiveBadge />
+        ) : (
+          event.markets[0]?.closesAt != null && (
+            <span
+              className="text-[10px] font-mono text-neutral-400 shrink-0"
+              title="Comienzo"
+            >
+              {formatEventDate(event.markets[0].closesAt)}
+            </span>
+          )
+        )}
       </div>
 
       {/* Enfrentamiento: escudo A · vs · escudo B. Clicable: abre el panel. */}
@@ -162,7 +177,7 @@ const MatchupBody: React.FC<{
       {star !== null && restCount > 0 && (
         <button
           onClick={onOpen}
-          className="py-1.5 text-[11px] font-semibold text-neutral-500 hover:text-emerald-300 transition-colors"
+          className="py-1.5 rounded-lg text-[11px] font-semibold text-emerald-400/90 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
         >
           Ver los {event.markets.length} mercados →
         </button>
@@ -249,6 +264,22 @@ export const StarMarketRow: React.FC<{
     outcomes = [rest[0], draw, rest[1]];
   }
 
+  // El favorito: la cuota más baja, solo si es única y TODOS los resultados
+  // cotizan — con uno sin precio, el mínimo de los demás no dice quién es el
+  // favorito. Marca sutil que da la lectura del partido sin comparar números.
+  const prices = outcomes.map((o) => (o.price === null ? null : Number(o.price)));
+  const known = prices.filter((p): p is number => p !== null);
+  const lowest =
+    known.length === outcomes.length && known.length >= 2
+      ? Math.min(...known)
+      : null;
+  const favoritePrice =
+    market.priceFormat === 'decimal-odds' &&
+    lowest !== null &&
+    known.filter((p) => p === lowest).length === 1
+      ? lowest
+      : null;
+
   return (
   <div className="flex flex-col gap-1.5">
     <span className="text-[9px] uppercase font-mono text-neutral-600 tracking-wider">
@@ -259,46 +290,87 @@ export const StarMarketRow: React.FC<{
         outcomes.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
       }`}
     >
-      {outcomes.map((o) => {
-        const display = outcomeDisplay(o.price, o.probability, market.priceFormat);
-        const inSlip = isSelected(market.id, o.id);
-        return (
-          <button
-            key={o.id}
-            onClick={() => onPick(o.id)}
-            className={`py-1.5 px-1 rounded-lg transition-all active:scale-95 flex flex-col items-center min-w-0 border ${
-              inSlip
-                ? 'bg-emerald-500/25 border-emerald-400 ring-1 ring-emerald-400/50'
-                : 'bg-emerald-500/[0.07] hover:bg-emerald-500/20 border-emerald-500/20 hover:border-emerald-500/40'
-            }`}
-            title={
-              display.primary === null
-                ? 'Sin cotización ahora mismo'
-                : inSlip
-                  ? 'En el boleto — clic para quitar'
-                  : 'Añadir al boleto'
-            }
-          >
-            <span className="text-[10px] text-neutral-400 truncate w-full text-center">
-              {isDrawOutcome(o.label) ? 'Empate' : o.label}
-            </span>
-            <span
-              className={`font-mono font-extrabold text-[15px] leading-tight ${
-                display.primary === null ? 'text-neutral-600' : 'text-emerald-300'
-              }`}
-            >
-              {display.primary ?? '—'}
-            </span>
-            {display.secondary !== null && (
-              <span className="text-[9px] font-mono text-neutral-500">
-                {display.secondary}
-              </span>
-            )}
-          </button>
-        );
-      })}
+      {outcomes.map((o, i) => (
+        <StarOutcomeButton
+          key={o.id}
+          outcome={o}
+          priceFormat={market.priceFormat}
+          isFavorite={prices[i] !== null && prices[i] === favoritePrice}
+          inSlip={isSelected(market.id, o.id)}
+          onPick={() => onPick(o.id)}
+        />
+      ))}
     </div>
   </div>
+  );
+};
+
+/**
+ * Botón de cuota del mercado estrella. Destella cuando el refresco en vivo
+ * mueve el precio (verde si la cuota sube, rojo si baja) y marca al favorito
+ * con más presencia que a los demás.
+ */
+const StarOutcomeButton: React.FC<{
+  outcome: Market['outcomes'][number];
+  priceFormat: Market['priceFormat'];
+  isFavorite: boolean;
+  inSlip: boolean;
+  onPick: () => void;
+}> = ({ outcome: o, priceFormat, isFavorite, inSlip, onPick }) => {
+  const display = outcomeDisplay(o.price, o.probability, priceFormat);
+  const flash = usePriceFlash(o.price === null ? null : Number(o.price));
+
+  const base = inSlip
+    ? 'bg-emerald-500/25 border-emerald-400 ring-1 ring-emerald-400/50'
+    : isFavorite
+      ? 'bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-500/45 hover:border-emerald-400/60'
+      : 'bg-emerald-500/[0.07] hover:bg-emerald-500/20 border-emerald-500/20 hover:border-emerald-500/40';
+  const flashRing =
+    !inSlip && flash === 'up'
+      ? 'ring-1 ring-emerald-300/70'
+      : !inSlip && flash === 'down'
+        ? 'ring-1 ring-rose-400/70'
+        : '';
+
+  return (
+    <button
+      onClick={onPick}
+      className={`py-1.5 px-1 rounded-lg transition-all active:scale-95 flex flex-col items-center min-w-0 border ${base} ${flashRing}`}
+      title={
+        display.primary === null
+          ? 'Sin cotización ahora mismo'
+          : inSlip
+            ? 'En el boleto — clic para quitar'
+            : isFavorite
+              ? 'Favorito — añadir al boleto'
+              : 'Añadir al boleto'
+      }
+    >
+      <span className="text-[10px] text-neutral-400 truncate w-full text-center">
+        {translateOutcomeLabel(o.label)}
+      </span>
+      <span
+        className={`font-mono font-extrabold text-[15px] leading-tight flex items-center gap-0.5 ${
+          display.primary === null ? 'text-neutral-600' : 'text-emerald-300'
+        }`}
+      >
+        {display.primary ?? '—'}
+        {flash !== null && (
+          <span
+            className={`text-[9px] ${
+              flash === 'up' ? 'text-emerald-300' : 'text-rose-400'
+            }`}
+          >
+            {flash === 'up' ? '▲' : '▼'}
+          </span>
+        )}
+      </span>
+      {display.secondary !== null && (
+        <span className="text-[9px] font-mono text-neutral-500">
+          {display.secondary}
+        </span>
+      )}
+    </button>
   );
 };
 
@@ -530,7 +602,9 @@ const BinaryBody: React.FC<{
           }`}
           title={yesInSlip ? 'En el boleto — clic para quitar' : 'Añadir al boleto'}
         >
-          {market.outcomes[0]?.label ?? 'Sí'}
+          {market.outcomes[0] !== undefined
+            ? translateOutcomeLabel(market.outcomes[0].label)
+            : 'Sí'}
         </button>
         <button
           onClick={() => onPick(market, noId)}
@@ -541,7 +615,9 @@ const BinaryBody: React.FC<{
           }`}
           title={noInSlip ? 'En el boleto — clic para quitar' : 'Añadir al boleto'}
         >
-          {market.outcomes[1]?.label ?? 'No'}
+          {market.outcomes[1] !== undefined
+            ? translateOutcomeLabel(market.outcomes[1].label)
+            : 'No'}
         </button>
       </div>
     </div>

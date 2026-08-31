@@ -27,6 +27,7 @@ import {
 } from '../hooks/useBetSlip';
 import { optionLabelOf } from '../utils/eventGrouping';
 import { formatCurrency } from '../utils/formatters';
+import { translateOutcomeLabel } from '../utils/marketLabels';
 
 /** Importe válido: decimal positivo con hasta 6 decimales. */
 function isValidAmount(value: string): boolean {
@@ -403,7 +404,7 @@ const ComboPane: React.FC<{
                   {s.eventTitle}
                 </p>
                 <p className="text-xs font-semibold text-neutral-100 truncate">
-                  {outcome?.label ?? '—'}
+                  {outcome !== undefined ? translateOutcomeLabel(outcome.label) : '—'}
                   <span className="text-neutral-500 font-normal">
                     {' '}
                     · {optionLabelOf(s.market)}
@@ -633,7 +634,7 @@ const SlipItem: React.FC<{
             {eventTitle}
           </p>
           <p className="text-xs font-semibold text-neutral-100 leading-snug">
-            {outcome?.label ?? '—'}
+            {outcome != null ? translateOutcomeLabel(outcome.label) : '—'}
             <span className="text-neutral-500 font-normal">
               {' '}
               · {optionLabelOf(market)}

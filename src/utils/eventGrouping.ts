@@ -9,6 +9,7 @@
  * Solo tipos del dominio: nada de venues.
  */
 import type { Market } from '../domain/types'
+import { translateMarketLabel, translateOutcomeLabel } from './marketLabels'
 
 export interface MarketEventView {
   /** `${venue}:${groupId}` o el id del mercado si no hay grupo. */
@@ -21,6 +22,8 @@ export interface MarketEventView {
   /** Suma de las métricas conocidas, o `null` si ningún mercado las aporta. */
   liquidityUsd: number | null
   volume24hUsd: number | null
+  /** Total apostado al evento (métrica del grupo, no se suma), o `null`. */
+  totalVolumeUsd: number | null
   /** Participantes del grupo (equipos/jugadores), si el venue los publica. */
   participants?: { name: string; imageUrl?: string }[]
   /** Nombre de la competición, si el venue lo publica. */
@@ -29,8 +32,12 @@ export interface MarketEventView {
   isLive: boolean
 }
 
-/** Etiqueta corta de un mercado dentro de su tarjeta. */
-export function optionLabelOf(market: Market): string {
+/**
+ * Etiqueta del mercado tal y como la publica el venue (en inglés). Es la que
+ * casan los patrones de ranking y la clave de agrupación: la traducción es
+ * solo de presentación.
+ */
+export function rawOptionLabelOf(market: Market): string {
   if (market.group === undefined) return market.question
   // El adaptador compone `question` como "{grupo} · {título propio}"; para la
   // fila de opción basta el título propio.
@@ -38,6 +45,11 @@ export function optionLabelOf(market: Market): string {
   return market.question.startsWith(prefix)
     ? market.question.slice(prefix.length)
     : market.question
+}
+
+/** Etiqueta corta de un mercado dentro de su tarjeta, ya en español. */
+export function optionLabelOf(market: Market): string {
+  return translateMarketLabel(rawOptionLabelOf(market))
 }
 
 /**
@@ -65,7 +77,7 @@ function labelRankOf(label: string): number {
 export function findStarMarket(markets: Market[]): Market | null {
   if (markets.length === 1) return markets[0]
   for (const pattern of PREFERRED_MARKET_LABELS) {
-    const candidates = markets.filter((m) => pattern.test(optionLabelOf(m)))
+    const candidates = markets.filter((m) => pattern.test(rawOptionLabelOf(m)))
     const best = candidates.find((m) => m.isQuotable) ?? candidates[0]
     if (best !== undefined) return best
   }
@@ -103,7 +115,7 @@ export function marketVariantLabelOf(market: Market): string {
     const line = marketLineOf(market)
     if (line !== null) return String(line)
   }
-  return a?.label ?? '—'
+  return a !== undefined ? translateOutcomeLabel(a.label) : '—'
 }
 
 export interface MarketDisplayGroup {
@@ -119,16 +131,19 @@ export interface MarketDisplayGroup {
  * lista donde "Total Games" aparece diez veces seguidas en orden aleatorio.
  */
 export function groupMarketsForDisplay(markets: Market[]): MarketDisplayGroup[] {
+  // Se agrupa y rankea por la etiqueta cruda del venue; la traducida es la
+  // que se enseña.
   const byLabel = new Map<string, Market[]>()
   for (const m of markets) {
-    const label = optionLabelOf(m)
+    const label = rawOptionLabelOf(m)
     const list = byLabel.get(label)
     if (list === undefined) byLabel.set(label, [m])
     else list.push(m)
   }
 
-  const groups = [...byLabel.entries()].map(([label, ms]) => ({
-    label,
+  const groups = [...byLabel.entries()].map(([rawLabel, ms]) => ({
+    label: translateMarketLabel(rawLabel),
+    rank: labelRankOf(rawLabel),
     markets: [...ms].sort((a, b) => {
       const la = marketLineOf(a)
       const lb = marketLineOf(b)
@@ -140,12 +155,10 @@ export function groupMarketsForDisplay(markets: Market[]): MarketDisplayGroup[] 
   }))
 
   groups.sort((a, b) => {
-    const ra = labelRankOf(a.label)
-    const rb = labelRankOf(b.label)
-    if (ra !== rb) return ra - rb
+    if (a.rank !== b.rank) return a.rank - b.rank
     return a.label.localeCompare(b.label, 'es')
   })
-  return groups
+  return groups.map(({ label, markets: ms }) => ({ label, markets: ms }))
 }
 
 function sumOrNull(values: (number | null)[]): number | null {
@@ -173,6 +186,7 @@ export function groupMarketsIntoEvents(markets: Market[]): MarketEventView[] {
         isBinary: market.outcomes.length === 2,
         liquidityUsd: market.liquidityUsd,
         volume24hUsd: market.volume24hUsd,
+        totalVolumeUsd: null,
         isLive: false,
       })
       continue
@@ -205,6 +219,7 @@ export function groupMarketsIntoEvents(markets: Market[]): MarketEventView[] {
       isBinary: market.outcomes.length === 2,
       liquidityUsd: market.liquidityUsd,
       volume24hUsd: market.volume24hUsd,
+      totalVolumeUsd: market.group.totalVolumeUsd ?? null,
       ...(market.group.participants !== undefined
         ? { participants: market.group.participants }
         : {}),

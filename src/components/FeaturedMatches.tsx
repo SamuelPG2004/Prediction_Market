@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Flame } from 'lucide-react';
 import { useFeaturedEvents } from '../hooks/useFeaturedEvents';
 import { findStarMarket, type MarketEventView } from '../utils/eventGrouping';
-import { formatEventDate } from '../utils/formatters';
+import { formatCompactNumber, formatEventDate } from '../utils/formatters';
 import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
 import { StarMarketRow, type SelectMarketHandler } from './EventCard';
 
@@ -59,6 +59,7 @@ const FeaturedCard: React.FC<{
   const star = findStarMarket(event.markets);
   const subcategory = event.markets[0]?.subcategory;
   const icon = subcategory !== undefined ? subcategoryIcon(subcategory) : null;
+  const wagered = event.totalVolumeUsd ?? event.volume24hUsd;
 
   const open = () => {
     const target =
@@ -83,6 +84,15 @@ const FeaturedCard: React.FC<{
               .join(' · ')}
           </span>
         </span>
+        {/* El dato que justifica el destaque: cuánto hay apostado aquí. */}
+        {wagered !== null && (
+          <span
+            className="flex items-center gap-0.5 text-[9px] font-mono font-semibold text-amber-400/90 shrink-0"
+            title="Total apostado a este evento"
+          >
+            <Flame className="w-2.5 h-2.5" />${formatCompactNumber(wagered)}
+          </span>
+        )}
         {event.isLive ? (
           <span className="flex items-center gap-1 text-[9px] font-mono font-bold text-rose-400 uppercase shrink-0">
             <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />

@@ -136,6 +136,14 @@ export interface MarketGroup {
   leagueName?: string
   /** El evento está en juego ahora mismo (partido en vivo). */
   isLive?: boolean
+  /**
+   * Total apostado al evento desde su publicación, en USD aproximado. NO es
+   * volumen 24h (para eso está `Market.volume24hUsd`): es la métrica de
+   * popularidad del evento entero, si el venue la publica. Vive aquí y no en
+   * `Market` porque es del partido: copiarla en cada mercado invitaría a
+   * sumarla N veces.
+   */
+  totalVolumeUsd?: number
 }
 
 export interface Market {

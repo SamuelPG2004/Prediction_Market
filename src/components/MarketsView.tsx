@@ -56,6 +56,9 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
   const [subcategory, setSubcategory] = useState<string | undefined>(undefined);
   const { subcategories } = useSubcategories(tab.category);
 
+  // Solo eventos en juego ahora mismo. Filtro en cliente sobre lo descargado.
+  const [liveOnly, setLiveOnly] = useState(false);
+
   const [query, setQuery] = useState('');
   // La búsqueda va al servidor de cada venue; con retardo para no lanzar una
   // petición por tecla.
@@ -108,23 +111,34 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
   );
 
   // Destacados solo donde aportan: portada y Deportes, sin búsqueda ni filtro
-  // de deporte activos (ahí el usuario ya está buscando otra cosa).
+  // de deporte o de en-vivo activos (ahí el usuario ya está buscando otra cosa).
   const showFeatured =
     (tab.category === undefined || tab.category === 'sports') &&
     debouncedQuery.trim() === '' &&
-    subcategory === undefined;
+    subcategory === undefined &&
+    !liveOnly;
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [tabIndex, subcategory, debouncedQuery]);
+  }, [tabIndex, subcategory, debouncedQuery, liveOnly]);
 
-  // Cambiar de pestaña abandona el filtro de subcategoría de la anterior.
+  // Cambiar de pestaña abandona los filtros de la anterior.
   useEffect(() => {
     setSubcategory(undefined);
+    setLiveOnly(false);
   }, [tabIndex]);
 
-  const eventsRef = useRef(events);
-  eventsRef.current = events;
+  const liveCount = useMemo(
+    () => events.reduce((n, e) => n + (e.isLive ? 1 : 0), 0),
+    [events],
+  );
+  const shown = useMemo(
+    () => (liveOnly ? events.filter((e) => e.isLive) : events),
+    [events, liveOnly],
+  );
+
+  const eventsRef = useRef(shown);
+  eventsRef.current = shown;
 
   /**
    * Un único centinela cubre las dos paginaciones: primero revela más de lo
@@ -139,18 +153,18 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
   }, [visibleCount, hasMore, isLoadingMore, loadMore]);
 
   const visible = useMemo(
-    () => events.slice(0, visibleCount),
-    [events, visibleCount],
+    () => shown.slice(0, visibleCount),
+    [shown, visibleCount],
   );
 
   const sentinelRef = useInfiniteScroll({
     onReachEnd: reachEnd,
-    enabled: !isLoading && (visibleCount < events.length || hasMore),
+    enabled: !isLoading && (visibleCount < shown.length || hasMore),
   });
 
   const totalMarkets = useMemo(
-    () => events.reduce((a, e) => a + e.markets.length, 0),
-    [events],
+    () => shown.reduce((a, e) => a + e.markets.length, 0),
+    [shown],
   );
 
   return (
@@ -223,6 +237,29 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
       {/* Chips de subcategoría (deportes dentro de Deportes, etc.) */}
       {subcategories.length > 0 && (
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 -mt-2">
+          {/* En vivo: filtro de estado, aparece solo si hay partidos en juego. */}
+          {(liveCount > 0 || liveOnly) && (
+            <>
+              <button
+                onClick={() => setLiveOnly((v) => !v)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 border ${
+                  liveOnly
+                    ? 'bg-rose-500/15 text-rose-300 border-rose-500/40'
+                    : 'bg-[#0f121a] text-neutral-500 border-neutral-800/80 hover:text-rose-300 hover:border-rose-500/40'
+                }`}
+                title="Solo eventos en juego ahora mismo"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                <span>En vivo</span>
+                <span
+                  className={`text-[9px] font-mono ${liveOnly ? 'text-rose-400/80' : 'text-neutral-600'}`}
+                >
+                  {liveCount}
+                </span>
+              </button>
+              <span className="w-px h-4 bg-neutral-800 shrink-0" />
+            </>
+          )}
           <SubcategoryChip
             label="Todos"
             active={subcategory === undefined}
@@ -297,7 +334,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-mono text-neutral-500">
               <span className="text-neutral-300">{visible.length}</span> de{' '}
-              <span className="text-neutral-300">{events.length}</span> eventos ·{' '}
+              <span className="text-neutral-300">{shown.length}</span> eventos ·{' '}
               {totalMarkets} mercados operables
             </p>
 
@@ -322,7 +359,9 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
               <p className="text-xs text-neutral-500 max-w-xs text-center">
                 {query
                   ? 'Ninguna fuente devolvió mercados para esa búsqueda.'
-                  : 'Esta categoría no tiene mercados operables ahora mismo.'}
+                  : liveOnly
+                    ? 'No hay eventos en juego ahora mismo.'
+                    : 'Esta categoría no tiene mercados operables ahora mismo.'}
               </p>
             </div>
           ) : (
@@ -340,15 +379,15 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
 
           {/* Centinela: dispara la carga al acercarse el final. */}
           <div ref={sentinelRef} className="flex items-center justify-center py-6">
-            {visibleCount < events.length || hasMore ? (
+            {visibleCount < shown.length || hasMore ? (
               <div className="flex items-center gap-2 text-[11px] font-mono text-neutral-600">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 <span>{isLoadingMore ? 'Trayendo más mercados…' : 'Cargando más…'}</span>
               </div>
             ) : (
-              events.length > 0 && (
+              shown.length > 0 && (
                 <p className="text-[11px] font-mono text-neutral-700">
-                  {events.length} eventos · catálogo completo de {tab.label}
+                  {shown.length} eventos · catálogo completo de {tab.label}
                 </p>
               )
             )}

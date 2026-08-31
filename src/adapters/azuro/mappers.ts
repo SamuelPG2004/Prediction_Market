@@ -203,6 +203,11 @@ export function mapConditionToMarket(
       ...(participants.length > 0 ? { participants } : {}),
       leagueName: game.league.name,
       isLive: game.state === 'Live',
+      // El turnover del juego SÍ es el total apostado al partido (en USDT ≈
+      // USD); un cero (partido recién publicado) se omite para no pintarlo.
+      ...(game.turnover !== null && Number(game.turnover) > 0
+        ? { totalVolumeUsd: Number(game.turnover) }
+        : {}),
     },
     raw: { game, condition },
   }
