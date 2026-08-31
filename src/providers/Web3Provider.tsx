@@ -16,9 +16,8 @@ const queryClient = new QueryClient({
 /**
  * Provee wagmi + react-query.
  *
- * La app funciona sin wallet conectada: conectarla solo añade tu identidad y
- * la lectura de tu saldo real de USDC. Los mercados y la contabilidad de
- * práctica viven en useMarketStore, no aquí.
+ * La app funciona sin wallet conectada (navegar y cotizar son de solo
+ * lectura); conectarla habilita saldos, posiciones y la firma de órdenes.
  */
 export function Web3Provider({ children }: { children: React.ReactNode }) {
   return (
