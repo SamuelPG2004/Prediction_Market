@@ -21,6 +21,7 @@ import {
 import { BetSlip } from './BetSlip';
 import { EventCard, EventListRow } from './EventCard';
 import { FeaturedMatches } from './FeaturedMatches';
+import { LowGasBanner } from './LowGasBanner';
 import { TradePanel } from './TradePanel';
 import { toggleSelection } from '../hooks/useBetSlip';
 import { formatCurrency } from '../utils/formatters';
@@ -48,13 +49,18 @@ const TABS: { label: string; category?: MarketCategory }[] = [
 
 interface MarketsViewProps {
   onConnectWallet: () => void;
+  /** Abre el bridge preseleccionado en el gas nativo de esa red. */
+  onGetGas: (chainId: number) => void;
 }
 
 /**
  * Terminal de mercados reales, alimentado por el registry de venues a través
  * del dominio. La vista no sabe cuántas fuentes hay ni cuáles son.
  */
-export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => {
+export const MarketsView: React.FC<MarketsViewProps> = ({
+  onConnectWallet,
+  onGetGas,
+}) => {
   const [tabIndex, setTabIndex] = useState(0);
   const tab = TABS[tabIndex];
 
@@ -171,10 +177,28 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
     }
   }, [visibleCount, hasMore, isLoadingMore, loadMore]);
 
-  const visible = useMemo(
-    () => events.slice(0, visibleCount),
-    [events, visibleCount],
-  );
+  /**
+   * En deportes manda la inminencia: en juego primero y el resto por hora de
+   * comienzo (sin hora, al final). Se ordena ANTES de recortar la página para
+   * que el scroll infinito no intercale partidos anteriores más abajo. En las
+   * demás categorías se respeta el orden de las fuentes (popularidad).
+   */
+  const visible = useMemo(() => {
+    const ordered =
+      tab.category === 'sports'
+        ? [...events].sort((a, b) => {
+            if ((a.isLive === true) !== (b.isLive === true)) {
+              return a.isLive === true ? -1 : 1;
+            }
+            const ta =
+              a.markets[0]?.closesAt?.getTime() ?? Number.POSITIVE_INFINITY;
+            const tb =
+              b.markets[0]?.closesAt?.getTime() ?? Number.POSITIVE_INFINITY;
+            return ta - tb;
+          })
+        : events;
+    return ordered.slice(0, visibleCount);
+  }, [events, visibleCount, tab.category]);
 
   const sentinelRef = useInfiniteScroll({
     onReachEnd: reachEnd,
@@ -231,6 +255,9 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
           </button>
         )}
       </div>
+
+      {/* Gas nativo bajo: aviso accionable antes de que una operación falle */}
+      <LowGasBanner onGetGas={onGetGas} />
 
       {/* Partidos destacados: lo más apostado, según los venues que rankean */}
       {showFeatured && <FeaturedMatches onSelectMarket={selectMarket} />}

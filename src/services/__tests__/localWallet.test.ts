@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
   decryptPrivateKey,
@@ -102,5 +102,69 @@ describe('LocalWalletVault', { timeout: 20_000 }, () => {
     const vault = new LocalWalletVault(store)
     expect(vault.hasStoredWallet()).toBe(false)
     expect(vault.storedAddress()).toBe(null)
+  })
+})
+
+describe('auto-bloqueo por inactividad', { timeout: 20_000 }, () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const AUTO_LOCK = 1_000
+
+  async function unlockedVault() {
+    // La bóveda se crea con timers reales (PBKDF2 usa el reloj de verdad) y
+    // los falsos se activan después, ya con el timer de bloqueo pendiente.
+    const vault = new LocalWalletVault(memoryStore(), {
+      iterations: FAST_ITERATIONS,
+      autoLockMs: AUTO_LOCK,
+    })
+    await vault.create(PASSWORD)
+    return vault
+  }
+
+  it('se bloquea sola pasado el plazo y avisa a los suscriptores', async () => {
+    const vault = await unlockedVault()
+    vi.useFakeTimers()
+    vault.touch()
+
+    let notified = 0
+    vault.onLock(() => notified++)
+
+    vi.advanceTimersByTime(AUTO_LOCK - 1)
+    expect(vault.isUnlocked()).toBe(true)
+    vi.advanceTimersByTime(1)
+    expect(vault.isUnlocked()).toBe(false)
+    expect(notified).toBe(1)
+  })
+
+  it('la actividad reinicia la cuenta atrás', async () => {
+    const vault = await unlockedVault()
+    vi.useFakeTimers()
+    vault.touch()
+
+    vi.advanceTimersByTime(AUTO_LOCK - 1)
+    vault.touch()
+    vi.advanceTimersByTime(AUTO_LOCK - 1)
+    expect(vault.isUnlocked()).toBe(true)
+    vi.advanceTimersByTime(1)
+    expect(vault.isUnlocked()).toBe(false)
+  })
+
+  it('bloquear dos veces solo avisa una', async () => {
+    const vault = await unlockedVault()
+    let notified = 0
+    vault.onLock(() => notified++)
+    vault.lock()
+    vault.lock()
+    expect(notified).toBe(1)
+  })
+
+  it('touch con la bóveda bloqueada no programa nada', async () => {
+    const vault = await unlockedVault()
+    vault.lock()
+    vi.useFakeTimers()
+    vault.touch()
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

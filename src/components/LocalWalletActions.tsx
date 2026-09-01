@@ -100,6 +100,8 @@ export const LocalWalletActions: React.FC<LocalWalletActionsProps> = ({
   const [assetKey, setAssetKey] = useState(assets[0]?.key ?? '');
   const [destination, setDestination] = useState('');
   const [amount, setAmount] = useState('');
+  /** Paso de revisión: el envío es irreversible, así que nada de un clic. */
+  const [reviewing, setReviewing] = useState(false);
   const [status, setStatus] = useState<'idle' | 'sending' | 'confirming' | 'done'>('idle');
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const [txChainId, setTxChainId] = useState<number>(POLYGON_CHAIN_ID);
@@ -131,21 +133,37 @@ export const LocalWalletActions: React.FC<LocalWalletActionsProps> = ({
     window.setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleWithdraw = async () => {
-    if (selectedAsset === undefined) return;
+  /** Valida el formulario; deja el error puesto y devuelve null si no pasa. */
+  const validateWithdraw = (): bigint | null => {
+    if (selectedAsset === undefined) return null;
     if (!isAddress(destination)) {
       setError('La dirección de destino no es válida.');
-      return;
+      return null;
     }
     let amountRaw: bigint;
     try {
       amountRaw = parseUnits(amount.replace(',', '.'), selectedAsset.decimals);
     } catch {
       setError('Importe inválido.');
-      return;
+      return null;
     }
     if (amountRaw <= 0n) {
       setError('El importe debe ser mayor que cero.');
+      return null;
+    }
+    return amountRaw;
+  };
+
+  const handleReview = () => {
+    setError(null);
+    if (validateWithdraw() !== null) setReviewing(true);
+  };
+
+  const handleWithdraw = async () => {
+    if (selectedAsset === undefined) return;
+    const amountRaw = validateWithdraw();
+    if (amountRaw === null) {
+      setReviewing(false);
       return;
     }
 
@@ -177,6 +195,7 @@ export const LocalWalletActions: React.FC<LocalWalletActionsProps> = ({
         throw new Error('La transacción se revirtió en cadena.');
       }
       setStatus('done');
+      setReviewing(false);
       setAmount('');
       refetchTokens();
       polBalance.refetch();
@@ -207,6 +226,7 @@ export const LocalWalletActions: React.FC<LocalWalletActionsProps> = ({
         setError(null);
         setStatus('idle');
         setTxHash(null);
+        setReviewing(false);
         setRevealedKey(null);
         setBackupError(null);
         setBackupPassword('');
@@ -333,7 +353,75 @@ export const LocalWalletActions: React.FC<LocalWalletActionsProps> = ({
         </div>
       )}
 
-      {view === 'withdraw' && (
+      {view === 'withdraw' && reviewing && selectedAsset !== undefined && (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-bold text-neutral-100">Revisa el retiro</p>
+          <div className="rounded-lg bg-[#090b0f] border border-neutral-800 p-3 flex flex-col gap-2 text-[11px] font-mono">
+            <div className="flex items-center justify-between">
+              <span className="text-neutral-500">Enviar</span>
+              <span className="font-bold text-neutral-100 tabular-nums">
+                {amount} {selectedAsset.symbol}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-neutral-500">Red</span>
+              <span className="text-neutral-200">{chainLabel(selectedAsset.chainId)}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-neutral-500">Destino</span>
+              {/* Principio y final resaltados: es lo que se coteja contra la
+                  dirección buena, porque el timo típico las clona por ahí. */}
+              <span className="break-all leading-relaxed">
+                <span className="font-bold text-emerald-300">{destination.slice(0, 8)}</span>
+                <span className="text-neutral-500">{destination.slice(8, -6)}</span>
+                <span className="font-bold text-emerald-300">{destination.slice(-6)}</span>
+              </span>
+            </div>
+          </div>
+          <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/25 p-2.5 text-[11px] text-amber-200/90">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span>
+              Un envío en cadena no se puede deshacer. Coteja el principio y el
+              final de la dirección con la de destino real.
+            </span>
+          </div>
+
+          {error !== null && (
+            <div className="flex items-start gap-2 rounded-lg bg-rose-500/10 border border-rose-500/25 p-2.5 text-[11px] text-rose-300">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => setReviewing(false)}
+              disabled={status === 'sending' || status === 'confirming'}
+              className="flex-1 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-xs font-semibold text-neutral-400 transition-all disabled:opacity-50"
+            >
+              Editar
+            </button>
+            <button
+              onClick={handleWithdraw}
+              disabled={status === 'sending' || status === 'confirming'}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs font-bold text-emerald-300 transition-all active:scale-95 disabled:opacity-50"
+            >
+              {(status === 'sending' || status === 'confirming') && (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              )}
+              <span>
+                {status === 'sending'
+                  ? 'Firmando y enviando…'
+                  : status === 'confirming'
+                    ? 'Esperando confirmación…'
+                    : 'Confirmar y firmar'}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {view === 'withdraw' && !reviewing && (
         <div className="flex flex-col gap-2">
           <label className="text-[10px] uppercase font-mono text-neutral-500 tracking-wider">
             Activo
@@ -421,20 +509,11 @@ export const LocalWalletActions: React.FC<LocalWalletActionsProps> = ({
           )}
 
           <button
-            onClick={handleWithdraw}
-            disabled={status === 'sending' || status === 'confirming' || amount === '' || destination === ''}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs font-bold text-emerald-300 transition-all active:scale-95 disabled:opacity-50"
+            onClick={handleReview}
+            disabled={amount === '' || destination === ''}
+            className="w-full py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs font-bold text-emerald-300 transition-all active:scale-95 disabled:opacity-50"
           >
-            {(status === 'sending' || status === 'confirming') && (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            )}
-            <span>
-              {status === 'sending'
-                ? 'Firmando y enviando…'
-                : status === 'confirming'
-                  ? 'Esperando confirmación…'
-                  : 'Retirar'}
-            </span>
+            Revisar retiro
           </button>
           {backButton}
         </div>

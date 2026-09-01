@@ -28,6 +28,8 @@ export interface KeyValueStore {
 const STORAGE_KEY = 'aether.local-wallet.v1'
 const PBKDF2_ITERATIONS = 600_000
 export const MIN_PASSWORD_LENGTH = 8
+/** Sin actividad este tiempo, la bóveda se bloquea sola. */
+export const AUTO_LOCK_MS = 15 * 60_000
 
 /** Lo que se persiste: solo material cifrado y los parámetros para descifrar. */
 interface StoredVault {
@@ -166,15 +168,42 @@ function defaultStore(): KeyValueStore {
 export class LocalWalletVault {
   private readonly store: KeyValueStore
   private readonly iterations: number
+  private readonly autoLockMs: number
   /** Cuenta desbloqueada, SOLO en memoria; `null` mientras está bloqueada. */
   private unlocked: PrivateKeyAccount | null = null
+  private lockTimer: ReturnType<typeof setTimeout> | null = null
+  private readonly lockListeners = new Set<() => void>()
 
   constructor(
     store: KeyValueStore = defaultStore(),
-    options?: { iterations?: number },
+    options?: { iterations?: number; autoLockMs?: number },
   ) {
     this.store = store
     this.iterations = options?.iterations ?? PBKDF2_ITERATIONS
+    this.autoLockMs = options?.autoLockMs ?? AUTO_LOCK_MS
+  }
+
+  /**
+   * Avisa cuando la bóveda se bloquea (manual o por inactividad); el conector
+   * de wagmi lo usa para marcar la conexión como desconectada. Devuelve la
+   * función de baja.
+   */
+  onLock(listener: () => void): () => void {
+    this.lockListeners.add(listener)
+    return () => this.lockListeners.delete(listener)
+  }
+
+  /**
+   * Actividad del usuario: reinicia la cuenta atrás del auto-bloqueo. La
+   * llama la capa de UI con los eventos de teclado/puntero.
+   */
+  touch(): void {
+    if (this.unlocked !== null) this.scheduleAutoLock()
+  }
+
+  private scheduleAutoLock(): void {
+    if (this.lockTimer !== null) clearTimeout(this.lockTimer)
+    this.lockTimer = setTimeout(() => this.lock(), this.autoLockMs)
   }
 
   hasStoredWallet(): boolean {
@@ -232,6 +261,7 @@ export class LocalWalletVault {
     const vault = await encryptPrivateKey(privateKey, password, this.iterations)
     this.store.setItem(STORAGE_KEY, JSON.stringify(vault))
     this.unlocked = privateKeyToAccount(privateKey)
+    this.scheduleAutoLock()
     return this.unlocked.address
   }
 
@@ -241,11 +271,18 @@ export class LocalWalletVault {
     if (vault === null) throw new Error('No hay ninguna wallet guardada')
     const privateKey = await decryptPrivateKey(vault, password)
     this.unlocked = privateKeyToAccount(privateKey)
+    this.scheduleAutoLock()
     return this.unlocked.address
   }
 
   lock(): void {
+    if (this.lockTimer !== null) {
+      clearTimeout(this.lockTimer)
+      this.lockTimer = null
+    }
+    if (this.unlocked === null) return
     this.unlocked = null
+    for (const listener of this.lockListeners) listener()
   }
 
   /** Descifra y devuelve la clave para respaldarla; exige la contraseña. */
@@ -258,7 +295,7 @@ export class LocalWalletVault {
   /** Borra la bóveda. Irreversible: sin respaldo de la clave, adiós fondos. */
   remove(): void {
     this.store.removeItem(STORAGE_KEY)
-    this.unlocked = null
+    this.lock()
   }
 }
 

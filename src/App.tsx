@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 
-import { BridgeModal } from './components/BridgeModal';
+import { BridgeModal, gasDestinationKey } from './components/BridgeModal';
 import { ClientOnly } from './components/ClientOnly';
 import { MarketsView } from './components/MarketsView';
 import { Navbar } from './components/Navbar';
@@ -43,7 +43,13 @@ export default function App() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
         <ClientOnly>
-          <MarketsView onConnectWallet={() => setIsWalletModalOpen(true)} />
+          <MarketsView
+            onConnectWallet={() => setIsWalletModalOpen(true)}
+            onGetGas={(chainId) => {
+              setBridgeDestination(gasDestinationKey(chainId));
+              setIsBridgeOpen(true);
+            }}
+          />
         </ClientOnly>
       </main>
 

@@ -36,6 +36,10 @@ export function localWalletConnector() {
 
     async setup() {
       currentChainId = config.chains[0].id
+      // Auto-bloqueo por inactividad (o bloqueo manual): la conexión de
+      // wagmi debe caer con la bóveda, o la UI seguiría como conectada
+      // mientras cada firma fallaría con "bloqueada".
+      localWalletVault.onLock(() => config.emitter.emit('disconnect'))
     },
 
     async connect(parameters = {}) {
