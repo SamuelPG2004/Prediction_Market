@@ -269,6 +269,15 @@ export function mapClobPositionToDomain(
       if (split || raw.market.winningOutcomeIndex === index) status = 'redeemable'
       else status = 'lost'
     }
+    // Lado ganador con saldo cero on-chain: ya se cobró (o se vendió antes).
+    // Ofrecer "cobrar" sobre nada solo produciría una transacción vacía.
+    if (
+      status === 'redeemable' &&
+      data.balanceRaw !== null &&
+      BigInt(data.balanceRaw) === 0n
+    ) {
+      status = 'redeemed'
+    }
 
     positions.push({
       id: `${raw.market.slug}:${side}`,

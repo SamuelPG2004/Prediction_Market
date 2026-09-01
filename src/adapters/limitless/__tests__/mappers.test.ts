@@ -386,4 +386,16 @@ describe('posiciones', () => {
     // 5 USDC a precio medio 0.37 → 13.513513 acciones.
     expect(position.potentialPayout).toBe('13.513513')
   })
+
+  it('un lado ganador con saldo cero on-chain ya está cobrado', () => {
+    // La segunda entrada del fixture es la ganada reclamable (lado YES).
+    const won = loadPositions()[1]
+    const drained = {
+      ...won,
+      yes: { ...won.yes, balanceRaw: '0' },
+    }
+    const positions = mapClobPositionToDomain(drained, VENUE)
+    const yes = positions.find((p) => p.outcomeId === 'yes')
+    expect(yes?.status).toBe('redeemed')
+  })
 })

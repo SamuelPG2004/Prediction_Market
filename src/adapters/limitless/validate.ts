@@ -30,6 +30,8 @@ export interface RawLimitlessMarket {
   prices: number[]
   venue: { exchange: string | null; adapter: string | null }
   collateralToken: { address: string; symbol: string; decimals: number } | null
+  /** Id de condición del CTF (bytes32), necesario para cobrar premios. */
+  conditionId: string | null
   properties: RawProperty[]
   winningOutcomeIndex: number | null
   payoutNumerators: number[] | null
@@ -214,6 +216,7 @@ export function parseMarket(u: unknown): RawLimitlessMarket | null {
     prices,
     venue,
     collateralToken,
+    conditionId: asString(u.conditionId),
     properties: parseProperties(u.properties),
     winningOutcomeIndex: asFiniteNumber(u.winningOutcomeIndex),
     payoutNumerators: asNumberArray(u.payoutNumerators),

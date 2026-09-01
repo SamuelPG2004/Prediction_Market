@@ -248,6 +248,50 @@ export function createLimitlessGateway(config: LimitlessConfig): LimitlessGatewa
 
 // --- Wallet ------------------------------------------------------------------------
 
+/**
+ * ABI mínimo del exchange CTF de Limitless (fork del de Polymarket): solo la
+ * vista que publica la dirección del ConditionalTokens. Verificado on-chain
+ * en Base el 2026-09-01 (getCtf() → 0xC9c9…6e18).
+ */
+const EXCHANGE_GET_CTF_ABI = [
+  {
+    inputs: [],
+    name: 'getCtf',
+    outputs: [{ internalType: 'address', name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const
+
+/**
+ * ABI mínimo del ConditionalTokens (Gnosis CTF): la vista que dice si la
+ * condición ya tiene resolución on-chain y la función de cobro.
+ */
+const CTF_ABI = [
+  {
+    inputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
+    name: 'payoutDenominator',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'collateralToken', type: 'address' },
+      { internalType: 'bytes32', name: 'parentCollectionId', type: 'bytes32' },
+      { internalType: 'bytes32', name: 'conditionId', type: 'bytes32' },
+      { internalType: 'uint256[]', name: 'indexSets', type: 'uint256[]' },
+    ],
+    name: 'redeemPositions',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+] as const
+
+const PARENT_COLLECTION_ROOT =
+  '0x0000000000000000000000000000000000000000000000000000000000000000' as const
+
 /** Operaciones que exigen wallet. Separadas para poder operar sin ella. */
 export interface LimitlessWalletBridge {
   /** Allowance actual del colateral (USDC) hacia el exchange del venue. */
@@ -256,6 +300,16 @@ export interface LimitlessWalletBridge {
   approve(token: Address, spender: Address, amount: bigint): Promise<void>
   /** Firma EIP-712 de la orden. */
   signOrderTypedData(typedData: LimitlessOrderTypedData): Promise<Hex>
+  /** Dirección del ConditionalTokens que usa el exchange del venue. */
+  readExchangeCtf(exchange: Address): Promise<Address>
+  /** Denominador de pago de la condición: 0 = resolución aún no on-chain. */
+  readPayoutDenominator(ctf: Address, conditionId: Hex): Promise<bigint>
+  /**
+   * Cobra TODO el saldo de las posiciones de la condición (index sets 1 y 2:
+   * el lado perdedor paga cero, así que cobrar ambos es idempotente). Espera
+   * la confirmación y devuelve el hash.
+   */
+  redeemPositions(ctf: Address, collateral: Address, conditionId: Hex): Promise<Hex>
 }
 
 /** Implementación real de la wallet sobre clientes viem. */
@@ -287,6 +341,35 @@ export function createViemLimitlessWalletBridge(
     },
     async signOrderTypedData(typedData) {
       return walletClient.signTypedData(typedData)
+    },
+    async readExchangeCtf(exchange) {
+      return publicClient.readContract({
+        address: exchange,
+        abi: EXCHANGE_GET_CTF_ABI,
+        functionName: 'getCtf',
+      })
+    },
+    async readPayoutDenominator(ctf, conditionId) {
+      return publicClient.readContract({
+        address: ctf,
+        abi: CTF_ABI,
+        functionName: 'payoutDenominator',
+        args: [conditionId],
+      })
+    },
+    async redeemPositions(ctf, collateral, conditionId) {
+      const account = walletClient.account
+      if (!account) throw new Error('La wallet no tiene cuenta activa')
+      const hash = await walletClient.writeContract({
+        address: ctf,
+        abi: CTF_ABI,
+        functionName: 'redeemPositions',
+        args: [collateral, PARENT_COLLECTION_ROOT, conditionId, [1n, 2n]],
+        account,
+        chain: walletClient.chain,
+      })
+      await publicClient.waitForTransactionReceipt({ hash })
+      return hash
     },
   }
 }

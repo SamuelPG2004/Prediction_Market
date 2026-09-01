@@ -176,8 +176,8 @@ export class LimitlessAdapter implements MarketSource {
       canRankPopular: false,
       // Order book por mercado: no existe el producto "combinada".
       canCombo: false,
-      // El cobro CTF (redeemPositions del condicional) queda fuera de alcance.
-      canRedeem: false,
+      // Cobro CTF (redeemPositions del condicional) directo desde la wallet.
+      canRedeem: true,
       // Un order book no ofrece cash out: cerrar es vender contra el libro.
       canCashout: false,
     }
@@ -313,14 +313,107 @@ export class LimitlessAdapter implements MarketSource {
     )
   }
 
+  /**
+   * Cobro de una posición ganadora (o de un split): `redeemPositions` del
+   * ConditionalTokens, directo desde la wallet del usuario. La dirección del
+   * CTF no viene en la API: se lee del propio exchange del mercado
+   * (`getCtf()`), que es la fuente de verdad on-chain, nunca un hardcode.
+   *
+   * El cobro CTF liquida TODO el saldo de la condición (ambos lados), así que
+   * si el usuario tenía YES y NO del mismo mercado, una sola transacción
+   * cobra los dos; el lado perdedor paga cero.
+   */
   async redeemPosition(
-    _position: Position,
-    _opts: { from: string },
+    position: Position,
+    opts: { from: string },
   ): Promise<Result<RedeemReceipt>> {
-    return this.fail(
-      'unsupported',
-      'El cobro de posiciones de Limitless aún no está soportado en esta app.',
-    )
+    if (this.wallet === null) {
+      return this.fail('wallet', 'Conecta una wallet para cobrar.')
+    }
+    if (!isAddress(opts.from)) {
+      return this.fail('wallet', 'La dirección de la wallet no es válida.')
+    }
+    if (position.status !== 'redeemable') {
+      return this.fail('not_quotable', 'Esta posición no está lista para cobrar.')
+    }
+    const slug = this.slugOf(position.marketId)
+    if (slug === null) {
+      return this.fail('not_found', 'El identificador de la posición no es de Limitless.')
+    }
+
+    // La posición no trae los datos de cobro: se piden al detalle del mercado.
+    let raw: unknown
+    try {
+      raw = await this.gateway.getMarket(slug)
+    } catch (cause) {
+      return this.networkFail('los datos de cobro del mercado', cause)
+    }
+    const market = parseMarket(raw)
+    if (market === null) {
+      return this.invalidResponseFail('cargar los datos de cobro')
+    }
+    if (market.venue.adapter !== null) {
+      // Los grupos negRisk cobran a través de su adapter, con otro flujo.
+      return this.fail(
+        'unsupported',
+        'El cobro de mercados de grupo (negRisk) aún no está soportado; reclámalo en limitless.exchange.',
+      )
+    }
+    const exchange = market.venue.exchange
+    const conditionId = market.conditionId
+    const collateral = market.collateralToken?.address ?? null
+    if (
+      exchange === null ||
+      !isAddress(exchange) ||
+      collateral === null ||
+      !isAddress(collateral) ||
+      conditionId === null ||
+      !/^0x[0-9a-fA-F]{64}$/.test(conditionId)
+    ) {
+      return this.invalidResponseFail('preparar el cobro')
+    }
+
+    // La API puede marcar RESOLVED antes de que el oráculo reporte on-chain;
+    // sin resolución en el contrato, el cobro revertiría con un error críptico.
+    let denominator: bigint
+    let ctf: Address
+    try {
+      ctf = await this.wallet.readExchangeCtf(getAddress(exchange))
+      denominator = await this.wallet.readPayoutDenominator(
+        ctf,
+        conditionId as Hex,
+      )
+    } catch (cause) {
+      return this.networkFail('el estado de la resolución', cause)
+    }
+    if (denominator === 0n) {
+      return this.fail(
+        'not_quotable',
+        'La resolución aún no está registrada en la cadena. Inténtalo en unos minutos.',
+      )
+    }
+
+    let txHash: Hex
+    try {
+      txHash = await this.wallet.redeemPositions(
+        ctf,
+        getAddress(collateral),
+        conditionId as Hex,
+      )
+    } catch (cause) {
+      return this.walletFail('No se pudo cobrar la posición.', cause)
+    }
+
+    return {
+      ok: true,
+      data: {
+        positionId: position.id,
+        reference: txHash,
+        explorerUrl:
+          this.chainId === 8453 ? `https://basescan.org/tx/${txHash}` : null,
+        redeemedAt: new Date(this.now()),
+      },
+    }
   }
 
   async getCashoutOffer(

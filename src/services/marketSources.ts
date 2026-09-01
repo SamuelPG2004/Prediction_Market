@@ -104,6 +104,10 @@ function lazyLimitlessBridge(chainId: number): LimitlessWalletBridge {
     approve: async (...args) => (await bridge()).approve(...args),
     signOrderTypedData: async (...args) =>
       (await bridge()).signOrderTypedData(...args),
+    readExchangeCtf: async (...args) => (await bridge()).readExchangeCtf(...args),
+    readPayoutDenominator: async (...args) =>
+      (await bridge()).readPayoutDenominator(...args),
+    redeemPositions: async (...args) => (await bridge()).redeemPositions(...args),
   }
 }
 

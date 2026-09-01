@@ -4,7 +4,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Address, Hex } from 'viem'
-import { toDecimal, type Quote } from '../../../domain/types.ts'
+import { toDecimal, type Position, type Quote } from '../../../domain/types.ts'
 import { LimitlessAdapter } from '../LimitlessAdapter.ts'
 import { makeLimitlessConfig, type LimitlessConfig } from '../config.ts'
 import {
@@ -20,6 +20,7 @@ import searchFixture from './fixtures/markets-search.json'
 import detailFixture from './fixtures/market-detail.json'
 import orderbookFixture from './fixtures/orderbook.json'
 import positionsFixture from './fixtures/positions.synthetic.json'
+import resolvedFixture from './fixtures/market-resolved.json'
 import profileFixture from './fixtures/profile.synthetic.json'
 
 const AUTH = { tokenId: 'tok-1', secret: 'c2VjcmV0bw==' }
@@ -85,6 +86,10 @@ class FakeWallet implements LimitlessWalletBridge {
   approvals: { spender: Address; amount: bigint }[] = []
   signedTypedData: LimitlessOrderTypedData | null = null
   signError: unknown = null
+  ctfAddress: Address = '0xC9c98965297Bc527861c898329Ee280632B76e18'
+  payoutDenominator = 1n
+  redeems: { ctf: Address; collateral: Address; conditionId: Hex }[] = []
+  redeemError: unknown = null
 
   async readAllowance() {
     return this.allowance
@@ -97,6 +102,21 @@ class FakeWallet implements LimitlessWalletBridge {
     if (this.signError !== null) throw this.signError
     this.signedTypedData = typedData
     return '0xfirma'
+  }
+  async readExchangeCtf(): Promise<Address> {
+    return this.ctfAddress
+  }
+  async readPayoutDenominator(): Promise<bigint> {
+    return this.payoutDenominator
+  }
+  async redeemPositions(
+    ctf: Address,
+    collateral: Address,
+    conditionId: Hex,
+  ): Promise<Hex> {
+    if (this.redeemError !== null) throw this.redeemError
+    this.redeems.push({ ctf, collateral, conditionId })
+    return '0xcafe'
   }
 }
 
@@ -142,7 +162,7 @@ describe('capacidades', () => {
       canSubscribe: false,
       canSearch: true,
       canListSubcategories: false,
-      canRedeem: false,
+      canRedeem: true,
       canRankPopular: false,
       canCombo: false,
       canCashout: false,
@@ -153,27 +173,10 @@ describe('capacidades', () => {
     expect(conAuth.adapter.capabilities.canReadPositions).toBe(true)
   })
 
-  it('listSubcategories y redeemPosition no están soportados', async () => {
+  it('listSubcategories no está soportado', async () => {
     const { adapter } = makeAdapter()
     const subcats = await adapter.listSubcategories('sports')
     expect(!subcats.ok && subcats.error.kind).toBe('unsupported')
-
-    const cobro = await adapter.redeemPosition(
-      {
-        id: 'x:yes',
-        marketId: 'limitless:x',
-        outcomeId: 'yes',
-        marketQuestion: 'x',
-        outcomeLabel: 'Yes',
-        stake: '1' as never,
-        potentialPayout: '2' as never,
-        currentValue: null,
-        status: 'redeemable',
-        openedAt: null,
-      },
-      { from: BETTOR },
-    )
-    expect(!cobro.ok && cobro.error.kind).toBe('unsupported')
   })
 })
 
@@ -479,6 +482,97 @@ describe('placeBet', () => {
     const ajena: Quote = { ...quote, venueData: { conditionId: 'de-azuro' } }
     const venueAjeno = await adapter.placeBet(ajena, { slippageTolerance: 0.05, from: BETTOR })
     expect(!venueAjeno.ok && venueAjeno.error.kind).toBe('invalid_response')
+  })
+})
+
+describe('redeemPosition', () => {
+  const redeemable: Position = {
+    id: `${resolvedFixture.slug}:no`,
+    marketId: `limitless:${resolvedFixture.slug}`,
+    outcomeId: 'no',
+    marketQuestion: resolvedFixture.title,
+    outcomeLabel: 'No',
+    stake: toDecimal('1'),
+    potentialPayout: toDecimal('2'),
+    currentValue: null,
+    status: 'redeemable',
+    openedAt: null,
+  }
+
+  it('cobra vía redeemPositions del CTF que publica el exchange', async () => {
+    const wallet = new FakeWallet()
+    const gateway = new FakeGateway()
+    gateway.responses.getMarket = resolvedFixture
+    const { adapter } = makeAdapter({ gateway, wallet })
+
+    const result = await adapter.redeemPosition(redeemable, { from: BETTOR })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data.reference).toBe('0xcafe')
+    expect(result.data.explorerUrl).toContain('basescan.org/tx/0xcafe')
+    expect(wallet.redeems).toEqual([
+      {
+        ctf: wallet.ctfAddress,
+        collateral: resolvedFixture.collateralToken.address,
+        conditionId: resolvedFixture.conditionId,
+      },
+    ])
+  })
+
+  it('sin resolución on-chain no envía la transacción', async () => {
+    const wallet = new FakeWallet()
+    wallet.payoutDenominator = 0n
+    const gateway = new FakeGateway()
+    gateway.responses.getMarket = resolvedFixture
+    const { adapter } = makeAdapter({ gateway, wallet })
+
+    const result = await adapter.redeemPosition(redeemable, { from: BETTOR })
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error.kind).toBe('not_quotable')
+    expect(wallet.redeems).toEqual([])
+  })
+
+  it('rechaza los mercados de grupo (negRisk) con error tipado', async () => {
+    const wallet = new FakeWallet()
+    const gateway = new FakeGateway()
+    gateway.responses.getMarket = {
+      ...resolvedFixture,
+      venue: {
+        ...resolvedFixture.venue,
+        adapter: '0x9999999999999999999999999999999999999999',
+      },
+    }
+    const { adapter } = makeAdapter({ gateway, wallet })
+
+    const result = await adapter.redeemPosition(redeemable, { from: BETTOR })
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error.kind).toBe('unsupported')
+    expect(wallet.redeems).toEqual([])
+  })
+
+  it('sin wallet, error tipado de wallet', async () => {
+    const { adapter } = makeAdapter()
+    const result = await adapter.redeemPosition(redeemable, { from: BETTOR })
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error.kind).toBe('wallet')
+  })
+
+  it('una posición no cobrable no llega a la red', async () => {
+    const wallet = new FakeWallet()
+    const gateway = new FakeGateway()
+    const { adapter } = makeAdapter({ gateway, wallet })
+
+    const result = await adapter.redeemPosition(
+      { ...redeemable, status: 'open' },
+      { from: BETTOR },
+    )
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error.kind).toBe('not_quotable')
+    expect(gateway.calls).toEqual([])
   })
 })
 
