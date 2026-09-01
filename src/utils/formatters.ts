@@ -55,6 +55,15 @@ export function formatEventDate(date: Date): string {
   return `${day} · ${time}`;
 }
 
+/** Solo la hora ("21:00"): para filas que ya viven bajo una cabecera de día. */
+export function formatEventTime(date: Date): string {
+  return date.toLocaleTimeString('es', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
 export function shortenAddress(address: string, chars: number = 4): string {
   if (!address) return '';
   if (address.length <= chars * 2 + 2) return address;

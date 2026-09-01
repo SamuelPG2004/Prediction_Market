@@ -25,14 +25,15 @@ import {
   useBetSlip,
   type BetSlipSelection,
 } from '../hooks/useBetSlip';
+import {
+  checkComboAvailability,
+  isValidAmount,
+  previewComboOdds,
+  selectionOddsText,
+} from '../utils/betting';
 import { optionLabelOf } from '../utils/eventGrouping';
 import { formatCurrency } from '../utils/formatters';
 import { translateOutcomeLabel } from '../utils/marketLabels';
-
-/** Importe válido: decimal positivo con hasta 6 decimales. */
-function isValidAmount(value: string): boolean {
-  return /^\d+(\.\d{1,6})?$/.test(value.trim()) && Number(value) > 0;
-}
 
 type ItemQuoteState =
   | { status: 'idle' }
@@ -80,25 +81,16 @@ export const BetSlip: React.FC<{ onConnectWallet: () => void }> = ({
 
   const venueIds = [...new Set(selections.map((s) => s.market.venue))];
   const comboSource = venueIds.length === 1 ? marketSources.byVenue(venueIds[0]) : null;
-  const gameIds = selections.map((s) => s.market.group?.id);
-  const distinctGames =
-    !gameIds.includes(undefined) && new Set(gameIds).size === selections.length;
-  const comboAvailable =
-    selections.length >= 2 &&
-    comboSource !== null &&
-    comboSource.capabilities.canCombo &&
-    distinctGames;
-  /** Por qué no hay combinada, para decirlo en vez de esconder la pestaña. */
-  const comboReason =
-    selections.length < 2
-      ? 'Añade al menos dos selecciones.'
-      : venueIds.length > 1
-        ? 'Las selecciones mezclan dos casas distintas; una combinada vive en una sola.'
-        : comboSource !== null && !comboSource.capabilities.canCombo
-          ? `${comboSource.displayName} no ofrece apuestas combinadas.`
-          : !distinctGames
-            ? 'Hay dos selecciones del mismo partido: no se pueden combinar.'
-            : null;
+  const { available: comboAvailable, reason: comboReason } =
+    checkComboAvailability(
+      selections,
+      comboSource === null
+        ? null
+        : {
+            displayName: comboSource.displayName,
+            canCombo: comboSource.capabilities.canCombo,
+          },
+    );
 
   // Si la combinada deja de ser posible (se quitó una pata, se mezclaron
   // venues), el boleto vuelve solo al modo simple.
@@ -327,14 +319,7 @@ const ComboPane: React.FC<{
 
   // Vista previa del producto de cuotas con los precios del catálogo; la
   // cuota firme la da el venue al cotizar.
-  const previewOdds = selections.reduce((acc: number | null, s) => {
-    if (acc === null) return null;
-    const o = s.market.outcomes.find((x) => x.id === s.outcomeId);
-    if (o === undefined || o.price === null || s.market.priceFormat !== 'decimal-odds') {
-      return null;
-    }
-    return acc * Number(o.price);
-  }, 1);
+  const previewOdds = previewComboOdds(selections);
 
   const selectionsKey = selections
     .map((s) => `${s.market.id}#${s.outcomeId}`)
@@ -729,19 +714,8 @@ const SlipItem: React.FC<{
 const OddsTag: React.FC<{ market: Market; outcomeId: string }> = ({
   market,
   outcomeId,
-}) => {
-  const outcome = market.outcomes.find((o) => o.id === outcomeId);
-  const text =
-    outcome === undefined
-      ? '—'
-      : market.priceFormat === 'decimal-odds' && outcome.price !== null
-        ? Number(outcome.price).toFixed(2)
-        : outcome.probability !== null
-          ? `${Math.round(outcome.probability * 100)}%`
-          : '—';
-  return (
-    <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-[11px] font-mono font-bold text-emerald-300">
-      {text}
-    </span>
-  );
-};
+}) => (
+  <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-[11px] font-mono font-bold text-emerald-300">
+    {selectionOddsText(market, outcomeId)}
+  </span>
+);

@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  LayoutGrid,
+  List,
   Loader2,
   RefreshCw,
   Search,
@@ -11,9 +13,9 @@ import { useDomainEvents } from '../hooks/useDomainEvents';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useSubcategories } from '../hooks/useSubcategories';
 import { useVenueBalances } from '../hooks/useVenueBalances';
-import type { MarketEventView } from '../utils/eventGrouping';
+import { groupEventsForList, type MarketEventView } from '../utils/eventGrouping';
 import { BetSlip } from './BetSlip';
-import { EventCard } from './EventCard';
+import { EventCard, EventListRow } from './EventCard';
 import { FeaturedMatches } from './FeaturedMatches';
 import { TradePanel } from './TradePanel';
 import { toggleSelection } from '../hooks/useBetSlip';
@@ -56,8 +58,29 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
   const [subcategory, setSubcategory] = useState<string | undefined>(undefined);
   const { subcategories } = useSubcategories(tab.category);
 
-  // Solo eventos en juego ahora mismo. Filtro en cliente sobre lo descargado.
+  // Solo eventos en juego ahora mismo. Va en el filtro a los venues: Azuro
+  // tiene listado en vivo propio; los venues sin en-vivo aportan cero.
   const [liveOnly, setLiveOnly] = useState(false);
+
+  // Tarjetas o lista compacta (solo Deportes). Preferencia por navegador;
+  // localStorage puede no estar (modo privado): en ese caso, tarjetas.
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    try {
+      return localStorage.getItem('aether:sportsView') === 'list'
+        ? 'list'
+        : 'grid';
+    } catch {
+      return 'grid';
+    }
+  });
+  const changeViewMode = (mode: 'grid' | 'list') => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('aether:sportsView', mode);
+    } catch {
+      // sin persistencia: la preferencia dura lo que dure la pestaña
+    }
+  };
 
   const [query, setQuery] = useState('');
   // La búsqueda va al servidor de cada venue; con retardo para no lanzar una
@@ -83,6 +106,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
     category: tab.category,
     subcategory,
     search: debouncedQuery,
+    liveOnly,
   });
 
   const { balances } = useVenueBalances();
@@ -128,17 +152,8 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
     setLiveOnly(false);
   }, [tabIndex]);
 
-  const liveCount = useMemo(
-    () => events.reduce((n, e) => n + (e.isLive ? 1 : 0), 0),
-    [events],
-  );
-  const shown = useMemo(
-    () => (liveOnly ? events.filter((e) => e.isLive) : events),
-    [events, liveOnly],
-  );
-
-  const eventsRef = useRef(shown);
-  eventsRef.current = shown;
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
 
   /**
    * Un único centinela cubre las dos paginaciones: primero revela más de lo
@@ -153,18 +168,18 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
   }, [visibleCount, hasMore, isLoadingMore, loadMore]);
 
   const visible = useMemo(
-    () => shown.slice(0, visibleCount),
-    [shown, visibleCount],
+    () => events.slice(0, visibleCount),
+    [events, visibleCount],
   );
 
   const sentinelRef = useInfiniteScroll({
     onReachEnd: reachEnd,
-    enabled: !isLoading && (visibleCount < shown.length || hasMore),
+    enabled: !isLoading && (visibleCount < events.length || hasMore),
   });
 
   const totalMarkets = useMemo(
-    () => shown.reduce((a, e) => a + e.markets.length, 0),
-    [shown],
+    () => events.reduce((a, e) => a + e.markets.length, 0),
+    [events],
   );
 
   return (
@@ -237,29 +252,20 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
       {/* Chips de subcategoría (deportes dentro de Deportes, etc.) */}
       {subcategories.length > 0 && (
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 -mt-2">
-          {/* En vivo: filtro de estado, aparece solo si hay partidos en juego. */}
-          {(liveCount > 0 || liveOnly) && (
-            <>
-              <button
-                onClick={() => setLiveOnly((v) => !v)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 border ${
-                  liveOnly
-                    ? 'bg-rose-500/15 text-rose-300 border-rose-500/40'
-                    : 'bg-[#0f121a] text-neutral-500 border-neutral-800/80 hover:text-rose-300 hover:border-rose-500/40'
-                }`}
-                title="Solo eventos en juego ahora mismo"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                <span>En vivo</span>
-                <span
-                  className={`text-[9px] font-mono ${liveOnly ? 'text-rose-400/80' : 'text-neutral-600'}`}
-                >
-                  {liveCount}
-                </span>
-              </button>
-              <span className="w-px h-4 bg-neutral-800 shrink-0" />
-            </>
-          )}
+          {/* En vivo: filtro de estado, pide a los venues su listado en juego. */}
+          <button
+            onClick={() => setLiveOnly((v) => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 border ${
+              liveOnly
+                ? 'bg-rose-500/15 text-rose-300 border-rose-500/40'
+                : 'bg-[#0f121a] text-neutral-500 border-neutral-800/80 hover:text-rose-300 hover:border-rose-500/40'
+            }`}
+            title="Solo eventos en juego ahora mismo"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+            <span>En vivo</span>
+          </button>
+          <span className="w-px h-4 bg-neutral-800 shrink-0" />
           <SubcategoryChip
             label="Todos"
             active={subcategory === undefined}
@@ -292,6 +298,33 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
             className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#0f121a] border border-neutral-800 focus:border-emerald-500/50 focus:outline-none text-sm text-neutral-100 placeholder:text-neutral-600"
           />
         </div>
+        {/* Tarjetas / lista compacta: la lista solo aporta en Deportes. */}
+        {tab.category === 'sports' && (
+          <div className="flex items-center rounded-xl bg-[#0f121a] border border-neutral-800 overflow-hidden shrink-0">
+            <button
+              onClick={() => changeViewMode('grid')}
+              title="Tarjetas"
+              className={`p-2.5 transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-neutral-800 text-neutral-100'
+                  : 'text-neutral-500 hover:text-neutral-300'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => changeViewMode('list')}
+              title="Lista compacta, agrupada por día y liga"
+              className={`p-2.5 transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-neutral-800 text-neutral-100'
+                  : 'text-neutral-500 hover:text-neutral-300'
+              }`}
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         <button
           onClick={reload}
           disabled={isLoading}
@@ -334,7 +367,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-mono text-neutral-500">
               <span className="text-neutral-300">{visible.length}</span> de{' '}
-              <span className="text-neutral-300">{shown.length}</span> eventos ·{' '}
+              <span className="text-neutral-300">{events.length}</span> eventos ·{' '}
               {totalMarkets} mercados operables
             </p>
 
@@ -364,6 +397,44 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
                     : 'Esta categoría no tiene mercados operables ahora mismo.'}
               </p>
             </div>
+          ) : tab.category === 'sports' && viewMode === 'list' ? (
+            /* Lista compacta: filas agrupadas por día y, dentro, por liga. */
+            <div className="flex flex-col gap-4">
+              {groupEventsForList(visible).map((day) => (
+                <section key={day.key} className="flex flex-col gap-2">
+                  <h3
+                    className={`text-[11px] font-bold uppercase tracking-wider ${
+                      day.key === 'live' ? 'text-rose-400' : 'text-neutral-300'
+                    }`}
+                  >
+                    {day.label}
+                  </h3>
+                  {day.leagues.map((lg) => (
+                    <div key={lg.league} className="flex flex-col gap-1">
+                      <p className="flex items-center gap-1.5 px-1 text-[10px] font-mono uppercase tracking-wide text-neutral-500">
+                        {(() => {
+                          const sub = lg.events[0]?.markets[0]?.subcategory;
+                          const icon =
+                            sub !== undefined ? subcategoryIcon(sub) : null;
+                          return icon !== null ? <span>{icon}</span> : null;
+                        })()}
+                        <span className="truncate">{lg.league}</span>
+                        <span className="text-neutral-700">
+                          {lg.events.length}
+                        </span>
+                      </p>
+                      {lg.events.map((e) => (
+                        <EventListRow
+                          key={e.id}
+                          event={e}
+                          onSelectMarket={selectMarket}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </section>
+              ))}
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
               {visible.map((e, i) => (
@@ -379,15 +450,15 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
 
           {/* Centinela: dispara la carga al acercarse el final. */}
           <div ref={sentinelRef} className="flex items-center justify-center py-6">
-            {visibleCount < shown.length || hasMore ? (
+            {visibleCount < events.length || hasMore ? (
               <div className="flex items-center gap-2 text-[11px] font-mono text-neutral-600">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 <span>{isLoadingMore ? 'Trayendo más mercados…' : 'Cargando más…'}</span>
               </div>
             ) : (
-              shown.length > 0 && (
+              events.length > 0 && (
                 <p className="text-[11px] font-mono text-neutral-700">
-                  {shown.length} eventos · catálogo completo de {tab.label}
+                  {events.length} eventos · catálogo completo de {tab.label}
                 </p>
               )
             )}

@@ -8,7 +8,11 @@ import {
   optionLabelOf,
   type MarketEventView,
 } from '../utils/eventGrouping';
-import { formatCompactNumber, formatEventDate } from '../utils/formatters';
+import {
+  formatCompactNumber,
+  formatEventDate,
+  formatEventTime,
+} from '../utils/formatters';
 import { translateOutcomeLabel } from '../utils/marketLabels';
 import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
 import { useBetSlip } from '../hooks/useBetSlip';
@@ -235,20 +239,14 @@ function isDrawOutcome(label: string): boolean {
 }
 
 /**
- * El mercado principal del enfrentamiento: un botón por resultado con la cuota
- * grande y la probabilidad pequeña. Sin cotización: raya, nunca 0%. Cada botón
- * entrega el `outcomeId` clicado para preseleccionarlo en el boleto.
- *
- * El orden de los botones sigue a la cabecera: local · (empate) · visitante,
- * casando cada resultado con su participante, aunque el venue publique otro
- * orden.
+ * Resultados del mercado estrella en el orden de la cabecera: local ·
+ * (empate) · visitante, casando cada resultado con su participante aunque el
+ * venue publique otro orden.
  */
-export const StarMarketRow: React.FC<{
-  market: Market;
-  participants?: { name: string; imageUrl?: string }[];
-  onPick: (outcomeId: string) => void;
-}> = ({ market, participants, onPick }) => {
-  const { isSelected } = useBetSlip();
+function orderedStarOutcomes(
+  market: Market,
+  participants?: { name: string }[],
+): Market['outcomes'] {
   let outcomes = market.outcomes.slice(0, 3);
   const draw = outcomes.find((o) => isDrawOutcome(o.label));
   const byName = (name: string) =>
@@ -263,22 +261,43 @@ export const StarMarketRow: React.FC<{
     const rest = outcomes.filter((o) => o !== draw);
     outcomes = [rest[0], draw, rest[1]];
   }
+  return outcomes;
+}
 
-  // El favorito: la cuota más baja, solo si es única y TODOS los resultados
-  // cotizan — con uno sin precio, el mínimo de los demás no dice quién es el
-  // favorito. Marca sutil que da la lectura del partido sin comparar números.
+/**
+ * Precio del favorito: la cuota más baja, solo si es única y TODOS los
+ * resultados cotizan — con uno sin precio, el mínimo de los demás no dice
+ * quién es el favorito. `null` si no hay favorito claro.
+ */
+function favoritePriceOf(
+  outcomes: Market['outcomes'],
+  priceFormat: Market['priceFormat'],
+): number | null {
+  if (priceFormat !== 'decimal-odds') return null;
   const prices = outcomes.map((o) => (o.price === null ? null : Number(o.price)));
   const known = prices.filter((p): p is number => p !== null);
-  const lowest =
-    known.length === outcomes.length && known.length >= 2
-      ? Math.min(...known)
-      : null;
-  const favoritePrice =
-    market.priceFormat === 'decimal-odds' &&
-    lowest !== null &&
-    known.filter((p) => p === lowest).length === 1
-      ? lowest
-      : null;
+  if (known.length !== outcomes.length || known.length < 2) return null;
+  const lowest = Math.min(...known);
+  return known.filter((p) => p === lowest).length === 1 ? lowest : null;
+}
+
+/**
+ * El mercado principal del enfrentamiento: un botón por resultado con la cuota
+ * grande y la probabilidad pequeña. Sin cotización: raya, nunca 0%. Cada botón
+ * entrega el `outcomeId` clicado para preseleccionarlo en el boleto.
+ *
+ * El orden de los botones sigue a la cabecera: local · (empate) · visitante,
+ * casando cada resultado con su participante, aunque el venue publique otro
+ * orden.
+ */
+export const StarMarketRow: React.FC<{
+  market: Market;
+  participants?: { name: string; imageUrl?: string }[];
+  onPick: (outcomeId: string) => void;
+}> = ({ market, participants, onPick }) => {
+  const { isSelected } = useBetSlip();
+  const outcomes = orderedStarOutcomes(market, participants);
+  const favoritePrice = favoritePriceOf(outcomes, market.priceFormat);
 
   return (
   <div className="flex flex-col gap-1.5">
@@ -290,12 +309,12 @@ export const StarMarketRow: React.FC<{
         outcomes.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
       }`}
     >
-      {outcomes.map((o, i) => (
+      {outcomes.map((o) => (
         <StarOutcomeButton
           key={o.id}
           outcome={o}
           priceFormat={market.priceFormat}
-          isFavorite={prices[i] !== null && prices[i] === favoritePrice}
+          isFavorite={o.price !== null && Number(o.price) === favoritePrice}
           inSlip={isSelected(market.id, o.id)}
           onPick={() => onPick(o.id)}
         />
@@ -316,7 +335,9 @@ const StarOutcomeButton: React.FC<{
   isFavorite: boolean;
   inSlip: boolean;
   onPick: () => void;
-}> = ({ outcome: o, priceFormat, isFavorite, inSlip, onPick }) => {
+  /** Solo la cuota, sin etiqueta ni %: para las filas del modo lista. */
+  compact?: boolean;
+}> = ({ outcome: o, priceFormat, isFavorite, inSlip, onPick, compact = false }) => {
   const display = outcomeDisplay(o.price, o.probability, priceFormat);
   const flash = usePriceFlash(o.price === null ? null : Number(o.price));
 
@@ -332,25 +353,28 @@ const StarOutcomeButton: React.FC<{
         ? 'ring-1 ring-rose-400/70'
         : '';
 
+  const label = translateOutcomeLabel(o.label);
   return (
     <button
       onClick={onPick}
-      className={`py-1.5 px-1 rounded-lg transition-all active:scale-95 flex flex-col items-center min-w-0 border ${base} ${flashRing}`}
+      className={`${compact ? 'py-1 px-1' : 'py-1.5 px-1'} rounded-lg transition-all active:scale-95 flex flex-col items-center min-w-0 border ${base} ${flashRing}`}
       title={
         display.primary === null
-          ? 'Sin cotización ahora mismo'
+          ? `${label} — sin cotización ahora mismo`
           : inSlip
-            ? 'En el boleto — clic para quitar'
+            ? `${label} — en el boleto, clic para quitar`
             : isFavorite
-              ? 'Favorito — añadir al boleto'
-              : 'Añadir al boleto'
+              ? `${label} — favorito, añadir al boleto`
+              : `${label} — añadir al boleto`
       }
     >
-      <span className="text-[10px] text-neutral-400 truncate w-full text-center">
-        {translateOutcomeLabel(o.label)}
-      </span>
+      {!compact && (
+        <span className="text-[10px] text-neutral-400 truncate w-full text-center">
+          {label}
+        </span>
+      )}
       <span
-        className={`font-mono font-extrabold text-[15px] leading-tight flex items-center gap-0.5 ${
+        className={`font-mono font-extrabold ${compact ? 'text-[12px]' : 'text-[15px]'} leading-tight flex items-center gap-0.5 ${
           display.primary === null ? 'text-neutral-600' : 'text-emerald-300'
         }`}
       >
@@ -365,12 +389,110 @@ const StarOutcomeButton: React.FC<{
           </span>
         )}
       </span>
-      {display.secondary !== null && (
+      {!compact && display.secondary !== null && (
         <span className="text-[9px] font-mono text-neutral-500">
           {display.secondary}
         </span>
       )}
     </button>
+  );
+};
+
+/**
+ * Fila del modo lista: hora, enfrentamiento y las cuotas del mercado estrella
+ * en una sola línea. Caben varias veces más partidos por pantalla que con la
+ * tarjeta; el día y la liga los ponen las cabeceras de la lista.
+ */
+export const EventListRow: React.FC<{
+  event: MarketEventView;
+  onSelectMarket: SelectMarketHandler;
+}> = ({ event, onSelectMarket }) => {
+  const { isSelected } = useBetSlip();
+  const isMatchup =
+    event.participants !== undefined && event.participants.length === 2;
+  const star = findStarMarket(event.markets);
+
+  const open = () => {
+    const target =
+      (star !== null && star.isQuotable ? star : undefined) ??
+      event.markets.find((m) => m.isQuotable) ??
+      event.markets[0];
+    if (target !== undefined) onSelectMarket(event, target);
+  };
+
+  const outcomes =
+    star !== null ? orderedStarOutcomes(star, event.participants) : [];
+  const favoritePrice =
+    star !== null ? favoritePriceOf(outcomes, star.priceFormat) : null;
+
+  return (
+    <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-[#0d1017] border border-neutral-800/70 hover:border-neutral-700 transition-colors">
+      {/* Hora o en juego */}
+      <span className="w-11 shrink-0 text-[10px] font-mono text-neutral-500">
+        {event.isLive ? (
+          <span className="flex items-center gap-1 text-rose-400 font-bold uppercase">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+            Vivo
+          </span>
+        ) : event.markets[0]?.closesAt != null ? (
+          formatEventTime(event.markets[0].closesAt)
+        ) : (
+          '—'
+        )}
+      </span>
+
+      {/* Enfrentamiento (o título). Clicable: abre el panel del evento. */}
+      <button
+        onClick={open}
+        className="flex-1 min-w-0 text-left flex flex-col gap-0.5 cursor-pointer"
+        title="Abrir este evento"
+      >
+        {isMatchup ? (
+          event.participants!.map((p) => (
+            <span
+              key={p.name}
+              className="text-[11.5px] font-semibold text-neutral-100 leading-tight truncate"
+            >
+              {p.name}
+            </span>
+          ))
+        ) : (
+          <span className="text-[11.5px] font-semibold text-neutral-100 leading-tight line-clamp-2">
+            {event.title}
+          </span>
+        )}
+      </button>
+
+      {/* Cuotas del mercado estrella, compactas */}
+      {star !== null && outcomes.length >= 2 && (
+        <div
+          className={`grid gap-1.5 shrink-0 ${
+            outcomes.length === 2 ? 'grid-cols-2 w-32' : 'grid-cols-3 w-48'
+          }`}
+        >
+          {outcomes.map((o) => (
+            <StarOutcomeButton
+              key={o.id}
+              outcome={o}
+              priceFormat={star.priceFormat}
+              isFavorite={o.price !== null && Number(o.price) === favoritePrice}
+              inSlip={isSelected(star.id, o.id)}
+              onPick={() => onSelectMarket(event, star, o.id)}
+              compact
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Puerta al resto de mercados del evento */}
+      <button
+        onClick={open}
+        className="shrink-0 px-1.5 py-1 rounded-lg text-[10px] font-mono text-neutral-500 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+        title={`Ver los ${event.markets.length} mercados del evento`}
+      >
+        {event.markets.length} →
+      </button>
+    </div>
   );
 };
 
