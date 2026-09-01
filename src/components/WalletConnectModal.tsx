@@ -14,7 +14,10 @@ import {
 import { useWallet } from '../services/web3Service';
 import { useVenueBalances } from '../hooks/useVenueBalances';
 import { chainLabel, explorerAddressUrl } from '../config/chains';
+import { LOCAL_WALLET_CONNECTOR_ID } from '../config/localWalletConnector';
 import { formatCurrency, shortenAddress } from '../utils/formatters';
+import { LocalWalletActions } from './LocalWalletActions';
+import { LocalWalletSetup } from './LocalWalletSetup';
 
 interface WalletConnectModalProps {
   isOpen: boolean;
@@ -36,16 +39,19 @@ interface ConnectorLike {
  * navegador anuncia (EIP-6963), así que una misma wallet puede aparecer dos
  * veces y el genérico "Injected" sobra cuando hay wallets con nombre propio
  * — o cuando no hay NINGUNA extensión instalada (sería un botón muerto).
+ * La wallet local de la app tampoco se lista aquí: tiene su propia sección
+ * (LocalWalletSetup) con el flujo de crear/desbloquear.
  */
 function dedupeConnectors<T extends ConnectorLike>(connectors: readonly T[]): T[] {
+  const external = connectors.filter((c) => c.id !== LOCAL_WALLET_CONNECTOR_ID);
   const hasInjectedProvider =
     typeof window !== 'undefined' &&
     (window as unknown as { ethereum?: unknown }).ethereum !== undefined;
-  const named = connectors.filter((c) => c.id !== 'injected');
+  const named = external.filter((c) => c.id !== 'injected');
   const base =
     named.length > 0 || !hasInjectedProvider
       ? named
-      : connectors;
+      : external;
   const seen = new Set<string>();
   return base.filter((c) => {
     const key = c.name.toLowerCase();
@@ -89,6 +95,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
 }) => {
   const {
     address,
+    activeConnectorId,
     isConnected,
     connect,
     connectors,
@@ -136,6 +143,13 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
     navigator.clipboard.writeText(address);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
+  };
+
+  // La wallet local se conecta desde su propia sección, no desde la lista.
+  const localConnector = connectors.find((c) => c.id === LOCAL_WALLET_CONNECTOR_ID);
+  const isLocalWallet = activeConnectorId === LOCAL_WALLET_CONNECTOR_ID;
+  const handleConnectLocal = () => {
+    if (localConnector !== undefined) handleConnect(localConnector);
   };
 
   return (
@@ -243,6 +257,11 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                 </p>
               </div>
 
+              {/* Depósito, retiro y respaldo: solo para la wallet local. */}
+              {isLocalWallet && (
+                <LocalWalletActions address={address as `0x${string}`} />
+              )}
+
               <button
                 onClick={onOpenBridge}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-xs font-bold text-emerald-400 transition-all active:scale-95"
@@ -268,6 +287,19 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                 Puedes explorar los mercados sin conectar nada. Conectar añade
                 tu dirección y permite cotizar y apostar con fondos reales.
               </p>
+
+              <LocalWalletSetup
+                onConnect={handleConnectLocal}
+                isConnecting={isConnecting}
+              />
+
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-neutral-800" />
+                <span className="text-[10px] uppercase font-mono text-neutral-600 tracking-wider">
+                  o una wallet externa
+                </span>
+                <div className="flex-1 h-px bg-neutral-800" />
+              </div>
 
               <div className="flex flex-col gap-2">
                 {connectorList.map((connector) => {

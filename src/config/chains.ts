@@ -73,6 +73,11 @@ export function explorerAddressUrl(chainId: number, address: string): string | n
   return explorer ? `${explorer.base}/address/${address}` : null
 }
 
+export function explorerTxUrl(chainId: number, hash: string): string | null {
+  const explorer = EXPLORERS[chainId]
+  return explorer ? `${explorer.base}/tx/${hash}` : null
+}
+
 export function chainLabel(chainId: number): string {
   if (chainId === POLYGON_CHAIN_ID) return 'Polygon'
   if (chainId === BASE_CHAIN_ID) return 'Base'

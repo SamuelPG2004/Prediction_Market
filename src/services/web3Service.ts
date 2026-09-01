@@ -15,7 +15,7 @@ import {
 } from 'wagmi'
 
 export function useWallet() {
-  const { address, isConnected, status } = useAccount()
+  const { address, isConnected, status, connector } = useAccount()
   const { connect, connectors, isPending, error: connectError } = useConnect()
   const { disconnect } = useDisconnect()
   const { switchChain } = useSwitchChain()
@@ -23,6 +23,8 @@ export function useWallet() {
 
   return {
     address: address ?? null,
+    /** Conector con el que se conectó, para distinguir la wallet local. */
+    activeConnectorId: connector?.id ?? null,
     isConnected,
     status,
     chainId,

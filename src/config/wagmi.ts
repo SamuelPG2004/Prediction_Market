@@ -2,6 +2,7 @@ import { createConfig, fallback, http, injected } from 'wagmi'
 import { base, bsc, polygon } from 'wagmi/chains'
 import { walletConnect } from '@wagmi/connectors'
 import { rpcUrlsFor } from './chains'
+import { localWalletConnector } from './localWalletConnector'
 
 /**
  * wagmi multi-chain: Polygon (Azuro) + Base (Limitless) + BNB Chain, que NO
@@ -17,6 +18,9 @@ import { rpcUrlsFor } from './chains'
  *    (MetaMask, Binance Wallet, Rabby…). wagmi las descubre por EIP-6963 y
  *    las lista por su nombre real; no hacen falta conectores dedicados.
  *  - `walletConnect`: wallets MÓVILES por QR (app de Binance, Trust…).
+ *  - `localWalletConnector`: la wallet local de la app (clave cifrada en el
+ *    navegador), para depositar por cadena y apostar sin extensión; la UI la
+ *    trata aparte (LocalWalletSetup) y no la lista como wallet externa.
  *
  * Los conectores dedicados de MetaMask/Coinbase se quitaron adrede: cargan
  * bajo demanda SDKs que son peers opcionales de @wagmi/connectors y, si no
@@ -47,6 +51,7 @@ const walletConnectProjectId = readViteEnv('VITE_WALLETCONNECT_PROJECT_ID')
 export const wagmiConfig = createConfig({
   chains: [polygon, base, bsc],
   connectors: [
+    localWalletConnector(),
     injected(),
     ...(walletConnectProjectId !== undefined
       ? [
