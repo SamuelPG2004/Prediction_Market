@@ -21,6 +21,10 @@ export default function App() {
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isPositionsOpen, setIsPositionsOpen] = useState(false);
   const [isBridgeOpen, setIsBridgeOpen] = useState(false);
+  /** Destino a preseleccionar en el bridge (p. ej. gas nativo de una red). */
+  const [bridgeDestination, setBridgeDestination] = useState<string | undefined>(
+    undefined,
+  );
 
   return (
     <div className="min-h-screen bg-[#090b0f] text-neutral-100 flex flex-col selection:bg-emerald-500/30 selection:text-emerald-300">
@@ -63,15 +67,20 @@ export default function App() {
         <WalletConnectModal
           isOpen={isWalletModalOpen}
           onClose={() => setIsWalletModalOpen(false)}
-          onOpenBridge={() => {
+          onOpenBridge={(destination) => {
             setIsWalletModalOpen(false);
+            setBridgeDestination(destination);
             setIsBridgeOpen(true);
           }}
         />
       </ClientOnly>
 
       <ClientOnly>
-        <BridgeModal isOpen={isBridgeOpen} onClose={() => setIsBridgeOpen(false)} />
+        <BridgeModal
+          isOpen={isBridgeOpen}
+          onClose={() => setIsBridgeOpen(false)}
+          initialDestination={bridgeDestination}
+        />
       </ClientOnly>
 
       <ClientOnly>

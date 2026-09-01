@@ -15,6 +15,7 @@ import { useWallet } from '../services/web3Service';
 import { useVenueBalances } from '../hooks/useVenueBalances';
 import { chainLabel, explorerAddressUrl } from '../config/chains';
 import { LOCAL_WALLET_CONNECTOR_ID } from '../config/localWalletConnector';
+import { gasDestinationKey } from './BridgeModal';
 import { formatCurrency, shortenAddress } from '../utils/formatters';
 import { LocalWalletActions } from './LocalWalletActions';
 import { LocalWalletSetup } from './LocalWalletSetup';
@@ -22,8 +23,9 @@ import { LocalWalletSetup } from './LocalWalletSetup';
 interface WalletConnectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Abre el modal de bridge (traer fondos desde otra red). */
-  onOpenBridge: () => void;
+  /** Abre el modal de bridge (traer fondos desde otra red), opcionalmente
+   * con un destino preseleccionado (p. ej. el gas nativo de una red). */
+  onOpenBridge: (destination?: string) => void;
 }
 
 /** Forma mínima del conector que usa este modal. */
@@ -259,11 +261,14 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
 
               {/* Depósito, retiro y respaldo: solo para la wallet local. */}
               {isLocalWallet && (
-                <LocalWalletActions address={address as `0x${string}`} />
+                <LocalWalletActions
+                  address={address as `0x${string}`}
+                  onGetGas={(chainId) => onOpenBridge(gasDestinationKey(chainId))}
+                />
               )}
 
               <button
-                onClick={onOpenBridge}
+                onClick={() => onOpenBridge()}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-xs font-bold text-emerald-400 transition-all active:scale-95"
               >
                 <ArrowLeftRight className="w-3.5 h-3.5" />
@@ -357,7 +362,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
               )}
 
               <button
-                onClick={onOpenBridge}
+                onClick={() => onOpenBridge()}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/30 text-xs font-semibold text-neutral-300 transition-all active:scale-95"
               >
                 <ArrowLeftRight className="w-3.5 h-3.5 text-emerald-400" />

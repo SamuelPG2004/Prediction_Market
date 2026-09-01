@@ -6,6 +6,7 @@ import {
   Check,
   Copy,
   ExternalLink,
+  Fuel,
   KeyRound,
   Loader2,
 } from 'lucide-react';
@@ -31,6 +32,8 @@ import { QrCodeCanvas } from './QrCodeCanvas';
 
 interface LocalWalletActionsProps {
   address: `0x${string}`;
+  /** Abre el bridge preseleccionado en el gas nativo de esa red. */
+  onGetGas: (chainId: number) => void;
 }
 
 type ActionView = 'menu' | 'deposit' | 'withdraw' | 'backup';
@@ -67,7 +70,10 @@ function humanWithdrawError(error: unknown): string {
  * dirección con QR), retirar por cadena a cualquier dirección y respaldar la
  * clave privada. Solo se monta cuando el conector activo es el local.
  */
-export const LocalWalletActions: React.FC<LocalWalletActionsProps> = ({ address }) => {
+export const LocalWalletActions: React.FC<LocalWalletActionsProps> = ({
+  address,
+  onGetGas,
+}) => {
   const [view, setView] = useState<ActionView>('menu');
   const [copied, setCopied] = useState(false);
 
@@ -302,8 +308,26 @@ export const LocalWalletActions: React.FC<LocalWalletActionsProps> = ({ address 
               Envía cada token SOLO por su red (USDT por Polygon, USDC por
               Base); en otra red se pierde. Deposita también un poco de gas
               nativo (POL en Polygon, ETH en Base): hace falta para aprobar
-              tokens y retirar premios.
+              tokens y retirar premios. Con 1–2 € por red hay para meses.
             </span>
+          </div>
+
+          {/* Reponer gas sin salir de la app: bridge preseleccionado. */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => onGetGas(POLYGON_CHAIN_ID)}
+              className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/30 text-[11px] font-semibold text-neutral-300 transition-all active:scale-95"
+            >
+              <Fuel className="w-3 h-3 text-emerald-400" />
+              <span>Conseguir POL</span>
+            </button>
+            <button
+              onClick={() => onGetGas(BASE_CHAIN_ID)}
+              className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/30 text-[11px] font-semibold text-neutral-300 transition-all active:scale-95"
+            >
+              <Fuel className="w-3 h-3 text-emerald-400" />
+              <span>Conseguir ETH</span>
+            </button>
           </div>
           {backButton}
         </div>
