@@ -167,12 +167,14 @@ const MatchupBody: React.FC<{
         <ParticipantColumn participant={b} eager={eagerImage} />
       </button>
 
-      {/* Mercado estrella con cuotas; el resto vive en el panel. */}
+      {/* Mercado estrella con cuotas; el resto vive en el panel. Sin
+          etiqueta: los botones ya llevan los nombres de los resultados. */}
       {star !== null ? (
         <StarMarketRow
           market={star}
           participants={event.participants}
           onPick={(outcomeId) => onSelectMarket(event, star, outcomeId)}
+          hideLabel
         />
       ) : (
         <OptionList event={event} onSelectMarket={onSelectMarket} />
@@ -294,16 +296,21 @@ export const StarMarketRow: React.FC<{
   market: Market;
   participants?: { name: string; imageUrl?: string }[];
   onPick: (outcomeId: string) => void;
-}> = ({ market, participants, onPick }) => {
+  /** Oculta la etiqueta del mercado cuando el contexto ya la hace obvia
+   * (cara a cara con los nombres en los propios botones). */
+  hideLabel?: boolean;
+}> = ({ market, participants, onPick, hideLabel = false }) => {
   const { isSelected } = useBetSlip();
   const outcomes = orderedStarOutcomes(market, participants);
   const favoritePrice = favoritePriceOf(outcomes, market.priceFormat);
 
   return (
   <div className="flex flex-col gap-1.5">
-    <span className="text-[9px] uppercase font-mono text-neutral-600 tracking-wider">
-      {optionLabelOf(market)}
-    </span>
+    {!hideLabel && (
+      <span className="text-[9px] uppercase font-mono text-neutral-600 tracking-wider">
+        {optionLabelOf(market)}
+      </span>
+    )}
     <div
       className={`grid gap-2 ${
         outcomes.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
@@ -320,7 +327,47 @@ export const StarMarketRow: React.FC<{
         />
       ))}
     </div>
+    <ProbabilitySplitBar outcomes={outcomes} />
   </div>
+  );
+};
+
+/**
+ * Reparto de probabilidad implícita del mercado: un segmento por resultado en
+ * el orden de los botones, con el favorito (probabilidad máxima única) en
+ * esmeralda. Solo se pinta si TODOS los resultados cotizan; normaliza los
+ * anchos para sumar 100 aunque las cuotas incluyan el margen del venue.
+ */
+const ProbabilitySplitBar: React.FC<{ outcomes: Market['outcomes'] }> = ({
+  outcomes,
+}) => {
+  const probs = outcomes.map((o) => o.probability);
+  if (outcomes.length < 2 || probs.some((p) => p === null)) return null;
+  const known = probs as number[];
+  const total = known.reduce((a, p) => a + p, 0);
+  if (total <= 0) return null;
+  const max = Math.max(...known);
+  const isFavorite = (p: number) =>
+    p === max && known.filter((q) => q === max).length === 1;
+
+  return (
+    <div
+      className="flex h-1 rounded-full overflow-hidden gap-px"
+      title={outcomes
+        .map(
+          (o, i) =>
+            `${translateOutcomeLabel(o.label)} ${Math.round((known[i] / total) * 100)}%`,
+        )
+        .join(' · ')}
+    >
+      {known.map((p, i) => (
+        <span
+          key={outcomes[i].id}
+          className={isFavorite(p) ? 'bg-emerald-400/80' : 'bg-neutral-700'}
+          style={{ width: `${(p / total) * 100}%` }}
+        />
+      ))}
+    </div>
   );
 };
 
@@ -374,20 +421,20 @@ const StarOutcomeButton: React.FC<{
         </span>
       )}
       <span
-        className={`font-mono font-extrabold ${compact ? 'text-[12px]' : 'text-[15px]'} leading-tight flex items-center gap-0.5 ${
+        className={`font-mono font-extrabold tabular-nums ${compact ? 'text-[12px]' : 'text-[15px]'} leading-tight flex items-center gap-0.5 ${
           display.primary === null ? 'text-neutral-600' : 'text-emerald-300'
         }`}
       >
         {display.primary ?? '—'}
-        {flash !== null && (
-          <span
-            className={`text-[9px] ${
-              flash === 'up' ? 'text-emerald-300' : 'text-rose-400'
-            }`}
-          >
-            {flash === 'up' ? '▲' : '▼'}
-          </span>
-        )}
+        {/* Hueco SIEMPRE reservado: si la flecha aparece y desaparece, la
+            cuota baila a cada destello. */}
+        <span
+          className={`w-2 shrink-0 text-[9px] ${
+            flash === 'up' ? 'text-emerald-300' : 'text-rose-400'
+          }`}
+        >
+          {flash === 'up' ? '▲' : flash === 'down' ? '▼' : ''}
+        </span>
       </span>
       {!compact && display.secondary !== null && (
         <span className="text-[9px] font-mono text-neutral-500">
@@ -484,10 +531,11 @@ export const EventListRow: React.FC<{
         </div>
       )}
 
-      {/* Puerta al resto de mercados del evento */}
+      {/* Puerta al resto de mercados del evento. Ancho FIJO: si varía con
+          los dígitos, las columnas de cuotas dejan de alinearse fila a fila. */}
       <button
         onClick={open}
-        className="shrink-0 px-1.5 py-1 rounded-lg text-[10px] font-mono text-neutral-500 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+        className="shrink-0 w-10 py-1 rounded-lg text-[10px] font-mono tabular-nums text-center text-neutral-500 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
         title={`Ver los ${event.markets.length} mercados del evento`}
       >
         {event.markets.length} →

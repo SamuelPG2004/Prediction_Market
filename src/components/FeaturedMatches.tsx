@@ -121,12 +121,14 @@ const FeaturedCard: React.FC<{
         <FeaturedLogo participant={b} />
       </button>
 
-      {/* Cuotas del mercado estrella; el clic preselecciona el resultado. */}
+      {/* Cuotas del mercado estrella; el clic preselecciona el resultado.
+          Sin etiqueta: repetida en cada tarjeta del carrusel era ruido. */}
       {star !== null && (
         <StarMarketRow
           market={star}
           participants={event.participants}
           onPick={(outcomeId) => onSelectMarket(event, star, outcomeId)}
+          hideLabel
         />
       )}
     </div>

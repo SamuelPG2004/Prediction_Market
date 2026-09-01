@@ -13,7 +13,11 @@ import { useDomainEvents } from '../hooks/useDomainEvents';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useSubcategories } from '../hooks/useSubcategories';
 import { useVenueBalances } from '../hooks/useVenueBalances';
-import { groupEventsForList, type MarketEventView } from '../utils/eventGrouping';
+import {
+  findStarMarket,
+  groupEventsForList,
+  type MarketEventView,
+} from '../utils/eventGrouping';
 import { BetSlip } from './BetSlip';
 import { EventCard, EventListRow } from './EventCard';
 import { FeaturedMatches } from './FeaturedMatches';
@@ -411,29 +415,56 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
                   >
                     {day.label}
                   </h3>
-                  {day.leagues.map((lg) => (
-                    <div key={lg.league} className="flex flex-col gap-1">
-                      <p className="flex items-center gap-1.5 px-1 text-[10px] font-mono uppercase tracking-wide text-neutral-500">
-                        {(() => {
-                          const sub = lg.events[0]?.markets[0]?.subcategory;
-                          const icon =
-                            sub !== undefined ? subcategoryIcon(sub) : null;
-                          return icon !== null ? <span>{icon}</span> : null;
-                        })()}
-                        <span className="truncate">{lg.league}</span>
-                        <span className="text-neutral-700">
-                          {lg.events.length}
-                        </span>
-                      </p>
-                      {lg.events.map((e) => (
-                        <EventListRow
-                          key={e.id}
-                          event={e}
-                          onSelectMarket={selectMarket}
-                        />
-                      ))}
-                    </div>
-                  ))}
+                  {day.leagues.map((lg) => {
+                    const sub = lg.events[0]?.markets[0]?.subcategory;
+                    const icon = sub !== undefined ? subcategoryIcon(sub) : null;
+                    /* Columnas de la pizarra (1 · X · 2), deducidas del
+                       mercado estrella del primer evento del grupo. La fila
+                       espeja el layout de EventListRow (hora w-11 · título
+                       flex-1 · cuotas w-32/w-48 · contador w-10) para que
+                       las etiquetas caigan sobre sus columnas. */
+                    const sampleStar =
+                      lg.events[0] !== undefined
+                        ? findStarMarket(lg.events[0].markets)
+                        : null;
+                    const cols =
+                      sampleStar !== null
+                        ? Math.min(sampleStar.outcomes.length, 3)
+                        : 0;
+                    return (
+                      <div key={lg.league} className="flex flex-col gap-1">
+                        <div className="flex items-center gap-3 px-3">
+                          <span className="w-11 shrink-0" />
+                          <p className="flex-1 min-w-0 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wide text-neutral-500">
+                            {icon !== null && <span>{icon}</span>}
+                            <span className="truncate">{lg.league}</span>
+                            <span className="text-neutral-700">
+                              {lg.events.length}
+                            </span>
+                          </p>
+                          {cols >= 2 && (
+                            <div
+                              className={`shrink-0 grid gap-1.5 text-center text-[9px] font-mono font-bold text-neutral-600 ${
+                                cols === 2 ? 'grid-cols-2 w-32' : 'grid-cols-3 w-48'
+                              }`}
+                            >
+                              <span>1</span>
+                              {cols === 3 && <span>X</span>}
+                              <span>2</span>
+                            </div>
+                          )}
+                          <span className="w-10 shrink-0" />
+                        </div>
+                        {lg.events.map((e) => (
+                          <EventListRow
+                            key={e.id}
+                            event={e}
+                            onSelectMarket={selectMarket}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })}
                 </section>
               ))}
             </div>
