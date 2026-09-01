@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Wallet, Sparkles, Layers, Check, Copy } from 'lucide-react';
+import { useRedeemableCount } from '../hooks/useRedeemableCount';
 import { useWallet } from '../services/web3Service';
 import { shortenAddress } from '../utils/formatters';
 
@@ -17,6 +18,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenPositionsClick,
 }) => {
   const wallet = useWallet();
+  const redeemableCount = useRedeemableCount();
   const [copied, setCopied] = useState(false);
 
   const handleCopyAddress = (e: React.MouseEvent) => {
@@ -64,9 +66,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             id="btn-toggle-positions"
             onClick={onOpenPositionsClick}
             className="relative flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800/90 border border-neutral-800 text-xs font-medium text-neutral-200 transition-all active:scale-95"
+            title={
+              redeemableCount > 0
+                ? `${redeemableCount} ${redeemableCount === 1 ? 'premio cobrable' : 'premios cobrables'}`
+                : undefined
+            }
           >
             <Layers className="w-3.5 h-3.5 text-neutral-400" />
             <span className="hidden sm:inline">Mis posiciones</span>
+            {/* Dinero pendiente de cobrar: visible sin abrir el cajón. */}
+            {redeemableCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-black text-[10px] font-bold tabular-nums flex items-center justify-center shadow-sm shadow-emerald-500/40">
+                {redeemableCount}
+              </span>
+            )}
           </button>
 
           {/* Redes soportadas */}

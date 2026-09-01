@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   X,
   Loader2,
@@ -242,6 +243,7 @@ const PositionCard: React.FC<{
   onRedeem: Redeemer | null;
   cashouter: Cashouter | null;
 }> = ({ position, onRedeem, cashouter }) => {
+  const queryClient = useQueryClient();
   const [redeem, setRedeem] = useState<RedeemState>({ status: 'idle' });
   const [cashout, setCashout] = useState<CashoutState>({ status: 'idle' });
 
@@ -259,6 +261,11 @@ const PositionCard: React.FC<{
         ? { status: 'done', receipt: result.data }
         : { status: 'error', message: result.error.message },
     );
+    // El badge de cobrables del navbar sondea cada 2 min; tras un cobro debe
+    // bajar ya, no en el próximo sondeo.
+    if (result.ok) {
+      void queryClient.invalidateQueries({ queryKey: ['redeemable-count'] });
+    }
   };
 
   const askCashoutOffer = async () => {

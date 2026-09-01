@@ -1,0 +1,31 @@
+# CI mínimo: tipos + tests en cada push. Con dos sesiones empujando a la
+# misma rama, esto es lo que impide que un commit roto pase desapercibido.
+# Los pushes a ramas con PR aparecen como checks del PR; no hace falta
+# duplicar la ejecución con un disparador pull_request.
+name: CI
+
+on:
+  push:
+
+jobs:
+  verificar:
+    name: Tipos y tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Código
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Dependencias
+        run: npm ci
+
+      - name: Tipos (tsc --noEmit)
+        run: npm run lint
+
+      - name: Tests (vitest)
+        run: npm test
