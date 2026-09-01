@@ -15,11 +15,17 @@ jobs:
       - name: Código
         uses: actions/checkout@v4
 
-      - name: Node 22
+      # Espeja el entorno de desarrollo real (node 20 + npm 11): el npm 10
+      # que trae node 22 valida los peers del lock con otras reglas y npm ci
+      # falla con "Missing: typescript@5.9.3" que localmente no existe.
+      - name: Node 20
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
+
+      - name: npm 11 (el que generó el lock)
+        run: npm install -g npm@11
 
       - name: Dependencias
         run: npm ci
