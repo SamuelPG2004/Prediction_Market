@@ -16,10 +16,12 @@ import {
   GameState,
   OrderDirection,
   createBet,
+  createCashout,
   createComboBet,
   getBetCalculation,
   getBetFee,
   getBetsByBettor,
+  getCalculatedCashout,
   getConditionsByGameIds,
   getConditionsState,
   getGamesByFilters,
@@ -27,6 +29,7 @@ import {
   getNavigation,
   searchGames,
   type BET_DATA_TYPES,
+  type CASHOUT_DATA_TYPES,
   type COMBO_BET_DATA_TYPES,
   type ChainId,
   type CreateBetParams,
@@ -48,6 +51,8 @@ export interface ListGamesParams {
   perPage: number
   /** Ordenar por volumen apostado descendente (lo más popular primero). */
   orderByTurnover?: boolean
+  /** Solo juegos EN VIVO; por defecto, prematch (próximos). */
+  live?: boolean
 }
 
 export interface SearchGamesParams {
@@ -74,11 +79,27 @@ export interface AzuroGateway {
   getBetsByBettor(bettor: Address): Promise<unknown>
   submitBet(params: CreateBetParams): Promise<unknown>
   submitComboBet(params: CreateComboBetParams): Promise<unknown>
+  /**
+   * Oferta de cash out calculada para una apuesta. El toolkit devuelve `null`
+   * cuando no hay cálculo disponible (y hoy, 2026-09-01, la API pública aún
+   * no expone las rutas /cashout/*, así que responde 404 → `null`; el código
+   * queda listo para cuando Azuro las despliegue).
+   */
+  getCashoutCalculation(account: Address, graphBetId: string): Promise<unknown>
+  /** Envía la orden de cash out firmada. */
+  submitCashout(params: {
+    calculationId: string
+    attention: string
+    signature: Hex
+  }): Promise<unknown>
 }
 
 export type BetTypedData = SignTypedDataParameters<typeof BET_DATA_TYPES>
 export type ComboBetTypedData = SignTypedDataParameters<
   typeof COMBO_BET_DATA_TYPES
+>
+export type CashoutTypedData = SignTypedDataParameters<
+  typeof CASHOUT_DATA_TYPES
 >
 
 /** Operaciones que exigen wallet. Separadas para poder operar sin ella. */
@@ -91,11 +112,21 @@ export interface AzuroWalletBridge {
   signBetTypedData(typedData: BetTypedData): Promise<Hex>
   /** Firma EIP-712 de una combinada. */
   signComboBetTypedData(typedData: ComboBetTypedData): Promise<Hex>
+  /** Firma EIP-712 de una orden de cash out. */
+  signCashoutTypedData(typedData: CashoutTypedData): Promise<Hex>
   /**
    * Cobra el premio de la apuesta `tokenId` llamando a `LP.withdrawPayout`.
    * Espera la confirmación y devuelve el hash de la transacción.
    */
   withdrawPayout(lp: Address, core: Address, tokenId: bigint): Promise<Hex>
+  /** ¿Tiene `operator` permiso sobre todos los NFT de `owner` en `nft`? */
+  isApprovedForAll(nft: Address, owner: Address, operator: Address): Promise<boolean>
+  /**
+   * Aprueba a `operator` sobre los NFT de apuesta (`setApprovalForAll`): el
+   * contrato de cash out necesita poder transferir el AzuroBet del usuario.
+   * Espera la confirmación de la transacción.
+   */
+  setApprovalForAll(nft: Address, operator: Address): Promise<void>
 }
 
 /**
@@ -116,14 +147,38 @@ const LP_WITHDRAW_PAYOUT_ABI = [
   },
 ] as const
 
+/** Fragmento ERC-721 estándar: la aprobación del NFT AzuroBet al cash out. */
+const ERC721_APPROVAL_ABI = [
+  {
+    inputs: [
+      { internalType: 'address', name: 'owner', type: 'address' },
+      { internalType: 'address', name: 'operator', type: 'address' },
+    ],
+    name: 'isApprovedForAll',
+    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'operator', type: 'address' },
+      { internalType: 'bool', name: 'approved', type: 'bool' },
+    ],
+    name: 'setApprovalForAll',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+] as const
+
 /** Implementación real contra el Backend API, vía el toolkit oficial. */
 export function createAzuroGateway(chainId: AzuroChainId): AzuroGateway {
   const id = chainId as ChainId
   return {
-    listGames: ({ sportSlug, page, perPage, orderByTurnover }) =>
+    listGames: ({ sportSlug, page, perPage, orderByTurnover, live }) =>
       getGamesByFilters({
         chainId: id,
-        state: GameState.Prematch,
+        state: live === true ? GameState.Live : GameState.Prematch,
         sportSlug,
         page,
         perPage,
@@ -147,6 +202,9 @@ export function createAzuroGateway(chainId: AzuroChainId): AzuroGateway {
     getBetsByBettor: (bettor) => getBetsByBettor({ chainId: id, bettor }),
     submitBet: (params) => createBet(params),
     submitComboBet: (params) => createComboBet(params),
+    getCashoutCalculation: (account, graphBetId) =>
+      getCalculatedCashout({ chainId: id, account, graphBetId }),
+    submitCashout: (params) => createCashout({ chainId: id, ...params }),
   }
 }
 
@@ -183,6 +241,9 @@ export function createViemWalletBridge(
     async signComboBetTypedData(typedData) {
       return walletClient.signTypedData(typedData)
     },
+    async signCashoutTypedData(typedData) {
+      return walletClient.signTypedData(typedData)
+    },
     async withdrawPayout(lp, core, tokenId) {
       const account = walletClient.account
       if (!account) throw new Error('La wallet no tiene cuenta activa')
@@ -196,6 +257,27 @@ export function createViemWalletBridge(
       })
       await publicClient.waitForTransactionReceipt({ hash })
       return hash
+    },
+    async isApprovedForAll(nft, owner, operator) {
+      return publicClient.readContract({
+        address: nft,
+        abi: ERC721_APPROVAL_ABI,
+        functionName: 'isApprovedForAll',
+        args: [owner, operator],
+      })
+    },
+    async setApprovalForAll(nft, operator) {
+      const account = walletClient.account
+      if (!account) throw new Error('La wallet no tiene cuenta activa')
+      const hash = await walletClient.writeContract({
+        address: nft,
+        abi: ERC721_APPROVAL_ABI,
+        functionName: 'setApprovalForAll',
+        args: [operator, true],
+        account,
+        chain: walletClient.chain,
+      })
+      await publicClient.waitForTransactionReceipt({ hash })
     },
   }
 }

@@ -31,6 +31,8 @@ import {
   type MarketSource,
   type Position,
   type Quote,
+  type CashoutOffer,
+  type CashoutReceipt,
   type RedeemReceipt,
   type Result,
   type Subcategory,
@@ -176,6 +178,8 @@ export class LimitlessAdapter implements MarketSource {
       canCombo: false,
       // El cobro CTF (redeemPositions del condicional) queda fuera de alcance.
       canRedeem: false,
+      // Un order book no ofrece cash out: cerrar es vender contra el libro.
+      canCashout: false,
     }
   }
 
@@ -212,6 +216,10 @@ export class LimitlessAdapter implements MarketSource {
     }
     // Deportes: por plan de venues los sirve Azuro; aquí solo si se configura.
     if (filter.category === 'sports' && !this.config.includeSports) {
+      return { ok: true, data: { markets: [], nextCursor: null } }
+    }
+    // Limitless no tiene concepto de "en vivo": antes que fingirlo, vacío.
+    if (filter.state === 'live') {
       return { ok: true, data: { markets: [], nextCursor: null } }
     }
 
@@ -312,6 +320,26 @@ export class LimitlessAdapter implements MarketSource {
     return this.fail(
       'unsupported',
       'El cobro de posiciones de Limitless aún no está soportado en esta app.',
+    )
+  }
+
+  async getCashoutOffer(
+    _position: Position,
+    _opts: { from: string },
+  ): Promise<Result<CashoutOffer | null>> {
+    return this.fail(
+      'unsupported',
+      'Limitless no ofrece cash out: cerrar una posición es vender contra el libro.',
+    )
+  }
+
+  async cashoutPosition(
+    _offer: CashoutOffer,
+    _opts: { from: string },
+  ): Promise<Result<CashoutReceipt>> {
+    return this.fail(
+      'unsupported',
+      'Limitless no ofrece cash out: cerrar una posición es vender contra el libro.',
     )
   }
 

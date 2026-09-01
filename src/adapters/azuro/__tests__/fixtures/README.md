@@ -31,3 +31,12 @@ anclajes de los tests: ids de juego/condición y cuotas concretas).
 Nota: la API real se desvía de los tipos del toolkit (`margin` llega como
 número, `category` como `null`). Es el motivo de que `validate.ts` no confíe
 en los tipos declarados.
+
+## Cash out
+
+`cashout-calculation.synthetic.json` es SINTÉTICO: sigue las formas declaradas
+por el toolkit (`GetCalculatedCashoutResult`), porque a fecha 2026-09-01 la
+API pública no sirve las rutas `/cashout/*` (404 en todas las cadenas) y no
+hay respuesta real que capturar. Cuando Azuro despliegue el servicio:
+capturar un cálculo real, sustituir este fixture y revisar las unidades de
+`cashoutAmount` y `expiredAt`.

@@ -125,6 +125,69 @@ export interface MarketDisplayGroup {
 }
 
 /**
+ * Forma de presentación de un grupo en el selector del evento:
+ *  - 'over-under': cada línea es un Más/Menos con su número → tabla de dos
+ *    columnas (Más | Menos) con la línea delante.
+ *  - 'two-sided': dos resultados por mercado, uno por participante → tabla
+ *    con una columna por participante (hándicaps, ganador del set…).
+ *  - 'list': cualquier otra cosa; se pinta como lista genérica.
+ */
+export type MarketGroupShape = 'over-under' | 'two-sided' | 'list'
+
+const OVER_LABEL = /^over\s*\(/i
+const UNDER_LABEL = /^under\s*\(/i
+
+function labelMatchesName(label: string, name: string): boolean {
+  return label.trim().toLowerCase().startsWith(name.trim().toLowerCase())
+}
+
+export function marketGroupShapeOf(
+  markets: Market[],
+  participants?: { name: string }[],
+): MarketGroupShape {
+  if (markets.length === 0) return 'list'
+
+  const allOverUnder = markets.every((m) => {
+    const [a, b] = m.outcomes
+    return (
+      m.outcomes.length === 2 &&
+      a !== undefined &&
+      b !== undefined &&
+      ((OVER_LABEL.test(a.label) && UNDER_LABEL.test(b.label)) ||
+        (UNDER_LABEL.test(a.label) && OVER_LABEL.test(b.label))) &&
+      marketLineOf(m) !== null
+    )
+  })
+  if (allOverUnder) return 'over-under'
+
+  if (participants !== undefined && participants.length === 2) {
+    const [pa, pb] = participants
+    const twoSided = markets.every(
+      (m) =>
+        m.outcomes.length === 2 &&
+        m.outcomes.some((o) => labelMatchesName(o.label, pa.name)) &&
+        m.outcomes.some((o) => labelMatchesName(o.label, pb.name)),
+    )
+    if (twoSided) return 'two-sided'
+  }
+  return 'list'
+}
+
+/** El resultado del mercado que pertenece a ese participante, si casa. */
+export function outcomeForParticipant(
+  market: Market,
+  name: string,
+): Market['outcomes'][number] | undefined {
+  return market.outcomes.find((o) => labelMatchesName(o.label, name))
+}
+
+/** Línea de UN resultado: "Lan Mi (-7.5)" → "-7.5". `null` si no lleva. */
+export function outcomeLineOf(label: string): string | null {
+  const m = label.match(/\((-?\d+(?:\.\d+)?)\)/)
+  return m?.[1] ?? null
+}
+
+/**
  * Ordena los mercados de un evento para mostrarlos: agrupados por título, con
  * el ganador del partido primero y el resto alfabético; dentro de un grupo,
  * las líneas de menor a mayor. Sin esto, un evento con 30 mercados es una
@@ -159,6 +222,90 @@ export function groupMarketsForDisplay(markets: Market[]): MarketDisplayGroup[] 
     return a.label.localeCompare(b.label, 'es')
   })
   return groups.map(({ label, markets: ms }) => ({ label, markets: ms }))
+}
+
+// ---------------------------------------------------------------------------
+// Vista de lista: eventos agrupados por día y, dentro del día, por liga
+// ---------------------------------------------------------------------------
+
+export interface EventListLeague {
+  /** Nombre de la competición, o 'Otros' si el venue no lo publica. */
+  league: string
+  events: MarketEventView[]
+}
+
+export interface EventListDay {
+  /** Clave estable del bloque ('live', 'aaaa-mm-dd' o 'none'). */
+  key: string
+  /** "En juego", "Hoy", "Mañana" o la fecha corta. */
+  label: string
+  leagues: EventListLeague[]
+}
+
+/**
+ * Agrupa eventos para el modo lista: primero lo que está en juego, luego por
+ * día de comienzo y, dentro de cada bloque, por liga en orden de aparición
+ * (el refresco en vivo no debe recolocar filas bajo el cursor).
+ */
+export function groupEventsForList(
+  events: MarketEventView[],
+  now: Date = new Date(),
+): EventListDay[] {
+  const startOfDay = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const dayMs = 24 * 60 * 60 * 1000
+
+  const dayOf = (event: MarketEventView): { key: string; label: string } => {
+    if (event.isLive) return { key: 'live', label: 'En juego' }
+    const date = event.markets[0]?.closesAt ?? null
+    if (date === null) return { key: 'none', label: 'Sin fecha' }
+    const diff = Math.round((startOfDay(date) - startOfDay(now)) / dayMs)
+    const key = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`
+    if (diff === 0) return { key, label: 'Hoy' }
+    if (diff === 1) return { key, label: 'Mañana' }
+    return {
+      key,
+      label: date.toLocaleDateString('es', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short',
+      }),
+    }
+  }
+
+  const days = new Map<
+    string,
+    { label: string; sortAt: number; leagues: Map<string, MarketEventView[]> }
+  >()
+  for (const event of events) {
+    const { key, label } = dayOf(event)
+    let day = days.get(key)
+    if (day === undefined) {
+      const sortAt =
+        key === 'live'
+          ? -Infinity
+          : key === 'none'
+            ? Infinity
+            : startOfDay(event.markets[0]!.closesAt!)
+      day = { label, sortAt, leagues: new Map() }
+      days.set(key, day)
+    }
+    const league = event.leagueName ?? 'Otros'
+    const list = day.leagues.get(league)
+    if (list === undefined) day.leagues.set(league, [event])
+    else list.push(event)
+  }
+
+  return [...days.entries()]
+    .sort((a, b) => a[1].sortAt - b[1].sortAt)
+    .map(([key, day]) => ({
+      key,
+      label: day.label,
+      leagues: [...day.leagues.entries()].map(([league, list]) => ({
+        league,
+        events: list,
+      })),
+    }))
 }
 
 function sumOrNull(values: (number | null)[]): number | null {

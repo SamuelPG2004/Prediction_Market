@@ -11,6 +11,7 @@ import type {
   AzuroGateway,
   AzuroWalletBridge,
   BetTypedData,
+  CashoutTypedData,
   ComboBetTypedData,
   ListGamesParams,
 } from '../gateway.ts'
@@ -18,6 +19,7 @@ import { makeNativeId } from '../mappers.ts'
 import betCalculationFixture from './fixtures/bet-calculation.json'
 import betFeeFixture from './fixtures/bet-fee.json'
 import betOrdersFixture from './fixtures/bets-by-bettor.synthetic.json'
+import cashoutCalculationFixture from './fixtures/cashout-calculation.synthetic.json'
 import conditionsFixture from './fixtures/conditions-by-game.json'
 import conditionsStateFixture from './fixtures/conditions-state.json'
 import gamesFixture from './fixtures/games-prematch.json'
@@ -104,6 +106,20 @@ class FakeGateway implements AzuroGateway {
     this.lastComboSubmit = params
     return this.answer('submitComboBet', { id: 'combo-1', state: 'Created' })
   }
+
+  lastCashoutBetId: string | null = null
+
+  getCashoutCalculation(_account: Address, graphBetId: string) {
+    this.lastCashoutBetId = graphBetId
+    return this.answer('getCashoutCalculation', cashoutCalculationFixture)
+  }
+
+  lastCashoutSubmit: unknown = null
+
+  submitCashout(params: unknown) {
+    this.lastCashoutSubmit = params
+    return this.answer('submitCashout', { id: 'cashout-1', state: 'ACCEPTED' })
+  }
 }
 
 class FakeWallet implements AzuroWalletBridge {
@@ -136,6 +152,21 @@ class FakeWallet implements AzuroWalletBridge {
     if (this.withdrawError !== null) throw this.withdrawError
     this.withdrawals.push({ lp, core, tokenId })
     return '0xcobro'
+  }
+  nftApproved = false
+  nftApprovals: { nft: Address; operator: Address }[] = []
+  signedCashoutTypedData: CashoutTypedData | null = null
+  async isApprovedForAll(): Promise<boolean> {
+    return this.nftApproved
+  }
+  async setApprovalForAll(nft: Address, operator: Address): Promise<void> {
+    this.nftApprovals.push({ nft, operator })
+    this.nftApproved = true
+  }
+  async signCashoutTypedData(typedData: CashoutTypedData): Promise<Hex> {
+    if (this.signError !== null) throw this.signError
+    this.signedCashoutTypedData = typedData
+    return '0xfirmacashout'
   }
 }
 
@@ -191,6 +222,7 @@ describe('capacidades', () => {
       canRedeem: true,
       canRankPopular: true,
       canCombo: true,
+      canCashout: true,
     })
 
     const sinAfiliado = makeAdapter({ config: makeAzuroConfig(137, null) })
@@ -781,5 +813,147 @@ describe('combinadas', () => {
       from: BETTOR,
     })
     expect(!placed.ok && placed.error.kind).toBe('wallet')
+  })
+})
+
+describe('cash out', () => {
+  /** La posición abierta del fixture sintético (orden aceptada, betId 101). */
+  async function openPosition(adapter: AzuroAdapter) {
+    const result = await adapter.getPositions(BETTOR)
+    if (!result.ok) throw new Error('getPositions falló')
+    const position = result.data.find((p) => p.status === 'open')
+    if (position === undefined) throw new Error('sin posición abierta')
+    return position
+  }
+
+  it('pide la oferta con el betId del grafo y la mapea', async () => {
+    const { adapter, gateway } = makeAdapter()
+    const position = await openPosition(adapter)
+
+    const result = await adapter.getCashoutOffer(position, { from: BETTOR })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    // Convención del subgraph de Azuro: `{core}_{tokenId}` en minúsculas.
+    expect(gateway.lastCashoutBetId).toBe(
+      '0x0223b3b0f01a1e69c9b1f8b6f8de71b6de5f1d8a_101',
+    )
+    expect(result.data).not.toBeNull()
+    expect(result.data!.positionId).toBe(position.id)
+    expect(String(result.data!.amount)).toBe('8.52')
+    expect(result.data!.expiresAt).toEqual(new Date(1787800060 * 1000))
+  })
+
+  it('sin cálculo disponible (null) no hay oferta, y no es un error', async () => {
+    const { adapter, gateway } = makeAdapter()
+    gateway.responses.getCashoutCalculation = null
+    const position = await openPosition(adapter)
+
+    const result = await adapter.getCashoutOffer(position, { from: BETTOR })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data).toBeNull()
+  })
+
+  it('solo las posiciones abiertas tienen oferta; sin datos de venue, error', async () => {
+    const { adapter, gateway } = makeAdapter()
+    const position = await openPosition(adapter)
+
+    const cerrada = await adapter.getCashoutOffer(
+      { ...position, status: 'redeemable' },
+      { from: BETTOR },
+    )
+    expect(cerrada.ok && cerrada.data).toBeNull()
+    expect(gateway.calls.filter((c) => c === 'getCashoutCalculation')).toHaveLength(0)
+
+    const sinDatos = await adapter.getCashoutOffer(
+      { ...position, venueData: undefined },
+      { from: BETTOR },
+    )
+    expect(!sinDatos.ok && sinDatos.error.kind).toBe('invalid_response')
+  })
+
+  it('ejecuta la oferta: aprueba el NFT si falta, firma y envía', async () => {
+    const wallet = new FakeWallet()
+    const { adapter, gateway } = makeAdapter({ wallet })
+    const position = await openPosition(adapter)
+    const offerResult = await adapter.getCashoutOffer(position, { from: BETTOR })
+    if (!offerResult.ok || offerResult.data === null) throw new Error('sin oferta')
+
+    const result = await adapter.cashoutPosition(offerResult.data, { from: BETTOR })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    const config = makeAzuroConfig(137, AFFILIATE)
+    expect(wallet.nftApprovals).toEqual([
+      { nft: config.azuroBetAddress, operator: config.cashoutAddress },
+    ])
+    expect(wallet.signedCashoutTypedData).not.toBeNull()
+    const submit = gateway.lastCashoutSubmit as Record<string, unknown>
+    expect(submit.calculationId).toBe(
+      'polygon_0x2222222222222222222222222222222222222222_812345',
+    )
+    expect(submit.signature).toBe('0xfirmacashout')
+    expect(result.data.reference).toBe('cashout-1')
+    expect(String(result.data.amount)).toBe('8.52')
+  })
+
+  it('con el NFT ya aprobado no vuelve a pedir aprobación', async () => {
+    const wallet = new FakeWallet()
+    wallet.nftApproved = true
+    const { adapter } = makeAdapter({ wallet })
+    const position = await openPosition(adapter)
+    const offer = await adapter.getCashoutOffer(position, { from: BETTOR })
+    if (!offer.ok || offer.data === null) throw new Error('sin oferta')
+
+    const result = await adapter.cashoutPosition(offer.data, { from: BETTOR })
+    expect(result.ok).toBe(true)
+    expect(wallet.nftApprovals).toHaveLength(0)
+  })
+
+  it('REJECTED del venue → not_quotable con su mensaje', async () => {
+    const wallet = new FakeWallet()
+    const { adapter, gateway } = makeAdapter({ wallet })
+    gateway.responses.submitCashout = {
+      id: 'x',
+      state: 'REJECTED',
+      errorMessage: 'La cuota cambió',
+    }
+    const position = await openPosition(adapter)
+    const offer = await adapter.getCashoutOffer(position, { from: BETTOR })
+    if (!offer.ok || offer.data === null) throw new Error('sin oferta')
+
+    const result = await adapter.cashoutPosition(offer.data, { from: BETTOR })
+    expect(!result.ok && result.error.kind).toBe('not_quotable')
+    expect(!result.ok && result.error.message).toBe('La cuota cambió')
+  })
+
+  it('una oferta caducada no llega a firmarse', async () => {
+    const wallet = new FakeWallet()
+    const { adapter } = makeAdapter({ wallet })
+    const position = await openPosition(adapter)
+    const offer = await adapter.getCashoutOffer(position, { from: BETTOR })
+    if (!offer.ok || offer.data === null) throw new Error('sin oferta')
+
+    const caducada = {
+      ...offer.data,
+      venueData: {
+        ...(offer.data.venueData as Record<string, unknown>),
+        expiredAt: 1787790000, // antes del reloj congelado
+      },
+    }
+    const result = await adapter.cashoutPosition(caducada, { from: BETTOR })
+    expect(!result.ok && result.error.kind).toBe('not_quotable')
+    expect(wallet.signedCashoutTypedData).toBeNull()
+  })
+
+  it('sin wallet no hay cash out', async () => {
+    const { adapter } = makeAdapter()
+    const position = await openPosition(adapter)
+    const offer = await adapter.getCashoutOffer(position, { from: BETTOR })
+    if (!offer.ok || offer.data === null) throw new Error('sin oferta')
+
+    const result = await adapter.cashoutPosition(offer.data, { from: BETTOR })
+    expect(!result.ok && result.error.kind).toBe('wallet')
   })
 })

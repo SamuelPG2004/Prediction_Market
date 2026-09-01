@@ -29,7 +29,14 @@ const MARKET_NAMES = new Map<string, string>([
   ['total rounds', 'Asaltos totales'],
   ['total runs', 'Carreras totales'],
   ['total corners', 'Córneres totales'],
+  // El feed en vivo usa el singular ("Total Game") para el mismo mercado.
+  ['total goal', 'Goles totales'],
+  ['total point', 'Puntos totales'],
+  ['total game', 'Juegos totales'],
+  ['total set', 'Sets totales'],
   ['individual total', 'Total individual'],
+  ['individual total point', 'Total individual de puntos'],
+  ['individual total game', 'Total individual de juegos'],
   ['asian total', 'Total asiático'],
   ['handicap', 'Hándicap'],
   ['asian handicap', 'Hándicap asiático'],
@@ -37,7 +44,23 @@ const MARKET_NAMES = new Map<string, string>([
   ['handicap sets', 'Hándicap de sets'],
   ['handicap points', 'Hándicap de puntos'],
   ['handicap maps', 'Hándicap de mapas'],
+  ['handicap game', 'Hándicap de juegos'],
+  ['handicap set', 'Hándicap de sets'],
+  ['handicap point', 'Hándicap de puntos'],
+  ['winner of match', 'Ganador del partido'],
+  ['winner of match set', 'Ganador'],
+  ['total odd/even point', 'Puntos: par/impar'],
+  ['total odd/even game', 'Juegos: par/impar'],
   ['first team to score', 'Primer equipo en marcar'],
+])
+
+/**
+ * Lados izquierdos genéricos de "X - Mercado" que no son un participante:
+ * en el feed en vivo, "Game - …" o "Match - …" es el partido entero.
+ */
+const PLAIN_SCOPES = new Map<string, string>([
+  ['game', 'Partido'],
+  ['match', 'Partido'],
 ])
 
 /** Tramos del partido en prefijos tipo "1st Set: …" o "2nd Half: …". */
@@ -58,8 +81,9 @@ function ordinalEs(n: number, feminine: boolean): string {
   return n === 1 || n === 3 ? `${n}er` : `${n}º`
 }
 
+// El separador del tramo es ":" en prematch y " - " en el feed en vivo.
 const PERIOD_PREFIX =
-  /^(\d+)(?:st|nd|rd|th)\s+(set|half|quarter|period|map|game|inning|round)\s*:\s*(.+)$/i
+  /^(\d+)(?:st|nd|rd|th)\s+(set|half|quarter|period|map|game|inning|round)\s*[:-]\s*(.+)$/i
 const ODD_EVEN_SUFFIX = /^(.*\S)\s+odd\/even$/i
 
 function baseNameOf(label: string): string | null {
@@ -92,11 +116,30 @@ function translateIfKnown(label: string): string | null {
   const dash = label.match(/^(.+?)\s+-\s+(.+)$/)
   if (dash !== null) {
     const right = translateIfKnown(dash[2])
-    if (right !== null) return `${dash[1]} · ${right}`
+    if (right !== null) {
+      const left = PLAIN_SCOPES.get(dash[1].trim().toLowerCase()) ?? dash[1]
+      return `${left} · ${right}`
+    }
+  }
+
+  // "Katie Volynets Handicap Game": el feed en vivo pega el mercado al nombre
+  // sin separador. Solo claves multi-palabra (la más larga primero) para no
+  // trocear etiquetas de más.
+  const lower = label.toLowerCase()
+  for (const key of SUFFIX_KEYS) {
+    if (lower.endsWith(` ${key}`)) {
+      const left = label.slice(0, label.length - key.length - 1).trim()
+      if (left !== '') return `${left} · ${MARKET_NAMES.get(key)}`
+    }
   }
 
   return null
 }
+
+/** Claves multi-palabra del diccionario, de más larga a más corta. */
+const SUFFIX_KEYS = [...MARKET_NAMES.keys()]
+  .filter((k) => k.includes(' '))
+  .sort((a, b) => b.length - a.length)
 
 /** Etiqueta de mercado en español, o la original si no se reconoce. */
 export function translateMarketLabel(label: string): string {

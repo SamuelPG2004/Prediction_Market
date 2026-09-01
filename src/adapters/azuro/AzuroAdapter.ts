@@ -5,16 +5,19 @@
  * Backend API oficial; colocación de apuestas vía relayer con firma EIP-712.
  * La UI no ve nada de esto: solo el dominio.
  *
- * Alcance de la Fase 2 (documentado, no accidental):
- *  - Se listan juegos PREMATCH. El feed en vivo (websocket) queda para cuando
- *    haya suscripciones (`canSubscribe: false`).
- *  - Solo apuestas simples (ordinar); las combinadas no existen en el dominio.
+ * Alcance (documentado, no accidental):
+ *  - Se listan juegos PREMATCH por defecto; con `filter.state: 'live'`, los
+ *    que están EN JUEGO (mismo Backend API, `GameState.Live`). Sin websocket:
+ *    el refresco es por sondeo (`canSubscribe: false`).
+ *  - Simples y combinadas van por el mismo relayer con firma EIP-712.
  */
 import {
   ODDS_DECIMALS,
   calcMinOdds,
   getBetTypedData,
+  getCashoutTypedData,
   getComboBetTypedData,
+  type ChainId,
 } from '@azuro-org/toolkit'
 import { isAddress, parseUnits, formatUnits, type Address, type Hex } from 'viem'
 import {
@@ -23,6 +26,8 @@ import {
   toDecimal,
   type BetOptions,
   type BetReceipt,
+  type CashoutOffer,
+  type CashoutReceipt,
   type ComboBetReceipt,
   type ComboQuote,
   type ComboSelection,
@@ -52,6 +57,8 @@ import {
   parseBetCalculation,
   parseBetFee,
   parseBetOrders,
+  parseCashoutCalculation,
+  parseCashoutResponse,
   parseConditionStates,
   parseConditions,
   parseCreateBetResponse,
@@ -119,6 +126,34 @@ function isAzuroPositionData(u: unknown): u is AzuroPositionData {
   )
 }
 
+/** Contenido de `CashoutOffer.venueData` para Azuro. Solo este adaptador lo lee. */
+interface AzuroCashoutData {
+  calculationId: string
+  /** Token id de la apuesta, tal como lo devolvió el cálculo. */
+  tokenId: string
+  /** Cuota del cash out, verbatim del cálculo (va al typed data). */
+  cashoutOdds: string
+  /** Caducidad de la oferta, epoch en segundos (formato del typed data). */
+  expiredAt: number
+}
+
+function isAzuroCashoutData(u: unknown): u is AzuroCashoutData {
+  if (typeof u !== 'object' || u === null) return false
+  const r = u as Record<string, unknown>
+  return (
+    typeof r.calculationId === 'string' &&
+    typeof r.tokenId === 'string' &&
+    typeof r.cashoutOdds === 'string' &&
+    typeof r.expiredAt === 'number'
+  )
+}
+
+/**
+ * Texto de consentimiento de la orden de cash out: viaja idéntico en el typed
+ * data firmado y en el envío a la API (deben coincidir).
+ */
+const CASHOUT_ATTENTION = 'By signing this transaction, I agree to cash out on Azuro'
+
 function isAzuroQuoteData(u: unknown): u is AzuroQuoteData {
   return (
     typeof u === 'object' &&
@@ -166,6 +201,10 @@ export class AzuroAdapter implements MarketSource {
       canRedeem: true,
       canRankPopular: true,
       canCombo: true,
+      // El flujo está implementado según el toolkit, pero la API pública aún
+      // no sirve las rutas /cashout/* (2026-09-01): hasta entonces las
+      // ofertas llegan como null y la UI no enseña nada.
+      canCashout: deps.config.cashoutAddress !== null,
     }
   }
 
@@ -217,6 +256,7 @@ export class AzuroAdapter implements MarketSource {
     }
 
     const byPopularity = filter.orderBy === 'popularity'
+    const liveOnly = filter.state === 'live'
 
     let rawPage: unknown
     try {
@@ -232,6 +272,7 @@ export class AzuroAdapter implements MarketSource {
               page,
               perPage: GAMES_PER_PAGE,
               orderByTurnover: byPopularity,
+              live: liveOnly,
             })
     } catch (cause) {
       return this.networkFail('el listado de mercados', cause)
@@ -243,14 +284,17 @@ export class AzuroAdapter implements MarketSource {
     }
     const { totalPages } = parsedPage.value
     // Por popularidad, las ligas top van delante conservando dentro de cada
-    // bloque el orden por turnover que ya trae la API. Los juegos ya vienen
-    // solo prematch (futuros): el estado lo fija la pasarela, no un filtro
-    // de fecha en cliente.
-    const games = byPopularity
+    // bloque el orden por turnover que ya trae la API. El estado (prematch o
+    // en vivo) lo fija la pasarela; la búsqueda no lo distingue, así que con
+    // `state: 'live'` sus resultados se criban aquí por el estado del juego.
+    let games = byPopularity
       ? [...parsedPage.value.games].sort(
           (a, b) => Number(b.league.isTopLeague) - Number(a.league.isTopLeague),
         )
       : parsedPage.value.games
+    if (liveOnly && query !== undefined && query !== '') {
+      games = games.filter((g) => g.state === 'Live')
+    }
 
     let markets = await this.marketsForGames(games)
     if (markets === null) {
@@ -1019,6 +1063,197 @@ export class AzuroAdapter implements MarketSource {
             ? `${this.config.explorerBase}/tx/${txHash}`
             : null,
         redeemedAt: new Date(this.now()),
+      },
+    }
+  }
+
+  // --- Cash out ----------------------------------------------------------------
+
+  /**
+   * Oferta de cash out para una posición abierta. `null` cuando Azuro no
+   * ofrece cerrar esa apuesta ahora (o cuando el servicio no está desplegado:
+   * el toolkit convierte el 404 en null, así que hoy TODAS las consultas
+   * devuelven null — ver el comentario de `canCashout`).
+   */
+  async getCashoutOffer(
+    position: Position,
+    opts: { from: string },
+  ): Promise<Result<CashoutOffer | null>> {
+    if (this.config.cashoutAddress === null) {
+      return this.fail(
+        'unsupported',
+        'Esta red de Azuro no tiene contrato de cash out.',
+      )
+    }
+    if (!isAddress(opts.from)) {
+      return this.fail('wallet', 'La dirección de la wallet no es válida.')
+    }
+    if (position.status !== 'open') {
+      return { ok: true, data: null }
+    }
+    if (!isAzuroPositionData(position.venueData)) {
+      return this.fail(
+        'invalid_response',
+        'La posición no trae los datos de Azuro. Recarga tus posiciones.',
+      )
+    }
+    const { betId, core } = position.venueData
+
+    // Identificador de apuesta del grafo de Azuro: `{core}_{tokenId}` en
+    // minúsculas (la convención de su subgraph, que el endpoint hereda).
+    const graphBetId = `${core.toLowerCase()}_${betId}`
+
+    let raw: unknown
+    try {
+      raw = await this.gateway.getCashoutCalculation(
+        opts.from as Address,
+        graphBetId,
+      )
+    } catch (cause) {
+      return this.networkFail('la oferta de cash out', cause)
+    }
+    if (raw === null) {
+      return { ok: true, data: null }
+    }
+    const calc = parseCashoutCalculation(raw)
+    if (calc === null) {
+      return this.invalidResponseFail('calcular el cash out')
+    }
+
+    let amount: DecimalString
+    try {
+      amount = toDecimal(calc.cashoutAmount)
+    } catch (cause) {
+      return this.fail(
+        'invalid_response',
+        'El importe del cash out no es válido.',
+        cause,
+      )
+    }
+
+    const venueData: AzuroCashoutData = {
+      calculationId: calc.calculationId,
+      tokenId: calc.tokenId,
+      cashoutOdds: calc.cashoutOdds,
+      expiredAt: calc.expiredAt,
+    }
+    return {
+      ok: true,
+      data: {
+        positionId: position.id,
+        amount,
+        // `expiredAt` llega en segundos (formato del typed data); un valor ya
+        // en milisegundos se detecta por magnitud y no se multiplica de más.
+        expiresAt: new Date(
+          calc.expiredAt > 1e12 ? calc.expiredAt : calc.expiredAt * 1000,
+        ),
+        venueData,
+      },
+    }
+  }
+
+  /**
+   * Ejecuta una oferta de cash out: aprueba el NFT AzuroBet al contrato de
+   * cash out si hace falta, firma la orden EIP-712 y la envía a la API.
+   */
+  async cashoutPosition(
+    offer: CashoutOffer,
+    opts: { from: string },
+  ): Promise<Result<CashoutReceipt>> {
+    const cashoutAddress = this.config.cashoutAddress
+    if (cashoutAddress === null) {
+      return this.fail(
+        'unsupported',
+        'Esta red de Azuro no tiene contrato de cash out.',
+      )
+    }
+    if (this.wallet === null) {
+      return this.fail('wallet', 'Conecta una wallet para hacer cash out.')
+    }
+    if (!isAddress(opts.from)) {
+      return this.fail('wallet', 'La dirección de la wallet no es válida.')
+    }
+    if (!isAzuroCashoutData(offer.venueData)) {
+      return this.fail(
+        'invalid_response',
+        'La oferta no contiene los datos de Azuro. Vuelve a pedir la oferta.',
+      )
+    }
+    const { calculationId, tokenId, cashoutOdds, expiredAt } = offer.venueData
+    if (expiredAt * 1000 <= this.now()) {
+      return this.fail(
+        'not_quotable',
+        'La oferta de cash out ha caducado. Pide una nueva.',
+      )
+    }
+
+    // El contrato de cash out transfiere el NFT de la apuesta: necesita la
+    // aprobación del usuario sobre sus AzuroBet (una vez por wallet).
+    try {
+      const approved = await this.wallet.isApprovedForAll(
+        this.config.azuroBetAddress,
+        opts.from as Address,
+        cashoutAddress,
+      )
+      if (!approved) {
+        await this.wallet.setApprovalForAll(
+          this.config.azuroBetAddress,
+          cashoutAddress,
+        )
+      }
+    } catch (cause) {
+      return this.walletFail(
+        'No se pudo aprobar el NFT de la apuesta para el cash out.',
+        cause,
+      )
+    }
+
+    let signature: Hex
+    try {
+      signature = await this.wallet.signCashoutTypedData(
+        getCashoutTypedData({
+          chainId: this.config.chainId as ChainId,
+          account: opts.from as Address,
+          attention: CASHOUT_ATTENTION,
+          tokenId,
+          cashoutOdds,
+          expiredAt,
+        }),
+      )
+    } catch (cause) {
+      return this.walletFail('No se pudo firmar el cash out.', cause)
+    }
+
+    let rawResponse: unknown
+    try {
+      rawResponse = await this.gateway.submitCashout({
+        calculationId,
+        attention: CASHOUT_ATTENTION,
+        signature,
+      })
+    } catch (cause) {
+      return this.networkFail('el envío del cash out', cause)
+    }
+    const response = parseCashoutResponse(rawResponse)
+    if (response === null) {
+      return this.invalidResponseFail('enviar el cash out')
+    }
+    if (response.state === 'REJECTED') {
+      return this.fail(
+        'not_quotable',
+        response.errorMessage ??
+          'Azuro rechazó el cash out. Pide una oferta nueva e inténtalo otra vez.',
+      )
+    }
+
+    return {
+      ok: true,
+      data: {
+        positionId: offer.positionId,
+        amount: offer.amount,
+        reference: response.id,
+        explorerUrl: null,
+        cashedOutAt: new Date(this.now()),
       },
     }
   }

@@ -340,6 +340,33 @@ export interface RedeemReceipt {
   redeemedAt: Date
 }
 
+/**
+ * Oferta de cash out: lo que el venue paga AHORA por cerrar una posición
+ * abierta antes de que se resuelva. Es una oferta firme y caduca; ejecutar
+ * otra cosa que no sea exactamente esta oferta es un error.
+ */
+export interface CashoutOffer {
+  positionId: string
+  /** Importe ofrecido, en el token de apuesta del venue. */
+  amount: DecimalString
+  /** Caducidad de la oferta, o null si el venue no la declara. */
+  expiresAt: Date | null
+  /** Payload opaco del venue para ejecutar esta oferta. Solo él lo lee. */
+  venueData: unknown
+}
+
+/** Recibo del cash out de una posición abierta. */
+export interface CashoutReceipt {
+  positionId: string
+  /** Importe cobrado, el de la oferta ejecutada. */
+  amount: DecimalString
+  /** Referencia del venue (id de la orden de cash out). */
+  reference: string
+  /** URL al explorador, o null si aún no hay transacción que enlazar. */
+  explorerUrl: string | null
+  cashedOutAt: Date
+}
+
 // ---------------------------------------------------------------------------
 // Errores tipados
 // ---------------------------------------------------------------------------
@@ -415,6 +442,12 @@ export interface MarketFilter {
   /** Cursor opaco de paginación. Cada venue define su forma. */
   cursor?: string
   /**
+   * Momento del evento. Omitido = próximos (prematch), el comportamiento de
+   * siempre. `'live'` pide SOLO eventos en juego ahora mismo; un venue sin
+   * concepto de "en vivo" responde página vacía, nunca lo finge.
+   */
+  state?: 'live'
+  /**
    * Orden del listado. `'popularity'` pide lo más apostado primero; cada venue
    * lo traduce a su métrica nativa (turnover en Azuro). Solo lo honran los
    * venues con `canRankPopular`; consultar a los demás con este orden es un
@@ -460,6 +493,8 @@ export interface VenueCapabilities {
   canRankPopular: boolean
   /** Apuestas combinadas (`getComboQuote` / `placeComboBet`). */
   canCombo: boolean
+  /** Cerrar posiciones abiertas antes de resolverse (cash out). */
+  canCashout: boolean
 }
 
 /**
@@ -527,6 +562,22 @@ export interface MarketSource {
     position: Position,
     opts: { from: string },
   ): Promise<Result<RedeemReceipt>>
+
+  /**
+   * Oferta de cash out para una posición 'open', o `null` si el venue no
+   * ofrece ninguna ahora mismo (que NO es un error: simplemente no hay
+   * oferta). Si el venue no lo soporta (`canCashout: false`), `unsupported`.
+   */
+  getCashoutOffer(
+    position: Position,
+    opts: { from: string },
+  ): Promise<Result<CashoutOffer | null>>
+
+  /** Ejecuta EXACTAMENTE la oferta cotizada. Firma con la wallet. */
+  cashoutPosition(
+    offer: CashoutOffer,
+    opts: { from: string },
+  ): Promise<Result<CashoutReceipt>>
 
   /** Suscripción en vivo. Devuelve la función de baja. */
   subscribe?(marketIds: string[], cb: (m: Market) => void): () => void

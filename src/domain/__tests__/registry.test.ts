@@ -21,6 +21,7 @@ function fakeSource(venue: string): MarketSource {
       canRedeem: false,
       canRankPopular: false,
       canCombo: false,
+      canCashout: false,
     },
     listMarkets: unsupported,
     getMarket: unsupported,
@@ -31,6 +32,8 @@ function fakeSource(venue: string): MarketSource {
     getPositions: unsupported,
     listSubcategories: unsupported,
     redeemPosition: unsupported,
+    getCashoutOffer: unsupported,
+    cashoutPosition: unsupported,
   }
 }
 

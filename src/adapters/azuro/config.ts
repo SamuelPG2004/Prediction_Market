@@ -32,6 +32,10 @@ export interface AzuroConfig {
   coreAddress: Address
   /** Dirección del LP, contra el que se cobran los premios (withdrawPayout). */
   lpAddress: Address
+  /** NFT AzuroBet: cada apuesta es un token; el cash out exige aprobarlo. */
+  azuroBetAddress: Address
+  /** Contrato de cash out (operador aprobado del NFT), o null si no existe. */
+  cashoutAddress: Address | null
   /** Base del explorador de bloques de la cadena, o null si no hay conocido. */
   explorerBase: string | null
 }
@@ -65,6 +69,8 @@ export function makeAzuroConfig(
     relayerAddress: data.contracts.relayer.address,
     coreAddress: data.contracts.core.address,
     lpAddress: data.contracts.lp.address,
+    azuroBetAddress: data.contracts.azuroBet.address,
+    cashoutAddress: data.contracts.cashout?.address ?? null,
     explorerBase: EXPLORER_BASES[chainId] ?? null,
   }
 }

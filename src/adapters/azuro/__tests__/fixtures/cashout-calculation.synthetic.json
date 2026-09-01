@@ -1,0 +1,11 @@
+{
+  "calculationId": "polygon_0x2222222222222222222222222222222222222222_812345",
+  "cashoutAmount": "8.52",
+  "cashoutOdds": "1704000000000",
+  "tokenId": "812345",
+  "expiredAt": 1787800060,
+  "approveExpiredAt": 1787800300,
+  "isLive": false,
+  "environment": "PolygonUSDT",
+  "account": "0x2222222222222222222222222222222222222222"
+}

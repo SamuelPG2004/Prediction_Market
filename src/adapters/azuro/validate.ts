@@ -82,6 +82,32 @@ export interface RawCreateBetResponse {
   errorMessage: string | null
 }
 
+/**
+ * Cálculo de cash out del Backend API (`/cashout/get-calculation`). Formas
+ * según los tipos del toolkit v6; las rutas /cashout/* aún no están
+ * desplegadas en la API pública (2026-09-01), así que estos parsers se
+ * validaron contra fixtures sintéticos con esas formas. Al activarse el
+ * servicio: recapturar fixtures reales y revisar unidades de `cashoutAmount`.
+ */
+export interface RawCashoutCalculation {
+  calculationId: string
+  /** Importe ofrecido, decimal en el token de apuesta. */
+  cashoutAmount: string
+  /** Cuota del cash out, tal cual la firma la API (va al typed data). */
+  cashoutOdds: string
+  /** Token id on-chain de la apuesta (vuelve como `betId` y se renombra). */
+  tokenId: string
+  /** Caducidad de la oferta, epoch en SEGUNDOS. */
+  expiredAt: number
+}
+
+export interface RawCashoutResponse {
+  id: string
+  /** PROCESSING | ACCEPTED | REJECTED | OPEN */
+  state: string
+  errorMessage: string | null
+}
+
 export interface RawBetOrderCondition {
   conditionId: string
   outcomeId: string
@@ -369,6 +395,42 @@ export function parseBetFee(u: unknown): RawBetFee | null {
 }
 
 export function parseCreateBetResponse(u: unknown): RawCreateBetResponse | null {
+  if (!isRecord(u)) return null
+  const id = asString(u.id)
+  const state = asString(u.state)
+  if (id === null || state === null) return null
+  return { id, state, errorMessage: asOptionalString(u.errorMessage) }
+}
+
+export function parseCashoutCalculation(
+  u: unknown,
+): RawCashoutCalculation | null {
+  if (!isRecord(u)) return null
+  const calculationId = asString(u.calculationId)
+  const cashoutOdds = asString(u.cashoutOdds)
+  const tokenId = asString(u.tokenId)
+  const expiredAt = asFiniteNumber(u.expiredAt)
+  // Solo un decimal no negativo cuenta como importe; cualquier otra cosa es
+  // una respuesta que no se puede enseñar como dinero.
+  const rawAmount = asString(u.cashoutAmount)
+  const cashoutAmount =
+    rawAmount !== null && /^\d+(\.\d+)?$/.test(rawAmount.trim())
+      ? rawAmount.trim()
+      : null
+  if (
+    calculationId === null ||
+    cashoutAmount === null ||
+    cashoutOdds === null ||
+    tokenId === null ||
+    expiredAt === null ||
+    expiredAt <= 0
+  ) {
+    return null
+  }
+  return { calculationId, cashoutAmount, cashoutOdds, tokenId, expiredAt }
+}
+
+export function parseCashoutResponse(u: unknown): RawCashoutResponse | null {
   if (!isRecord(u)) return null
   const id = asString(u.id)
   const state = asString(u.state)

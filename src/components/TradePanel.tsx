@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   X,
   Loader2,
   AlertTriangle,
+  ChevronDown,
   ExternalLink,
   CheckCircle2,
   ReceiptText,
@@ -23,10 +24,16 @@ import { useVenueBalances } from '../hooks/useVenueBalances';
 import { chainLabel } from '../config/chains';
 import {
   groupMarketsForDisplay,
+  marketGroupShapeOf,
+  marketLineOf,
   marketVariantLabelOf,
   optionLabelOf,
+  outcomeForParticipant,
+  outcomeLineOf,
+  type MarketDisplayGroup,
   type MarketEventView,
 } from '../utils/eventGrouping';
+import { isValidAmount, outcomeOddsText } from '../utils/betting';
 import { formatCurrency } from '../utils/formatters';
 import { translateOutcomeLabel } from '../utils/marketLabels';
 import { toggleSelection, useBetSlip } from '../hooks/useBetSlip';
@@ -46,11 +53,6 @@ interface TradePanelProps {
 }
 
 const SLIPPAGE_OPTIONS = [0.01, 0.03, 0.05] as const;
-
-/** Importe válido: decimal positivo con hasta 6 decimales. */
-function isValidAmount(value: string): boolean {
-  return /^\d+(\.\d{1,6})?$/.test(value.trim()) && Number(value) > 0;
-}
 
 type QuoteState =
   | { status: 'idle' }
@@ -89,18 +91,199 @@ const MarketPickButton: React.FC<{
   </button>
 );
 
-/**
- * Cotización de un vistazo para el selector: cuota decimal en venues de
- * cuotas, % en el resto. Sin precio: raya, nunca 0.
- */
+/** Cotización de un vistazo para el selector: la del primer resultado. */
 function firstQuoteOf(m: Market): string {
-  const o = m.outcomes[0];
-  if (o === undefined) return '—';
-  if (m.priceFormat === 'decimal-odds' && o.price !== null) {
-    return Number(o.price).toFixed(2);
-  }
-  return o.probability === null ? '—' : `${Math.round(o.probability * 100)}%`;
+  return outcomeOddsText(m, m.outcomes[0]);
 }
+
+/** "-7.5" se muestra tal cual; a "1.5" se le antepone el "+" de hándicap. */
+function signedLine(line: string): string {
+  return line.startsWith('-') ? line : `+${line}`;
+}
+
+/** Celda de cuota del selector: (línea +) cuota, clicable como selección. */
+const OddsCell: React.FC<{
+  label?: string;
+  quote: string;
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}> = ({ label, quote, active, disabled = false, onClick }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={`flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg border text-[11px] transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed min-w-0 ${
+      active
+        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
+        : 'bg-[#12151d] border-neutral-800 hover:border-emerald-500/40 hover:bg-emerald-500/[0.06] text-neutral-300'
+    }`}
+  >
+    {label !== undefined && (
+      <span className="truncate font-mono text-neutral-400">{label}</span>
+    )}
+    <span className="font-mono font-bold">{quote}</span>
+  </button>
+);
+
+/**
+ * Una sección plegable del selector: un grupo de mercados pintado según su
+ * forma — tabla Más/Menos para totales, columna por participante para
+ * hándicaps, fila de resultados para mercados únicos, chips para el resto.
+ * Cada celda selecciona mercado Y resultado de un clic.
+ */
+const SelectorSection: React.FC<{
+  group: MarketDisplayGroup;
+  participants?: { name: string }[];
+  activeMarketId: string;
+  activeOutcomeId: string;
+  collapsed: boolean;
+  onToggle: () => void;
+  onPick: (m: Market, outcomeId?: string) => void;
+}> = ({
+  group,
+  participants,
+  activeMarketId,
+  activeOutcomeId,
+  collapsed,
+  onToggle,
+  onPick,
+}) => {
+  const shape = marketGroupShapeOf(group.markets, participants);
+  const single = group.markets.length === 1 ? group.markets[0] : null;
+  const isActiveCell = (m: Market, outcomeId: string) =>
+    m.id === activeMarketId && outcomeId === activeOutcomeId;
+
+  let body: React.ReactNode;
+  if (shape === 'over-under') {
+    body = (
+      <div className="flex flex-col gap-1">
+        <div className="grid grid-cols-[2.75rem_1fr_1fr] gap-1.5 px-1 text-[9px] font-mono uppercase tracking-wider text-neutral-600">
+          <span />
+          <span className="text-center">Más</span>
+          <span className="text-center">Menos</span>
+        </div>
+        {group.markets.map((m) => {
+          const over = m.outcomes.find((o) => /^over\s*\(/i.test(o.label));
+          const under = m.outcomes.find((o) => /^under\s*\(/i.test(o.label));
+          if (over === undefined || under === undefined) return null;
+          return (
+            <div
+              key={m.id}
+              className="grid grid-cols-[2.75rem_1fr_1fr] gap-1.5 items-center"
+            >
+              <span className="text-[11px] font-mono text-neutral-400 text-right pr-1">
+                {marketLineOf(m)}
+              </span>
+              <OddsCell
+                quote={outcomeOddsText(m, over)}
+                active={isActiveCell(m, over.id)}
+                disabled={!over.isQuotable}
+                onClick={() => onPick(m, over.id)}
+              />
+              <OddsCell
+                quote={outcomeOddsText(m, under)}
+                active={isActiveCell(m, under.id)}
+                disabled={!under.isQuotable}
+                onClick={() => onPick(m, under.id)}
+              />
+            </div>
+          );
+        })}
+      </div>
+    );
+  } else if (shape === 'two-sided' && participants !== undefined) {
+    const [pa, pb] = participants;
+    body = (
+      <div className="flex flex-col gap-1">
+        <div className="grid grid-cols-2 gap-1.5 px-1 text-[9px] font-mono uppercase tracking-wider text-neutral-600">
+          <span className="text-center truncate">{pa.name}</span>
+          <span className="text-center truncate">{pb.name}</span>
+        </div>
+        {group.markets.map((m) => {
+          const oa = outcomeForParticipant(m, pa.name);
+          const ob = outcomeForParticipant(m, pb.name);
+          if (oa === undefined || ob === undefined) return null;
+          const la = outcomeLineOf(oa.label);
+          const lb = outcomeLineOf(ob.label);
+          return (
+            <div key={m.id} className="grid grid-cols-2 gap-1.5">
+              <OddsCell
+                {...(la !== null ? { label: signedLine(la) } : {})}
+                quote={outcomeOddsText(m, oa)}
+                active={isActiveCell(m, oa.id)}
+                disabled={!oa.isQuotable}
+                onClick={() => onPick(m, oa.id)}
+              />
+              <OddsCell
+                {...(lb !== null ? { label: signedLine(lb) } : {})}
+                quote={outcomeOddsText(m, ob)}
+                active={isActiveCell(m, ob.id)}
+                disabled={!ob.isQuotable}
+                onClick={() => onPick(m, ob.id)}
+              />
+            </div>
+          );
+        })}
+      </div>
+    );
+  } else if (single !== null && single.outcomes.length <= 3) {
+    body = (
+      <div
+        className={`grid gap-1.5 ${
+          single.outcomes.length === 3 ? 'grid-cols-3' : 'grid-cols-2'
+        }`}
+      >
+        {single.outcomes.map((o) => (
+          <OddsCell
+            key={o.id}
+            label={translateOutcomeLabel(o.label)}
+            quote={outcomeOddsText(single, o)}
+            active={isActiveCell(single, o.id)}
+            disabled={!o.isQuotable}
+            onClick={() => onPick(single, o.id)}
+          />
+        ))}
+      </div>
+    );
+  } else {
+    body = (
+      <div className="flex flex-wrap gap-1.5">
+        {group.markets.map((m) => (
+          <MarketPickButton
+            key={m.id}
+            label={single !== null ? group.label : marketVariantLabelOf(m)}
+            quote={firstQuoteOf(m)}
+            active={m.id === activeMarketId}
+            onClick={() => onPick(m)}
+            fullWidth={single !== null}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-b border-neutral-800/60 last:border-0 pb-2">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between gap-2 py-1.5 text-left"
+      >
+        <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+          {group.label}
+          {group.markets.length > 1 && (
+            <span className="text-neutral-600"> · {group.markets.length} líneas</span>
+          )}
+        </span>
+        <ChevronDown
+          className={`w-3.5 h-3.5 text-neutral-600 transition-transform shrink-0 ${
+            collapsed ? '-rotate-90' : ''
+          }`}
+        />
+      </button>
+      {!collapsed && body}
+    </div>
+  );
+};
 
 
 /**
@@ -133,6 +316,15 @@ export const TradePanel: React.FC<TradePanelProps> = ({
   const [quoteState, setQuoteState] = useState<QuoteState>({ status: 'idle' });
   const [placeState, setPlaceState] = useState<PlaceState>({ status: 'idle' });
   const [quoteNonce, setQuoteNonce] = useState(0);
+  /** Secciones del selector plegadas por el usuario, por etiqueta de grupo. */
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    () => new Set(),
+  );
+  /**
+   * Resultado clicado en una celda del selector, pendiente de aplicarse
+   * cuando `market` cambie (el efecto de cambio de mercado lo consume).
+   */
+  const pendingOutcomeRef = useRef<string | null>(null);
 
   const wallet = useWallet();
   const { balances } = useVenueBalances();
@@ -147,15 +339,23 @@ export const TradePanel: React.FC<TradePanelProps> = ({
     [event.markets],
   );
 
-  // Al cambiar de opción dentro del evento, se reinicia la selección. En el
-  // mercado inicial se respeta la cuota clicada en la tarjeta.
+  // Al cambiar de opción dentro del evento, se reinicia la selección. Manda
+  // la celda clicada en el selector; en el mercado inicial, la cuota clicada
+  // en la tarjeta.
   useEffect(() => {
+    const pending = pendingOutcomeRef.current;
+    pendingOutcomeRef.current = null;
+    const fromCell =
+      pending !== null
+        ? market.outcomes.find((o) => o.id === pending && o.isQuotable)
+        : undefined;
     const clicked =
       market.id === initialMarket.id
         ? market.outcomes.find((o) => o.id === initialOutcomeId && o.isQuotable)
         : undefined;
     setOutcomeId(
-      clicked?.id ??
+      fromCell?.id ??
+        clicked?.id ??
         market.outcomes.find((o) => o.isQuotable)?.id ??
         market.outcomes[0]?.id ??
         '',
@@ -163,6 +363,16 @@ export const TradePanel: React.FC<TradePanelProps> = ({
     setQuoteState({ status: 'idle' });
     setPlaceState({ status: 'idle' });
   }, [market.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Clic en una celda del selector: mercado y, si viene, resultado exactos. */
+  const pickSelection = (m: Market, oid?: string) => {
+    if (m.id === market.id) {
+      if (oid !== undefined) setOutcomeId(oid);
+      return;
+    }
+    pendingOutcomeRef.current = oid ?? null;
+    setMarket(m);
+  };
 
   // Cotización con retardo: una petición por pausa de tecleo, no por tecla.
   useEffect(() => {
@@ -266,6 +476,12 @@ export const TradePanel: React.FC<TradePanelProps> = ({
                   {source.displayName}
                 </span>
               )}
+              {event.isLive && (
+                <span className="flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                  En vivo
+                </span>
+              )}
               {!market.isQuotable && (
                 <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400">
                   sin cotización
@@ -288,48 +504,35 @@ export const TradePanel: React.FC<TradePanelProps> = ({
           </button>
         </div>
 
-        {/* Selector de mercado, solo si el evento tiene varios. Agrupado por
-            tipo (Total Games, Handicap…) con las líneas ordenadas: 30 chips
-            iguales en una fila no se pueden recorrer. */}
+        {/* Selector de mercado, solo si el evento tiene varios. Secciones
+            plegables por tipo, con la forma de cada grupo: totales como tabla
+            Más/Menos, hándicaps con una columna por participante, y cada
+            celda selecciona mercado y resultado de un clic. */}
         {event.markets.length > 1 && (
           <div className="px-5 py-3 border-b border-neutral-800 bg-[#0d1017]">
-            <p className="text-[10px] uppercase font-mono text-neutral-600 tracking-wider mb-2">
+            <p className="text-[10px] uppercase font-mono text-neutral-600 tracking-wider mb-1.5">
               Mercados del evento ({event.markets.length})
             </p>
-            <div className="max-h-56 overflow-y-auto flex flex-col gap-2.5 pr-1">
-              {marketGroups.map((g) =>
-                g.markets.length === 1 ? (
-                  <MarketPickButton
-                    key={g.markets[0].id}
-                    label={g.label}
-                    quote={firstQuoteOf(g.markets[0])}
-                    active={g.markets[0].id === market.id}
-                    onClick={() => setMarket(g.markets[0])}
-                    fullWidth
-                  />
-                ) : (
-                  <div key={g.label} className="flex flex-col gap-1">
-                    <p className="text-[10px] font-mono text-neutral-500">
-                      {g.label}
-                      <span className="text-neutral-700">
-                        {' '}
-                        · {g.markets.length} líneas
-                      </span>
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {g.markets.map((m) => (
-                        <MarketPickButton
-                          key={m.id}
-                          label={marketVariantLabelOf(m)}
-                          quote={firstQuoteOf(m)}
-                          active={m.id === market.id}
-                          onClick={() => setMarket(m)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ),
-              )}
+            <div className="max-h-80 overflow-y-auto flex flex-col gap-2 pr-1">
+              {marketGroups.map((g) => (
+                <SelectorSection
+                  key={g.label}
+                  group={g}
+                  participants={event.participants}
+                  activeMarketId={market.id}
+                  activeOutcomeId={outcomeId}
+                  collapsed={collapsedGroups.has(g.label)}
+                  onToggle={() =>
+                    setCollapsedGroups((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(g.label)) next.delete(g.label);
+                      else next.add(g.label);
+                      return next;
+                    })
+                  }
+                  onPick={pickSelection}
+                />
+              ))}
             </div>
           </div>
         )}

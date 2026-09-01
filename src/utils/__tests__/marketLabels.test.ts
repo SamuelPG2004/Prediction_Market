@@ -46,6 +46,31 @@ describe('translateMarketLabel', () => {
   it('devuelve intacta una etiqueta desconocida', () => {
     expect(translateMarketLabel('Exotic Special')).toBe('Exotic Special')
   })
+
+  it('entiende el vocabulario del feed en vivo (guion y singular)', () => {
+    expect(translateMarketLabel('3rd Set - Total Game')).toBe(
+      'Juegos totales · 3er set',
+    )
+    expect(translateMarketLabel('3rd Set - Winner Of Match Set')).toBe(
+      'Ganador · 3er set',
+    )
+    expect(translateMarketLabel('Game - Total Odd/Even Point')).toBe(
+      'Partido · Puntos: par/impar',
+    )
+  })
+
+  it('separa el mercado pegado al nombre del participante', () => {
+    expect(translateMarketLabel('Katie Volynets Handicap Game')).toBe(
+      'Katie Volynets · Hándicap de juegos',
+    )
+    expect(
+      translateMarketLabel('2nd Set - Katie Volynets Handicap Game'),
+    ).toBe('Katie Volynets · Hándicap de juegos · 2º set')
+    // La clave más larga gana: no se trocea "Individual Total Point".
+    expect(
+      translateMarketLabel('LA Clippers Virtual Individual Total Point'),
+    ).toBe('LA Clippers Virtual · Total individual de puntos')
+  })
 })
 
 describe('translateOutcomeLabel', () => {

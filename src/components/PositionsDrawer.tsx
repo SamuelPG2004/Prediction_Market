@@ -3,12 +3,19 @@ import {
   X,
   Loader2,
   AlertTriangle,
+  Banknote,
   Layers,
   RefreshCw,
   Coins,
   ExternalLink,
 } from 'lucide-react';
-import type { Position, RedeemReceipt, Result } from '../domain/types';
+import type {
+  CashoutOffer,
+  CashoutReceipt,
+  Position,
+  RedeemReceipt,
+  Result,
+} from '../domain/types';
 import { marketSources } from '../services/marketSources';
 import { useWallet } from '../services/web3Service';
 import { formatCurrency } from '../utils/formatters';
@@ -167,6 +174,7 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
                       key={p.id}
                       position={p}
                       onRedeem={redeemerFor(feed.venue, wallet.address)}
+                      cashouter={cashouterFor(feed.venue, wallet.address)}
                     />
                   ))
                 )}
@@ -193,17 +201,49 @@ function redeemerFor(venue: string, address: string | null): Redeemer | null {
   return (position) => source.redeemPosition(position, { from: address });
 }
 
+interface Cashouter {
+  getOffer: (position: Position) => Promise<Result<CashoutOffer | null>>;
+  execute: (offer: CashoutOffer) => Promise<Result<CashoutReceipt>>;
+}
+
+/**
+ * Cash out para las posiciones de un venue, o null si no aplica. Solo las
+ * posiciones 'open' de venues con `canCashout` ofrecen el botón; la oferta se
+ * pide al pulsarlo (es firme y caduca: no tiene sentido precargarla).
+ */
+function cashouterFor(venue: string, address: string | null): Cashouter | null {
+  const source = marketSources.byVenue(venue);
+  if (source === null || !source.capabilities.canCashout || address === null) {
+    return null;
+  }
+  return {
+    getOffer: (position) => source.getCashoutOffer(position, { from: address }),
+    execute: (offer) => source.cashoutPosition(offer, { from: address }),
+  };
+}
+
 type RedeemState =
   | { status: 'idle' }
   | { status: 'redeeming' }
   | { status: 'done'; receipt: RedeemReceipt }
   | { status: 'error'; message: string };
 
+type CashoutState =
+  | { status: 'idle' }
+  | { status: 'consulting' }
+  | { status: 'no-offer' }
+  | { status: 'offered'; offer: CashoutOffer }
+  | { status: 'executing'; offer: CashoutOffer }
+  | { status: 'done'; receipt: CashoutReceipt }
+  | { status: 'error'; message: string };
+
 const PositionCard: React.FC<{
   position: Position;
   onRedeem: Redeemer | null;
-}> = ({ position, onRedeem }) => {
+  cashouter: Cashouter | null;
+}> = ({ position, onRedeem, cashouter }) => {
   const [redeem, setRedeem] = useState<RedeemState>({ status: 'idle' });
+  const [cashout, setCashout] = useState<CashoutState>({ status: 'idle' });
 
   // Tras cobrar con éxito, la tarjeta pasa a 'Cobrada' sin esperar a que el
   // indexador del venue refleje el redeemedAt (puede tardar unos segundos).
@@ -215,6 +255,31 @@ const PositionCard: React.FC<{
     setRedeem({ status: 'redeeming' });
     const result = await onRedeem(position);
     setRedeem(
+      result.ok
+        ? { status: 'done', receipt: result.data }
+        : { status: 'error', message: result.error.message },
+    );
+  };
+
+  const askCashoutOffer = async () => {
+    if (cashouter === null || cashout.status === 'consulting') return;
+    setCashout({ status: 'consulting' });
+    const result = await cashouter.getOffer(position);
+    if (!result.ok) {
+      setCashout({ status: 'error', message: result.error.message });
+    } else if (result.data === null) {
+      setCashout({ status: 'no-offer' });
+    } else {
+      setCashout({ status: 'offered', offer: result.data });
+    }
+  };
+
+  const runCashout = async () => {
+    if (cashouter === null || cashout.status !== 'offered') return;
+    const { offer } = cashout;
+    setCashout({ status: 'executing', offer });
+    const result = await cashouter.execute(offer);
+    setCashout(
       result.ok
         ? { status: 'done', receipt: result.data }
         : { status: 'error', message: result.error.message },
@@ -283,6 +348,87 @@ const PositionCard: React.FC<{
             </>
           )}
         </button>
+      )}
+
+      {/* Cash out: cerrar una posición abierta al precio que ofrezca el venue
+          ahora. La oferta se pide al pulsar (es firme y caduca). */}
+      {effectiveStatus === 'open' &&
+        cashouter !== null &&
+        cashout.status !== 'done' && (
+          <>
+            {(cashout.status === 'idle' || cashout.status === 'error') && (
+              <button
+                onClick={() => void askCashoutOffer()}
+                className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-neutral-800/60 hover:bg-neutral-800 border border-neutral-700/60 text-[11px] font-bold text-neutral-300 hover:text-neutral-100 transition-all active:scale-95"
+              >
+                <Banknote className="w-3.5 h-3.5" />
+                <span>Consultar cash out</span>
+              </button>
+            )}
+            {cashout.status === 'consulting' && (
+              <div className="flex items-center justify-center gap-2 py-2 text-[11px] text-neutral-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Pidiendo oferta…</span>
+              </div>
+            )}
+            {cashout.status === 'no-offer' && (
+              <p className="text-[11px] text-neutral-500 rounded-lg bg-neutral-900/60 border border-dashed border-neutral-800 p-2.5">
+                Sin oferta de cash out para esta apuesta ahora mismo.
+              </p>
+            )}
+            {(cashout.status === 'offered' || cashout.status === 'executing') && (
+              <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/25 p-2.5 flex items-center justify-between gap-2 text-[11px]">
+                <span className="text-neutral-300">
+                  Te ofrecen{' '}
+                  <span className="font-mono font-bold text-emerald-300">
+                    {formatCurrency(Number(cashout.offer.amount))}
+                  </span>{' '}
+                  por cerrar ya
+                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => void runCashout()}
+                    disabled={cashout.status === 'executing'}
+                    className="px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-bold transition-all active:scale-95 disabled:opacity-60 flex items-center gap-1.5"
+                  >
+                    {cashout.status === 'executing' ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Firmando…</span>
+                      </>
+                    ) : (
+                      <span>Aceptar</span>
+                    )}
+                  </button>
+                  {cashout.status === 'offered' && (
+                    <button
+                      onClick={() => setCashout({ status: 'idle' })}
+                      className="px-2 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors"
+                    >
+                      No
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+      {cashout.status === 'done' && (
+        <div className="flex items-center justify-between gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 p-2.5 text-[11px] text-emerald-300">
+          <span>
+            Cash out enviado por{' '}
+            {formatCurrency(Number(cashout.receipt.amount))} · ref{' '}
+            <span className="font-mono">{cashout.receipt.reference}</span>
+          </span>
+        </div>
+      )}
+
+      {cashout.status === 'error' && (
+        <div className="flex items-start gap-2 rounded-lg bg-rose-500/10 border border-rose-500/25 p-2.5 text-[11px] text-rose-300">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>{cashout.message}</span>
+        </div>
       )}
 
       {redeem.status === 'error' && (

@@ -60,12 +60,14 @@ function buildFilter(
   category: MarketCategory | undefined,
   subcategory: string | undefined,
   search: string,
+  liveOnly: boolean,
   cursor?: string,
 ): MarketFilter {
   return {
     ...(category !== undefined ? { category } : {}),
     ...(subcategory !== undefined ? { subcategory } : {}),
     ...(search.trim() !== '' ? { query: search.trim() } : {}),
+    ...(liveOnly ? { state: 'live' as const } : {}),
     ...(cursor !== undefined ? { cursor } : {}),
   }
 }
@@ -88,12 +90,15 @@ export function useDomainEvents(options: {
   /** Subcategoría dentro de `category` (un deporte de 'sports', p. ej.). */
   subcategory?: string
   search?: string
+  /** Solo eventos en juego ahora mismo (los venues sin en-vivo aportan cero). */
+  liveOnly?: boolean
   refreshMs?: number
 }): UseDomainEventsState {
   const {
     category,
     subcategory,
     search = '',
+    liveOnly = false,
     refreshMs = DEFAULT_REFRESH_MS,
   } = options
 
@@ -113,8 +118,8 @@ export function useDomainEvents(options: {
 
   const fetchFirstPage = useCallback(
     async (source: MarketSource) =>
-      source.listMarkets(buildFilter(category, subcategory, search)),
-    [category, subcategory, search],
+      source.listMarkets(buildFilter(category, subcategory, search, liveOnly)),
+    [category, subcategory, search, liveOnly],
   )
 
   // Carga inicial; se repite al cambiar categoría, búsqueda o al recargar.
@@ -181,7 +186,7 @@ export function useDomainEvents(options: {
           const source = marketSources.byVenue(feed.venue)
           if (source === null || feed.cursor === null) return null
           const result = await source.listMarkets(
-            buildFilter(category, subcategory, search, feed.cursor),
+            buildFilter(category, subcategory, search, liveOnly, feed.cursor),
           )
           return { venue: feed.venue, result }
         }),
@@ -207,7 +212,7 @@ export function useDomainEvents(options: {
       loadingRef.current = false
       setIsLoadingMore(false)
     }
-  }, [category, subcategory, search])
+  }, [category, subcategory, search, liveOnly])
 
   const events = useMemo(
     () => interleave(feeds.map((feed) => groupMarketsIntoEvents(feed.markets))),
