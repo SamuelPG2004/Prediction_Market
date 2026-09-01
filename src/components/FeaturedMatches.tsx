@@ -73,7 +73,7 @@ const FeaturedCard: React.FC<{
     <div className="w-[290px] shrink-0 snap-start rounded-2xl bg-[#0d1017] border border-neutral-800/80 hover:border-neutral-700 transition-colors p-3.5 flex flex-col gap-2.5">
       {/* Liga + en vivo / comienzo */}
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[9.5px] font-mono uppercase tracking-wide text-neutral-500 truncate flex items-center gap-1 min-w-0">
+        <span className="text-[9.5px] font-mono uppercase tracking-wide text-neutral-400 truncate flex items-center gap-1 min-w-0">
           {icon !== null && <span className="text-[11px]">{icon}</span>}
           <span className="truncate">
             {[
@@ -114,9 +114,9 @@ const FeaturedCard: React.FC<{
         title="Abrir este evento"
       >
         <FeaturedLogo participant={a} />
-        <span className="flex-1 text-[11.5px] font-semibold text-neutral-100 leading-tight min-w-0">
+        <span className="flex-1 text-[12.5px] font-semibold text-neutral-100 leading-tight min-w-0">
           <span className="line-clamp-1">{a.name}</span>
-          <span className="line-clamp-1 text-neutral-400">{b.name}</span>
+          <span className="line-clamp-1 text-neutral-300">{b.name}</span>
         </span>
         <FeaturedLogo participant={b} />
       </button>

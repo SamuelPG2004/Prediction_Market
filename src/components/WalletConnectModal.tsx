@@ -161,9 +161,12 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
         onClick={onClose}
       />
 
-      <div className="relative w-full max-w-sm rounded-2xl bg-[#0f121a] border border-neutral-800 shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-150">
+      {/* max-h + scroll interno: con la wallet local conectada (depósito,
+          retiro, respaldo) el contenido supera la pantalla y la cabecera
+          debe quedarse fija mientras el cuerpo desplaza. */}
+      <div className="relative w-full max-w-sm max-h-[88vh] flex flex-col rounded-2xl bg-[#0f121a] border border-neutral-800 shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-150">
         {/* Cabecera */}
-        <div className="p-5 border-b border-neutral-800 flex items-center justify-between bg-[#131620]">
+        <div className="shrink-0 p-5 border-b border-neutral-800 flex items-center justify-between bg-[#131620]">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <Wallet className="w-4 h-4" />
@@ -186,7 +189,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
           </button>
         </div>
 
-        <div className="p-5 flex flex-col gap-4">
+        <div className="p-5 flex flex-col gap-4 overflow-y-auto">
           {isConnected && address !== null ? (
             <>
               {/* Dirección */}

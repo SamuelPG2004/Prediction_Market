@@ -188,14 +188,16 @@ export const MarketsView: React.FC<MarketsViewProps> = ({ onConnectWallet }) => 
       <div className="rounded-2xl bg-[#0d1017] border border-neutral-800/80 overflow-hidden">
         <div className="px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-400">
+            {/* Tono sereno a propósito: el rojo se reserva para "en vivo" y
+                errores; el aviso de dinero real no es una alarma permanente. */}
+            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400">
               <ShieldCheck className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-neutral-100 leading-tight">
                 Mercados reales
               </h2>
-              <p className="text-[11px] text-neutral-500 mt-0.5">
+              <p className="text-[11px] text-neutral-400 mt-0.5">
                 Operar mueve fondos de verdad. Cada apuesta la firmas tú.
               </p>
             </div>

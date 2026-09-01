@@ -196,7 +196,7 @@ const ParticipantColumn: React.FC<{
 }> = ({ participant, eager }) => (
   <span className="flex flex-col items-center gap-1.5 min-w-0">
     <ParticipantLogo participant={participant} eager={eager} />
-    <span className="text-[11px] font-semibold text-neutral-100 text-center leading-tight line-clamp-2">
+    <span className="text-xs font-semibold text-neutral-100 text-center leading-tight line-clamp-2">
       {participant.name}
     </span>
   </span>
@@ -451,13 +451,13 @@ export const EventListRow: React.FC<{
           event.participants!.map((p) => (
             <span
               key={p.name}
-              className="text-[11.5px] font-semibold text-neutral-100 leading-tight truncate"
+              className="text-[12.5px] font-semibold text-neutral-100 leading-tight truncate"
             >
               {p.name}
             </span>
           ))
         ) : (
-          <span className="text-[11.5px] font-semibold text-neutral-100 leading-tight line-clamp-2">
+          <span className="text-[12.5px] font-semibold text-neutral-100 leading-tight line-clamp-2">
             {event.title}
           </span>
         )}
@@ -517,7 +517,7 @@ const GenericBody: React.FC<{
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <h3 className="text-[13px] font-semibold text-neutral-100 leading-snug line-clamp-2 group-hover:text-white flex-1">
+          <h3 className="text-sm font-semibold text-neutral-100 leading-snug line-clamp-2 group-hover:text-white flex-1">
             {event.title}
           </h3>
           {event.isLive && <LiveBadge />}
@@ -612,7 +612,7 @@ const ContextLine: React.FC<{
   ].filter((p): p is string => p !== null);
 
   return (
-    <span className="text-[10px] text-neutral-500 truncate flex items-center gap-1 min-w-0">
+    <span className="text-[10px] text-neutral-400 truncate flex items-center gap-1 min-w-0">
       {icon !== null && <span className="text-[11px]">{icon}</span>}
       <span className="truncate uppercase font-mono tracking-wide">
         {parts.join(' · ')}

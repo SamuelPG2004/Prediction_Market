@@ -54,14 +54,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Indicador de dinero real */}
-          <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full border text-xs bg-rose-500/10 border-rose-500/30 text-rose-300">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-rose-400" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
-            </span>
-            <span className="font-mono font-semibold">Dinero real</span>
-          </div>
+          {/* El aviso de dinero real vive en la píldora REAL del logo, la
+              cabecera de cuenta y el pie: una cuarta señal aquí era ruido. */}
         </div>
 
         {/* Acciones */}
