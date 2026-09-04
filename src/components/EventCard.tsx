@@ -404,7 +404,7 @@ const StarOutcomeButton: React.FC<{
   return (
     <button
       onClick={onPick}
-      className={`${compact ? 'py-1 px-1' : 'py-1.5 px-1'} rounded-lg transition-all active:scale-95 flex flex-col items-center min-w-0 border ${base} ${flashRing}`}
+      className={`${compact ? 'py-1.5 sm:py-1 px-1' : 'py-1.5 px-1'} rounded-lg transition-all active:scale-95 flex flex-col items-center min-w-0 border ${base} ${flashRing}`}
       title={
         display.primary === null
           ? `${label} — sin cotización ahora mismo`
@@ -417,6 +417,14 @@ const StarOutcomeButton: React.FC<{
     >
       {!compact && (
         <span className="text-[10px] text-neutral-400 truncate w-full text-center">
+          {label}
+        </span>
+      )}
+      {/* En móvil las cuotas del modo lista van a ancho completo bajo el
+          título y pierden la cabecera 1·X·2, así que la etiqueta viaja
+          dentro del botón. En ≥sm la pone la cabecera de columnas. */}
+      {compact && (
+        <span className="sm:hidden text-[9px] text-neutral-400 truncate w-full text-center">
           {label}
         </span>
       )}
@@ -473,7 +481,7 @@ export const EventListRow: React.FC<{
     star !== null ? favoritePriceOf(outcomes, star.priceFormat) : null;
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-[#0d1017] border border-neutral-800/70 hover:border-neutral-700 transition-colors">
+    <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-1.5 px-3 py-2 rounded-xl bg-[#0d1017] border border-neutral-800/70 hover:border-neutral-700 transition-colors">
       {/* Hora o en juego */}
       <span className="w-11 shrink-0 text-[10px] font-mono text-neutral-500">
         {event.isLive ? (
@@ -510,11 +518,13 @@ export const EventListRow: React.FC<{
         )}
       </button>
 
-      {/* Cuotas del mercado estrella, compactas */}
+      {/* Cuotas del mercado estrella, compactas. En móvil no caben en la
+          línea (los anchos fijos se comen el título): bajan a una segunda
+          fila a ancho completo, detrás del contador (order-last). */}
       {star !== null && outcomes.length >= 2 && (
         <div
-          className={`grid gap-1.5 shrink-0 ${
-            outcomes.length === 2 ? 'grid-cols-2 w-32' : 'grid-cols-3 w-48'
+          className={`grid gap-1.5 shrink-0 order-last sm:order-none w-full ${
+            outcomes.length === 2 ? 'grid-cols-2 sm:w-32' : 'grid-cols-3 sm:w-48'
           }`}
         >
           {outcomes.map((o) => (
@@ -535,7 +545,7 @@ export const EventListRow: React.FC<{
           los dígitos, las columnas de cuotas dejan de alinearse fila a fila. */}
       <button
         onClick={open}
-        className="shrink-0 w-10 py-1 rounded-lg text-[10px] font-mono tabular-nums text-center text-neutral-500 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+        className="shrink-0 w-10 py-1.5 sm:py-1 rounded-lg text-[10px] font-mono tabular-nums text-center text-neutral-500 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
         title={`Ver los ${event.markets.length} mercados del evento`}
       >
         {event.markets.length} →

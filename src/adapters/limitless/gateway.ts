@@ -18,7 +18,7 @@ import {
   type WalletClient,
 } from 'viem'
 import { buildHmacHeaders } from './auth.ts'
-import type { LimitlessConfig } from './config.ts'
+import { LIMITLESS_SIGN_HEADER, type LimitlessConfig } from './config.ts'
 
 // --- Órdenes ------------------------------------------------------------------
 
@@ -206,10 +206,16 @@ export function createLimitlessGateway(config: LimitlessConfig): LimitlessGatewa
       if (config.auth === null) {
         throw new Error('Petición autenticada sin credenciales de Limitless')
       }
-      Object.assign(
-        headers,
-        await buildHmacHeaders(config.auth, method, pathWithQuery, body),
-      )
+      if (config.auth === 'proxy') {
+        // La firma la pone el proxy del servidor; aquí solo se marca la
+        // petición. Así el secreto nunca viaja al navegador.
+        headers[LIMITLESS_SIGN_HEADER] = '1'
+      } else {
+        Object.assign(
+          headers,
+          await buildHmacHeaders(config.auth, method, pathWithQuery, body),
+        )
+      }
     }
     if (body !== '') headers['Content-Type'] = 'application/json'
 

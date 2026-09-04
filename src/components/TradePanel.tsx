@@ -112,7 +112,7 @@ const OddsCell: React.FC<{
   <button
     onClick={onClick}
     disabled={disabled}
-    className={`flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg border text-[11px] transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed min-w-0 ${
+    className={`flex items-center justify-center gap-1.5 px-2 py-2 sm:py-1.5 rounded-lg border text-[11px] transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed min-w-0 ${
       active
         ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
         : 'bg-[#12151d] border-neutral-800 hover:border-emerald-500/40 hover:bg-emerald-500/[0.06] text-neutral-300'
@@ -457,15 +457,17 @@ export const TradePanel: React.FC<TradePanelProps> = ({
   }, [payoutNumber, stakeNumber]);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex items-start justify-center p-4 py-8">
+    /* En móvil, hoja a pantalla completa (mismo criterio que BetSlip);
+       en ≥sm, modal centrado con margen. */
+    <div className="fixed inset-0 z-50 overflow-y-auto flex items-start justify-center p-0 sm:p-4 sm:py-8">
       <div
         className="fixed inset-0 bg-black/85 backdrop-blur-md animate-in fade-in"
         onClick={onClose}
       />
 
-      <div className="relative w-full max-w-xl rounded-2xl bg-[#0b0d13] border border-neutral-800 shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-xl min-h-full sm:min-h-0 rounded-none sm:rounded-2xl bg-[#0b0d13] border-0 sm:border border-neutral-800 shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200">
         {/* Cabecera */}
-        <div className="p-5 border-b border-neutral-800 bg-[#101420] flex items-start justify-between gap-3">
+        <div className="p-4 sm:p-5 border-b border-neutral-800 bg-[#101420] flex items-start justify-between gap-3">
           <div className="pr-2">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="text-[10px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">
@@ -498,7 +500,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl bg-neutral-800/80 hover:bg-neutral-700 text-neutral-400 hover:text-white transition-colors shrink-0"
+            className="p-2.5 sm:p-1.5 rounded-xl bg-neutral-800/80 hover:bg-neutral-700 text-neutral-400 hover:text-white transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -509,7 +511,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
             Más/Menos, hándicaps con una columna por participante, y cada
             celda selecciona mercado y resultado de un clic. */}
         {event.markets.length > 1 && (
-          <div className="px-5 py-3 border-b border-neutral-800 bg-[#0d1017]">
+          <div className="px-4 sm:px-5 py-3 border-b border-neutral-800 bg-[#0d1017]">
             <p className="text-[10px] uppercase font-mono text-neutral-600 tracking-wider mb-1.5">
               Mercados del evento ({event.markets.length})
             </p>
@@ -537,7 +539,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
           </div>
         )}
 
-        <div className="p-5 flex flex-col gap-4">
+        <div className="p-4 sm:p-5 flex flex-col gap-4">
           {/* Selector de resultado */}
           <div
             className={`grid gap-2 ${
@@ -612,7 +614,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
           </div>
 
           {/* Slippage */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[10px] uppercase font-mono text-neutral-500 tracking-wider">
               Slippage máx.
             </span>
@@ -620,7 +622,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
               <button
                 key={s}
                 onClick={() => setSlippage(s)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-all ${
+                className={`px-3 py-1.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] font-mono font-bold transition-all ${
                   slippage === s
                     ? 'bg-neutral-100 text-neutral-900'
                     : 'bg-neutral-900 text-neutral-400 border border-neutral-800 hover:text-neutral-200'

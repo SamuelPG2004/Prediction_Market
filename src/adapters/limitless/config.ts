@@ -19,6 +19,13 @@ export const LIMITLESS_API_URL = 'https://api.limitless.exchange'
 export const LIMITLESS_PROXY_PATH = '/api/limitless'
 
 /**
+ * Cabecera con la que el navegador marca, en modo `auth: 'proxy'`, qué
+ * peticiones necesitan firma HMAC. La función serverless (api/limitless) la
+ * consume, firma con sus credenciales y la retira antes de reenviar.
+ */
+export const LIMITLESS_SIGN_HEADER = 'x-limitless-sign'
+
+/**
  * Credenciales de token API con alcance (`trading`): firman cada petición
  * autenticada con HMAC-SHA256. Se derivan en limitless.exchange → API Tokens.
  */
@@ -35,8 +42,12 @@ export interface LimitlessConfig {
    * Sin credenciales el adaptador sigue sirviendo catálogo y cotizaciones
    * (endpoints públicos), pero no puede colocar órdenes ni leer posiciones:
    * `canPlaceBet` y `canReadPositions` quedan en false.
+   *
+   * `'proxy'`: las credenciales viven en el servidor (función de
+   * api/limitless) y es él quien firma; el navegador solo marca qué
+   * peticiones necesitan firma. Así el secreto nunca entra en el bundle.
    */
-  auth: LimitlessAuth | null
+  auth: LimitlessAuth | 'proxy' | null
   /**
    * El plan de venues asigna los deportes a Azuro; Limitless es la fuente
    * NO deportiva. Por defecto sus mercados con dominio `sport` se omiten
@@ -46,7 +57,7 @@ export interface LimitlessConfig {
 }
 
 export function makeLimitlessConfig(options?: {
-  auth?: LimitlessAuth | null
+  auth?: LimitlessAuth | 'proxy' | null
   includeSports?: boolean
   apiUrl?: string
 }): LimitlessConfig {
@@ -71,6 +82,9 @@ function readViteEnv(name: string): string | undefined {
  *
  * - `VITE_LIMITLESS_API_TOKEN_ID` + `VITE_LIMITLESS_API_TOKEN_SECRET`:
  *   opcionales; ambas o ninguna. Sin ellas no hay órdenes ni posiciones.
+ * - `VITE_LIMITLESS_AUTH_MODE=proxy`: la firma HMAC la pone el servidor
+ *   (función de api/limitless con `LIMITLESS_API_TOKEN_*` sin prefijo VITE_).
+ *   Incompatible con las credenciales VITE_: son estrategias excluyentes.
  * - `VITE_LIMITLESS_INCLUDE_SPORTS`: opcional, 'true' para listar deportes.
  * - `VITE_LIMITLESS_API_URL`: opcional. Por defecto, la ruta del proxy
  *   same-origin (ver `LIMITLESS_PROXY_PATH`): el navegador no puede llamar a
@@ -79,13 +93,23 @@ function readViteEnv(name: string): string | undefined {
 export function loadLimitlessConfigFromEnv(): LimitlessConfig {
   const tokenId = readViteEnv('VITE_LIMITLESS_API_TOKEN_ID')
   const secret = readViteEnv('VITE_LIMITLESS_API_TOKEN_SECRET')
+  const proxyMode = readViteEnv('VITE_LIMITLESS_AUTH_MODE') === 'proxy'
   if ((tokenId === undefined) !== (secret === undefined)) {
     throw new Error(
       'VITE_LIMITLESS_API_TOKEN_ID y VITE_LIMITLESS_API_TOKEN_SECRET van juntas: define ambas o ninguna',
     )
   }
+  if (proxyMode && tokenId !== undefined) {
+    throw new Error(
+      'VITE_LIMITLESS_AUTH_MODE=proxy y las credenciales VITE_LIMITLESS_API_TOKEN_* son excluyentes: con el proxy firmando, el secreto no debe entrar en el bundle',
+    )
+  }
   return makeLimitlessConfig({
-    auth: tokenId !== undefined && secret !== undefined ? { tokenId, secret } : null,
+    auth: proxyMode
+      ? 'proxy'
+      : tokenId !== undefined && secret !== undefined
+        ? { tokenId, secret }
+        : null,
     includeSports: readViteEnv('VITE_LIMITLESS_INCLUDE_SPORTS') === 'true',
     apiUrl: readViteEnv('VITE_LIMITLESS_API_URL') ?? LIMITLESS_PROXY_PATH,
   })

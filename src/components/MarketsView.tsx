@@ -469,9 +469,12 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
                               {lg.events.length}
                             </span>
                           </p>
+                          {/* En móvil las cuotas van a ancho completo bajo el
+                              título y la etiqueta viaja dentro de cada botón,
+                              así que esta cabecera solo alinea en ≥sm. */}
                           {cols >= 2 && (
                             <div
-                              className={`shrink-0 grid gap-1.5 text-center text-[9px] font-mono font-bold text-neutral-600 ${
+                              className={`shrink-0 hidden sm:grid gap-1.5 text-center text-[9px] font-mono font-bold text-neutral-600 ${
                                 cols === 2 ? 'grid-cols-2 w-32' : 'grid-cols-3 w-48'
                               }`}
                             >

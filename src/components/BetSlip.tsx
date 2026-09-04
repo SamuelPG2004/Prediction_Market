@@ -162,14 +162,14 @@ export const BetSlip: React.FC<{ onConnectWallet: () => void }> = ({
               <button
                 onClick={clearSelections}
                 title="Vaciar el boleto"
-                className="p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-500 hover:text-neutral-200 transition-colors"
+                className="p-2.5 sm:p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-500 hover:text-neutral-200 transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
                 title="Minimizar"
-                className="p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+                className="p-2.5 sm:p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
