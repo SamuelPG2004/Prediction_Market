@@ -20,8 +20,8 @@ export const LIMITLESS_PROXY_PATH = '/api/limitless'
 
 /**
  * Cabecera con la que el navegador marca, en modo `auth: 'proxy'`, qué
- * peticiones necesitan firma HMAC. La función serverless (api/limitless) la
- * consume, firma con sus credenciales y la retira antes de reenviar.
+ * peticiones necesitan firma HMAC. La función serverless (api/limitless-auth)
+ * la consume y firma con sus credenciales antes de reenviar.
  */
 export const LIMITLESS_SIGN_HEADER = 'x-limitless-sign'
 
@@ -43,9 +43,10 @@ export interface LimitlessConfig {
    * (endpoints públicos), pero no puede colocar órdenes ni leer posiciones:
    * `canPlaceBet` y `canReadPositions` quedan en false.
    *
-   * `'proxy'`: las credenciales viven en el servidor (función de
-   * api/limitless) y es él quien firma; el navegador solo marca qué
-   * peticiones necesitan firma. Así el secreto nunca entra en el bundle.
+   * `'proxy'`: las credenciales viven en el servidor (función
+   * api/limitless-auth.ts, enrutada por los rewrites de vercel.json) y es él
+   * quien firma; el navegador solo marca qué peticiones necesitan firma.
+   * Así el secreto nunca entra en el bundle.
    */
   auth: LimitlessAuth | 'proxy' | null
   /**
@@ -83,7 +84,7 @@ function readViteEnv(name: string): string | undefined {
  * - `VITE_LIMITLESS_API_TOKEN_ID` + `VITE_LIMITLESS_API_TOKEN_SECRET`:
  *   opcionales; ambas o ninguna. Sin ellas no hay órdenes ni posiciones.
  * - `VITE_LIMITLESS_AUTH_MODE=proxy`: la firma HMAC la pone el servidor
- *   (función de api/limitless con `LIMITLESS_API_TOKEN_*` sin prefijo VITE_).
+ *   (api/limitless-auth.ts con `LIMITLESS_API_TOKEN_*` sin prefijo VITE_).
  *   Incompatible con las credenciales VITE_: son estrategias excluyentes.
  * - `VITE_LIMITLESS_INCLUDE_SPORTS`: opcional, 'true' para listar deportes.
  * - `VITE_LIMITLESS_API_URL`: opcional. Por defecto, la ruta del proxy

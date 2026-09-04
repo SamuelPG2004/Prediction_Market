@@ -9,3 +9,5 @@ coverage/
 
 # Respaldos exportados desde la app (datos personales)
 aether-respaldo-*.json
+
+.vercel

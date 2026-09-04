@@ -2,5 +2,23 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/api/limitless/orders",
+      "destination": "/api/limitless-auth?path=/orders"
+    },
+    {
+      "source": "/api/limitless/profiles/me",
+      "destination": "/api/limitless-auth?path=/profiles/me"
+    },
+    {
+      "source": "/api/limitless/portfolio/positions",
+      "destination": "/api/limitless-auth?path=/portfolio/positions"
+    },
+    {
+      "source": "/api/limitless/:path*",
+      "destination": "https://api.limitless.exchange/:path*"
+    }
+  ]
 }
