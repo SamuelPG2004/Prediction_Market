@@ -23,7 +23,8 @@ import {
 import { buildSearchIndex, querySearchIndex } from '../utils/searchIndex';
 import { BetSlip } from './BetSlip';
 import { EventCard, EventListRow } from './EventCard';
-import { FeaturedMatches } from './FeaturedMatches';
+import { FEATURED_COUNT, FeaturedMatches } from './FeaturedMatches';
+import { useFeaturedEvents } from '../hooks/useFeaturedEvents';
 import { LowGasBanner } from './LowGasBanner';
 import { TradePanel } from './TradePanel';
 import { toggleSelection } from '../hooks/useBetSlip';
@@ -164,9 +165,20 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     if (debouncedQuery.trim() === '') setIndexEvents(events);
   }, [events, debouncedQuery]);
 
+  // Los destacados también siembran el índice: son lo más apostado (Madrid,
+  // City…), justo lo que se teclea primero, y llegan antes que el catálogo.
+  const { events: featuredEvents, isLoading: isFeaturedLoading } =
+    useFeaturedEvents(FEATURED_COUNT);
+
   // Índice normalizado (equipos, ligas, títulos) sobre ese corpus: las
   // sugerencias salen de aquí al instante, sin esperar al servidor.
-  const searchIndex = useMemo(() => buildSearchIndex(indexEvents), [indexEvents]);
+  const searchIndex = useMemo(() => {
+    const byId = new Map<string, MarketEventView>();
+    for (const event of [...indexEvents, ...featuredEvents]) {
+      if (!byId.has(event.id)) byId.set(event.id, event);
+    }
+    return buildSearchIndex([...byId.values()]);
+  }, [indexEvents, featuredEvents]);
   const suggestions = useMemo(
     () => querySearchIndex(searchIndex, query),
     [searchIndex, query],
@@ -323,7 +335,13 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
       <LowGasBanner onGetGas={onGetGas} />
 
       {/* Partidos destacados: lo más apostado, según los venues que rankean */}
-      {showFeatured && <FeaturedMatches onSelectMarket={selectMarket} />}
+      {showFeatured && (
+        <FeaturedMatches
+          events={featuredEvents}
+          isLoading={isFeaturedLoading}
+          onSelectMarket={selectMarket}
+        />
+      )}
 
       {/* Pestañas de categoría */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">

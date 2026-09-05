@@ -1,27 +1,29 @@
 import React, { useState } from 'react';
 import { Flame } from 'lucide-react';
-import { useFeaturedEvents } from '../hooks/useFeaturedEvents';
 import { findStarMarket, type MarketEventView } from '../utils/eventGrouping';
 import { formatCompactNumber, formatEventDate } from '../utils/formatters';
 import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
 import { StarMarketRow, type SelectMarketHandler } from './EventCard';
 
 /** Cuántos partidos pide el carrusel. */
-const FEATURED_COUNT = 8;
+export const FEATURED_COUNT = 8;
 
 /**
  * Carrusel de partidos destacados: lo más apostado ahora mismo según los
  * venues que saben rankear popularidad. Solo dominio: no sabe de qué venue
  * viene cada partido.
  *
+ * Los datos llegan por props: el hook vive en la vista, que además usa estos
+ * eventos como semilla del índice de sugerencias del buscador.
+ *
  * La sección es opcional por diseño: sin datos (fuente caída, catálogo vacío,
  * modo lectura sin credenciales) desaparece entera en vez de mostrar un hueco.
  */
 export const FeaturedMatches: React.FC<{
+  events: MarketEventView[];
+  isLoading: boolean;
   onSelectMarket: SelectMarketHandler;
-}> = ({ onSelectMarket }) => {
-  const { events, isLoading } = useFeaturedEvents(FEATURED_COUNT);
-
+}> = ({ events, isLoading, onSelectMarket }) => {
   if (!isLoading && events.length === 0) return null;
 
   return (
