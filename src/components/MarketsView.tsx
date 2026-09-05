@@ -24,11 +24,13 @@ import {
 import { buildSearchIndex, querySearchIndex } from '../utils/searchIndex';
 import { BetSlip } from './BetSlip';
 import { EventCard, EventListRow } from './EventCard';
+import { CountryFlag, LeagueBrowser } from './LeagueBrowser';
 import { FEATURED_COUNT, FeaturedMatches } from './FeaturedMatches';
 import { useFeaturedEvents } from '../hooks/useFeaturedEvents';
 import { LowGasBanner } from './LowGasBanner';
 import { TradePanel } from './TradePanel';
 import { toggleSelection } from '../hooks/useBetSlip';
+import { countryDisplay } from '../utils/countries';
 import { formatCurrency } from '../utils/formatters';
 import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
 
@@ -76,9 +78,16 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
   // Liga concreta dentro del deporte elegido (va al filtro de los venues, con
   // país porque los ids de liga se repiten entre países). null = todas.
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
-  const { leagues } = useLeagues(tab.category, subcategory);
+  // Catálogo completo del deporte: la fila "Todos los partidos" del navegador
+  // de ligas. Sin ella, elegir deporte aterriza en el navegador por países.
+  const [browseAll, setBrowseAll] = useState(false);
+  const { leagues, isLoading: leaguesLoading } = useLeagues(
+    tab.category,
+    subcategory,
+  );
   useEffect(() => {
     setSelectedLeague(null);
+    setBrowseAll(false);
   }, [subcategory]);
 
   // Solo eventos en juego ahora mismo. Va en el filtro a los venues: Azuro
@@ -221,18 +230,6 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     setSuggestionsOpen(false);
   }, []);
 
-  // Ligas agrupadas por país para el selector (el orden ya viene del dominio:
-  // países alfabéticos y, dentro, las ligas más activas primero).
-  const leaguesByCountry = useMemo(() => {
-    const byCountry = new Map<string, { league: League; index: number }[]>();
-    leagues.forEach((league, index) => {
-      const group = byCountry.get(league.country) ?? [];
-      group.push({ league, index });
-      byCountry.set(league.country, group);
-    });
-    return [...byCountry.entries()];
-  }, [leagues]);
-
   // El recorte de liga se aplica en cliente sobre los eventos descargados.
   const filteredEvents = useMemo(
     () =>
@@ -260,7 +257,39 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     setSubcategory(undefined);
     setLiveOnly(false);
     setLeagueFilter(null);
+    setBrowseAll(false);
   }, [tabIndex]);
+
+  /**
+   * El navegador de ligas por país es la vista de aterrizaje de un deporte:
+   * se pinta solo con los recuentos de la navegación (sin bajar partidos) y
+   * cede el sitio al listado en cuanto hay liga elegida, catálogo completo,
+   * en vivo o búsqueda.
+   */
+  const sportInfo = subcategories.find((s) => s.id === subcategory);
+  const showLeagueBrowser =
+    tab.category === 'sports' &&
+    subcategory !== undefined &&
+    leagues.length > 0 &&
+    selectedLeague === null &&
+    !browseAll &&
+    !liveOnly &&
+    leagueFilter === null &&
+    debouncedQuery.trim() === '';
+
+  // Con una liga elegida se trae SU calendario completo (pocas páginas): el
+  // usuario espera ver todos los partidos de la competición, no ir haciendo
+  // scroll para pedirlos. El tope corta si un cursor no avanzara.
+  const leagueAutoLoads = useRef(0);
+  useEffect(() => {
+    leagueAutoLoads.current = 0;
+  }, [selectedLeague]);
+  useEffect(() => {
+    if (selectedLeague === null || isLoading || isLoadingMore || !hasMore) return;
+    if (leagueAutoLoads.current >= 40) return;
+    leagueAutoLoads.current += 1;
+    loadMore();
+  }, [selectedLeague, isLoading, isLoadingMore, hasMore, loadMore]);
 
   const eventsRef = useRef(filteredEvents);
   eventsRef.current = filteredEvents;
@@ -425,46 +454,40 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
         </div>
       )}
 
-      {/* Selector de liga por país, cuando el deporte elegido publica ligas. */}
-      {subcategory !== undefined && leagues.length > 0 && (
-        <div className="flex items-center gap-2 -mt-2">
-          <Trophy className="w-3.5 h-3.5 text-amber-400/80 shrink-0" />
-          <select
-            value={selectedLeague !== null ? String(leagues.indexOf(selectedLeague)) : ''}
-            onChange={(e) => {
-              // OJO: Number('') es 0; la opción "Todas" (valor vacío) debe
-              // resolverse ANTES de convertir a índice.
-              const raw = e.target.value;
-              setSelectedLeague(
-                raw === '' ? null : (leagues[Number(raw)] ?? null),
-              );
-            }}
-            className="max-w-full sm:max-w-md px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[#0f121a] text-neutral-300 border border-neutral-800/80 hover:border-neutral-700 focus:border-emerald-500/50 focus:outline-none"
-            title="Filtrar por país y liga"
-          >
-            <option value="">Todas las ligas y países</option>
-            {leaguesByCountry.map(([country, group]) => (
-              <optgroup key={country} label={country}>
-                {group.map(({ league, index }) => (
-                  <option key={`${country}:${league.id}`} value={String(index)}>
-                    {league.label}
-                    {league.activeCount !== null ? ` (${league.activeCount})` : ''}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-          {selectedLeague !== null && (
+      {/* Miga del navegador de ligas: vuelta a países y qué se está viendo. */}
+      {tab.category === 'sports' &&
+        subcategory !== undefined &&
+        (selectedLeague !== null || browseAll) && (
+          <div className="flex items-center gap-2 -mt-2 flex-wrap">
             <button
-              onClick={() => setSelectedLeague(null)}
-              title="Quitar el filtro de liga"
-              className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-200 border border-neutral-800/80 hover:border-neutral-700 transition-colors shrink-0"
+              onClick={() => {
+                setSelectedLeague(null);
+                setBrowseAll(false);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[#0f121a] text-neutral-400 border border-neutral-800/80 hover:text-neutral-200 hover:border-neutral-700 transition-colors"
             >
-              <X className="w-3 h-3" />
+              ← Países y ligas
             </button>
-          )}
-        </div>
-      )}
+            {selectedLeague !== null ? (
+              <button
+                onClick={() => setSelectedLeague(null)}
+                title="Quitar el filtro de liga"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/40 hover:bg-amber-500/15 transition-colors"
+              >
+                <CountryFlag display={countryDisplay(selectedLeague.country)} />
+                <span>
+                  {countryDisplay(selectedLeague.country).label} ·{' '}
+                  {selectedLeague.label}
+                </span>
+                <X className="w-3 h-3" />
+              </button>
+            ) : (
+              <span className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+                Todos los partidos
+              </span>
+            )}
+          </div>
+        )}
 
       {/* Búsqueda */}
       <div className="flex items-center gap-2">
@@ -617,7 +640,16 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
         </div>
       )}
 
-      {isLoading ? (
+      {showLeagueBrowser ? (
+        <LeagueBrowser
+          leagues={leagues}
+          sportLabel={subcategoryLabel(subcategory ?? '', sportInfo?.label)}
+          sportIcon={subcategory !== undefined ? subcategoryIcon(subcategory) : null}
+          isLoading={leaguesLoading}
+          onPickLeague={setSelectedLeague}
+          onBrowseAll={() => setBrowseAll(true)}
+        />
+      ) : isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
           {Array.from({ length: 6 }, (_, i) => (
             <SkeletonCard key={i} />
