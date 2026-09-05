@@ -24,6 +24,7 @@ import conditionsFixture from './fixtures/conditions-by-game.json'
 import conditionsStateFixture from './fixtures/conditions-state.json'
 import gamesFixture from './fixtures/games-prematch.json'
 import navigationFixture from './fixtures/navigation.json'
+import searchFixture from './fixtures/games-search.json'
 
 const AFFILIATE = '0x1111111111111111111111111111111111111111' as Address
 const BETTOR = '0x2222222222222222222222222222222222222222'
@@ -68,8 +69,12 @@ class FakeGateway implements AzuroGateway {
     this.lastListGamesParams = params
     return this.answer('listGames', gamesFixture)
   }
-  searchGames() {
-    return this.answer('searchGames', gamesFixture)
+  lastSearchParams: { query: string; page: number; perPage: number } | null = null
+
+  searchGames(params: { query: string; page: number; perPage: number }) {
+    this.lastSearchParams = params
+    // El fixture real: la búsqueda responde SOLO { games }, sin paginación.
+    return this.answer('searchGames', searchFixture)
   }
   listSports() {
     return this.answer('listSports', navigationFixture)
@@ -219,6 +224,7 @@ describe('capacidades', () => {
       canSubscribe: false,
       canSearch: true,
       canListSubcategories: true,
+      canListLeagues: true,
       canRedeem: true,
       canRankPopular: true,
       canCombo: true,
@@ -266,6 +272,41 @@ describe('listSubcategories', () => {
     gateway.errors.listSports = new Error('ECONNRESET')
     const offline = await adapter.listSubcategories('sports')
     expect(!offline.ok && offline.error.kind).toBe('network')
+  })
+})
+
+describe('listLeagues', () => {
+  it('lista las ligas del deporte con su país, de la navegación real', async () => {
+    const { adapter, gateway } = makeAdapter()
+    const result = await adapter.listLeagues('sports', 'football')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(gateway.calls).toContain('listSports')
+    expect(result.data.length).toBeGreaterThan(0)
+    for (const league of result.data) {
+      expect(league.country.length).toBeGreaterThan(0)
+      expect(league.activeCount).toBeGreaterThan(0)
+    }
+    // Países en orden alfabético: el selector los agrupa tal cual llegan.
+    const countries = result.data.map((l) => l.country)
+    expect([...countries].sort((a, b) => a.localeCompare(b))).toEqual(countries)
+    // Ancla del fixture: la Premier League inglesa existe y su slug se repite
+    // en otros países (por eso el país viaja en el filtro).
+    const premier = result.data.filter((l) => l.id === 'premier-league')
+    expect(premier.some((l) => l.country === 'England')).toBe(true)
+    expect(premier.length).toBeGreaterThan(1)
+  })
+
+  it('deporte desconocido u otra categoría → lista vacía', async () => {
+    const { adapter, gateway } = makeAdapter()
+    const desconocido = await adapter.listLeagues('sports', 'no-existe')
+    expect(desconocido).toEqual({ ok: true, data: [] })
+
+    gateway.calls = []
+    const otraCategoria = await adapter.listLeagues('crypto', 'football')
+    expect(otraCategoria).toEqual({ ok: true, data: [] })
+    expect(gateway.calls).toHaveLength(0)
   })
 })
 
@@ -333,6 +374,51 @@ describe('listMarkets', () => {
     const corto = await adapter.listMarkets({ query: 'ab' })
     expect(corto.ok && corto.data.markets.length).toBe(0)
     expect(gateway.calls.length).toBe(0)
+  })
+
+  it('BÚSQUEDA REAL: la respuesta trae solo { games } y aún así se acepta', async () => {
+    // Regresión: la API real no devuelve page/totalPages en la búsqueda
+    // (aunque la doc lo prometa) y exigirlos convertía toda búsqueda en
+    // invalid_response → "Sin resultados" para "Real Madrid".
+    const { adapter } = makeAdapter()
+    const result = await adapter.listMarkets({ query: 'madrid' })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    // 8 juegos < perPage (10): no hay más páginas que pedir.
+    expect(result.data.nextCursor).toBeNull()
+  })
+
+  it('la búsqueda pagina por tamaño: página llena → hay siguiente', async () => {
+    const { adapter, gateway } = makeAdapter()
+    // Página llena (10 juegos) con la forma real de la búsqueda: solo games.
+    gateway.responses.searchGames = {
+      games: (gamesFixture as { games: unknown[] }).games,
+    }
+    const result = await adapter.listMarkets({ query: 'open', cursor: '2' })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data.markets.length).toBeGreaterThan(0)
+    expect(result.data.nextCursor).toBe('3')
+    expect(gateway.lastSearchParams?.page).toBe(2)
+  })
+
+  it('FILTRO DE LIGA: pasa el slug al venue y refina por país', async () => {
+    const { adapter, gateway } = makeAdapter()
+    const result = await adapter.listMarkets({
+      category: 'sports',
+      subcategory: 'tennis',
+      league: { id: 'netherlands', country: 'Netherlands' },
+      includeClosed: true,
+      includeNonQuotable: true,
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(gateway.lastListGamesParams?.leagueSlug).toBe('netherlands')
+    // El slug de liga se repite entre países: solo quedan los del país pedido.
+    expect(result.data.markets.length).toBeGreaterThan(0)
+    for (const market of result.data.markets) {
+      expect(market.group?.countryName).toBe('Netherlands')
+    }
   })
 
   it('RESPUESTA MALFORMADA: estructura inesperada → invalid_response', async () => {

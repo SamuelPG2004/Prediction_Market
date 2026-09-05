@@ -10,9 +10,10 @@ import {
   AlertTriangle,
   ShieldCheck,
 } from 'lucide-react';
-import type { Market, MarketCategory } from '../domain/types';
+import type { League, Market, MarketCategory } from '../domain/types';
 import { useDomainEvents } from '../hooks/useDomainEvents';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import { useLeagues } from '../hooks/useLeagues';
 import { useSubcategories } from '../hooks/useSubcategories';
 import { useVenueBalances } from '../hooks/useVenueBalances';
 import {
@@ -72,6 +73,14 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
   const [subcategory, setSubcategory] = useState<string | undefined>(undefined);
   const { subcategories } = useSubcategories(tab.category);
 
+  // Liga concreta dentro del deporte elegido (va al filtro de los venues, con
+  // país porque los ids de liga se repiten entre países). null = todas.
+  const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
+  const { leagues } = useLeagues(tab.category, subcategory);
+  useEffect(() => {
+    setSelectedLeague(null);
+  }, [subcategory]);
+
   // Solo eventos en juego ahora mismo. Va en el filtro a los venues: Azuro
   // tiene listado en vivo propio; los venues sin en-vivo aportan cero.
   const [liveOnly, setLiveOnly] = useState(false);
@@ -127,6 +136,10 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
   } = useDomainEvents({
     category: tab.category,
     subcategory,
+    league:
+      selectedLeague !== null
+        ? { id: selectedLeague.id, country: selectedLeague.country }
+        : undefined,
     search: debouncedQuery,
     liveOnly,
   });
@@ -208,6 +221,18 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     setSuggestionsOpen(false);
   }, []);
 
+  // Ligas agrupadas por país para el selector (el orden ya viene del dominio:
+  // países alfabéticos y, dentro, las ligas más activas primero).
+  const leaguesByCountry = useMemo(() => {
+    const byCountry = new Map<string, { league: League; index: number }[]>();
+    leagues.forEach((league, index) => {
+      const group = byCountry.get(league.country) ?? [];
+      group.push({ league, index });
+      byCountry.set(league.country, group);
+    });
+    return [...byCountry.entries()];
+  }, [leagues]);
+
   // El recorte de liga se aplica en cliente sobre los eventos descargados.
   const filteredEvents = useMemo(
     () =>
@@ -228,7 +253,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [tabIndex, subcategory, debouncedQuery, liveOnly, leagueFilter]);
+  }, [tabIndex, subcategory, debouncedQuery, liveOnly, leagueFilter, selectedLeague]);
 
   // Cambiar de pestaña abandona los filtros de la anterior.
   useEffect(() => {
@@ -397,6 +422,47 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
               }
             />
           ))}
+        </div>
+      )}
+
+      {/* Selector de liga por país, cuando el deporte elegido publica ligas. */}
+      {subcategory !== undefined && leagues.length > 0 && (
+        <div className="flex items-center gap-2 -mt-2">
+          <Trophy className="w-3.5 h-3.5 text-amber-400/80 shrink-0" />
+          <select
+            value={selectedLeague !== null ? String(leagues.indexOf(selectedLeague)) : ''}
+            onChange={(e) => {
+              // OJO: Number('') es 0; la opción "Todas" (valor vacío) debe
+              // resolverse ANTES de convertir a índice.
+              const raw = e.target.value;
+              setSelectedLeague(
+                raw === '' ? null : (leagues[Number(raw)] ?? null),
+              );
+            }}
+            className="max-w-full sm:max-w-md px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[#0f121a] text-neutral-300 border border-neutral-800/80 hover:border-neutral-700 focus:border-emerald-500/50 focus:outline-none"
+            title="Filtrar por país y liga"
+          >
+            <option value="">Todas las ligas y países</option>
+            {leaguesByCountry.map(([country, group]) => (
+              <optgroup key={country} label={country}>
+                {group.map(({ league, index }) => (
+                  <option key={`${country}:${league.id}`} value={String(index)}>
+                    {league.label}
+                    {league.activeCount !== null ? ` (${league.activeCount})` : ''}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          {selectedLeague !== null && (
+            <button
+              onClick={() => setSelectedLeague(null)}
+              title="Quitar el filtro de liga"
+              className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-200 border border-neutral-800/80 hover:border-neutral-700 transition-colors shrink-0"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
         </div>
       )}
 
@@ -588,11 +654,13 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
               <p className="text-xs text-neutral-500 max-w-xs text-center">
                 {query
                   ? 'Ninguna fuente devolvió mercados para esa búsqueda.'
-                  : leagueFilter !== null
-                    ? 'Ningún evento cargado pertenece a esa liga ya.'
-                    : liveOnly
-                      ? 'No hay eventos en juego ahora mismo.'
-                      : 'Esta categoría no tiene mercados operables ahora mismo.'}
+                  : selectedLeague !== null
+                    ? 'Esa liga no tiene mercados operables ahora mismo.'
+                    : leagueFilter !== null
+                      ? 'Ningún evento cargado pertenece a esa liga ya.'
+                      : liveOnly
+                        ? 'No hay eventos en juego ahora mismo.'
+                        : 'Esta categoría no tiene mercados operables ahora mismo.'}
               </p>
             </div>
           ) : tab.category === 'sports' && viewMode === 'list' ? (

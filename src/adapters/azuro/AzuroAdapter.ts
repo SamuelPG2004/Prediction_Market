@@ -32,6 +32,7 @@ import {
   type ComboQuote,
   type ComboSelection,
   type DecimalString,
+  type League,
   type Market,
   type MarketCategory,
   type MarketFilter,
@@ -65,6 +66,7 @@ import {
   parseGames,
   parseGamesPage,
   parseNavigation,
+  parseSearchGames,
   type RawGame,
 } from './validate.ts'
 
@@ -198,6 +200,7 @@ export class AzuroAdapter implements MarketSource {
       canSubscribe: false,
       canSearch: true,
       canListSubcategories: true,
+      canListLeagues: true,
       canRedeem: true,
       canRankPopular: true,
       canCombo: true,
@@ -258,22 +261,57 @@ export class AzuroAdapter implements MarketSource {
     const byPopularity = filter.orderBy === 'popularity'
     const liveOnly = filter.state === 'live'
 
+    // Búsqueda: rama propia porque su respuesta real NO trae paginación (la
+    // doc del toolkit la promete, la API devuelve solo `{ games }`; exigirla
+    // convertía toda búsqueda en respuesta inválida). "Hay más" se deduce del
+    // tamaño de la página cruda; y como la búsqueda no distingue prematch de
+    // en vivo, con `state: 'live'` se criba aquí por el estado del juego.
+    if (query !== undefined && query !== '') {
+      let raw: unknown
+      try {
+        raw = await this.gateway.searchGames({
+          query,
+          page,
+          perPage: GAMES_PER_PAGE,
+        })
+      } catch (cause) {
+        return this.networkFail('el listado de mercados', cause)
+      }
+      const parsed = parseSearchGames(raw)
+      if (parsed === null) {
+        return this.invalidResponseFail('buscar mercados')
+      }
+      const games = liveOnly
+        ? parsed.value.games.filter((g) => g.state === 'Live')
+        : parsed.value.games
+      let markets = await this.marketsForGames(games)
+      if (markets === null) {
+        return this.invalidResponseFail('buscar mercados')
+      }
+      markets = markets.filter((market) => isListable(market, filter))
+      if (filter.limit !== undefined && filter.limit >= 0) {
+        markets = markets.slice(0, filter.limit)
+      }
+      return {
+        ok: true,
+        data: {
+          markets,
+          nextCursor:
+            parsed.value.rawCount === GAMES_PER_PAGE ? String(page + 1) : null,
+        },
+      }
+    }
+
     let rawPage: unknown
     try {
-      rawPage =
-        query !== undefined && query !== ''
-          ? await this.gateway.searchGames({
-              query,
-              page,
-              perPage: GAMES_PER_PAGE,
-            })
-          : await this.gateway.listGames({
-              sportSlug: filter.subcategory,
-              page,
-              perPage: GAMES_PER_PAGE,
-              orderByTurnover: byPopularity,
-              live: liveOnly,
-            })
+      rawPage = await this.gateway.listGames({
+        sportSlug: filter.subcategory,
+        leagueSlug: filter.league?.id,
+        page,
+        perPage: GAMES_PER_PAGE,
+        orderByTurnover: byPopularity,
+        live: liveOnly,
+      })
     } catch (cause) {
       return this.networkFail('el listado de mercados', cause)
     }
@@ -284,16 +322,18 @@ export class AzuroAdapter implements MarketSource {
     }
     const { totalPages } = parsedPage.value
     // Por popularidad, las ligas top van delante conservando dentro de cada
-    // bloque el orden por turnover que ya trae la API. El estado (prematch o
-    // en vivo) lo fija la pasarela; la búsqueda no lo distingue, así que con
-    // `state: 'live'` sus resultados se criban aquí por el estado del juego.
+    // bloque el orden por turnover que ya trae la API.
     let games = byPopularity
       ? [...parsedPage.value.games].sort(
           (a, b) => Number(b.league.isTopLeague) - Number(a.league.isTopLeague),
         )
       : parsedPage.value.games
-    if (liveOnly && query !== undefined && query !== '') {
-      games = games.filter((g) => g.state === 'Live')
+    // El slug de liga se repite entre países (nueve países tienen una
+    // "premier-league") y la API no filtra por país: se refina aquí para no
+    // colar jamás mercados de otra liga homónima.
+    const leagueCountry = filter.league?.country
+    if (leagueCountry !== undefined) {
+      games = games.filter((g) => g.country?.name === leagueCountry)
     }
 
     let markets = await this.marketsForGames(games)
@@ -360,6 +400,51 @@ export class AzuroAdapter implements MarketSource {
       }))
 
     return { ok: true, data: sports }
+  }
+
+  async listLeagues(
+    category: MarketCategory,
+    subcategory: string,
+  ): Promise<Result<League[]>> {
+    // Azuro solo sirve deportes: cualquier otra categoría, lista vacía sin red.
+    if (category !== 'sports') return { ok: true, data: [] }
+
+    let raw: unknown
+    try {
+      raw = await this.gateway.listSports()
+    } catch (cause) {
+      return this.networkFail('las ligas disponibles', cause)
+    }
+
+    const parsed = parseNavigation(raw)
+    if (parsed === null) {
+      return this.invalidResponseFail('listar las ligas')
+    }
+
+    const sport = parsed.value.find((s) => s.slug === subcategory)
+    if (sport === undefined) return { ok: true, data: [] }
+
+    // Solo ligas con partidos prematch (lo que lista el catálogo), agrupadas
+    // por país en orden alfabético y, dentro, las más activas primero.
+    const leagues: League[] = []
+    for (const country of sport.countries) {
+      for (const league of country.leagues) {
+        if ((league.activePrematchGamesCount ?? 0) <= 0) continue
+        leagues.push({
+          id: league.slug,
+          label: league.name,
+          country: country.name,
+          activeCount: league.activePrematchGamesCount,
+        })
+      }
+    }
+    leagues.sort(
+      (a, b) =>
+        a.country.localeCompare(b.country) ||
+        (b.activeCount ?? 0) - (a.activeCount ?? 0),
+    )
+
+    return { ok: true, data: leagues }
   }
 
   private pageFromCursor(cursor: string | undefined): number | null {

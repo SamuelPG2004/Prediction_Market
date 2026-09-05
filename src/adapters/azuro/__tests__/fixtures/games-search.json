@@ -1,0 +1,324 @@
+{
+  "games": [
+    {
+      "id": "1006000000000088312154",
+      "gameId": "1006000000000088312154",
+      "slug": "athletic-bilbao-atletico-madrid-1006000000000088312154",
+      "title": "Athletic Bilbao - Atletico Madrid",
+      "startsAt": "1788617700",
+      "state": "Prematch",
+      "turnover": "343.57696865734033",
+      "sport": {
+        "sportId": "33",
+        "slug": "football",
+        "name": "Football",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "0c4edf34-0f92-4d28-8110-164fc6251a79",
+        "slug": "laliga",
+        "name": "LaLiga",
+        "isTopLeague": true,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "7269aa71-860e-4cca-b8b0-e04721c87bcc",
+        "slug": "spain",
+        "name": "Spain"
+      },
+      "participants": [
+        {
+          "name": "Athletic Bilbao",
+          "image": "https://avatars.azuro.org/images/33/1006000000000088312154/Athletic Bilbao.png"
+        },
+        {
+          "name": "Atletico Madrid",
+          "image": "https://avatars.azuro.org/images/33/1006000000000088312154/Atletico Madrid.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000091592850",
+      "gameId": "1006000000000091592850",
+      "slug": "liverpool-fc-atletico-madrid-1006000000000091592850",
+      "title": "Liverpool FC - Atletico Madrid",
+      "startsAt": "1788980400",
+      "state": "Prematch",
+      "turnover": "3.209308600337268",
+      "sport": {
+        "sportId": "33",
+        "slug": "football",
+        "name": "Football",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "efa92d06-92a5-4e96-9e2d-ceb85ca65871",
+        "slug": "uefa-champions-league",
+        "name": "UEFA Champions League",
+        "isTopLeague": true,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "699286d6-12ac-42f2-9fd8-06d55eaf20ff",
+        "slug": "international-tournaments",
+        "name": "International Tournaments"
+      },
+      "participants": [
+        {
+          "name": "Liverpool FC",
+          "image": "https://avatars.azuro.org/images/33/1006000000000091592850/Liverpool FC.png"
+        },
+        {
+          "name": "Atletico Madrid",
+          "image": "https://avatars.azuro.org/images/33/1006000000000091592850/Atletico Madrid.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000091597603",
+      "gameId": "1006000000000091597603",
+      "slug": "real-madrid-inter-milan-1006000000000091597603",
+      "title": "Real Madrid - Inter Milan",
+      "startsAt": "1788894000",
+      "state": "Prematch",
+      "turnover": "0.38644286974984493",
+      "sport": {
+        "sportId": "33",
+        "slug": "football",
+        "name": "Football",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "efa92d06-92a5-4e96-9e2d-ceb85ca65871",
+        "slug": "uefa-champions-league",
+        "name": "UEFA Champions League",
+        "isTopLeague": true,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "699286d6-12ac-42f2-9fd8-06d55eaf20ff",
+        "slug": "international-tournaments",
+        "name": "International Tournaments"
+      },
+      "participants": [
+        {
+          "name": "Real Madrid",
+          "image": "https://avatars.azuro.org/images/33/1006000000000091597603/Real Madrid.png"
+        },
+        {
+          "name": "Inter Milan",
+          "image": "https://avatars.azuro.org/images/33/1006000000000091597603/Inter Milan.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000089762751",
+      "gameId": "1006000000000089762751",
+      "slug": "hercules-cf-atletico-madrid-ii-1006000000000089762751",
+      "title": "Hercules CF - Atletico Madrid II",
+      "startsAt": "1788711300",
+      "state": "Prematch",
+      "turnover": "1",
+      "sport": {
+        "sportId": "33",
+        "slug": "football",
+        "name": "Football",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "52dba34f-9f2a-42be-ba90-2ccf54e1bca2",
+        "slug": "primera-federacion",
+        "name": "Primera Federacion",
+        "isTopLeague": false,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "7269aa71-860e-4cca-b8b0-e04721c87bcc",
+        "slug": "spain",
+        "name": "Spain"
+      },
+      "participants": [
+        {
+          "name": "Hercules CF",
+          "image": "https://avatars.azuro.org/images/33/1006000000000089762751/Hercules CF.png"
+        },
+        {
+          "name": "Atletico Madrid II",
+          "image": "https://avatars.azuro.org/images/33/1006000000000089762751/Atletico Madrid II.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000089982233",
+      "gameId": "1006000000000089982233",
+      "slug": "real-madrid-castilla-juventud-torremolinos-cf-1006000000000089982233",
+      "title": "Real Madrid Castilla - Juventud Torremolinos CF",
+      "startsAt": "1788602400",
+      "state": "Prematch",
+      "turnover": "0",
+      "sport": {
+        "sportId": "33",
+        "slug": "football",
+        "name": "Football",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "52dba34f-9f2a-42be-ba90-2ccf54e1bca2",
+        "slug": "primera-federacion",
+        "name": "Primera Federacion",
+        "isTopLeague": false,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "7269aa71-860e-4cca-b8b0-e04721c87bcc",
+        "slug": "spain",
+        "name": "Spain"
+      },
+      "participants": [
+        {
+          "name": "Real Madrid Castilla",
+          "image": "https://avatars.azuro.org/images/33/1006000000000089982233/Real Madrid Castilla.png"
+        },
+        {
+          "name": "Juventud Torremolinos CF",
+          "image": "https://avatars.azuro.org/images/33/1006000000000089982233/Juventud Torremolinos CF.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000030802383",
+      "gameId": "1006000000000030802383",
+      "slug": "jairo-bautistainigo-jofre-alejandro-galan-federico-chingotto-1006000000000030802383",
+      "title": "Jairo Bautista/Inigo Jofre - Alejandro Galan / Federico Chingotto",
+      "startsAt": "1788609600",
+      "state": "Prematch",
+      "turnover": "0",
+      "sport": {
+        "sportId": "45",
+        "slug": "tennis",
+        "name": "Tennis",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "c0a0322e-cb7f-43c4-a913-c8a5307642e2",
+        "slug": "premier-padel-madrid",
+        "name": "Premier Padel Madrid",
+        "isTopLeague": false,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "699286d6-12ac-42f2-9fd8-06d55eaf20ff",
+        "slug": "international-tournaments",
+        "name": "International Tournaments"
+      },
+      "participants": [
+        {
+          "name": "Jairo Bautista/Inigo Jofre",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030802383/Jairo Bautista/Inigo Jofre.png"
+        },
+        {
+          "name": "Alejandro Galan / Federico Chingotto",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030802383/Alejandro Galan / Federico Chingotto.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000030802570",
+      "gameId": "1006000000000030802570",
+      "slug": "claudia-fernandez-martina-calvo-paula-josemaria-beatriz-gonzalez-1006000000000030802570",
+      "title": "Claudia Fernandez / Martina Calvo - Paula Josemaria / Beatriz Gonzalez",
+      "startsAt": "1788616800",
+      "state": "Prematch",
+      "turnover": "0",
+      "sport": {
+        "sportId": "45",
+        "slug": "tennis",
+        "name": "Tennis",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "2584e1a4-9d02-4d06-9e2a-8251e444a7e1",
+        "slug": "premier-padel-madrid-w",
+        "name": "Premier Padel Madrid (W)",
+        "isTopLeague": false,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "699286d6-12ac-42f2-9fd8-06d55eaf20ff",
+        "slug": "international-tournaments",
+        "name": "International Tournaments"
+      },
+      "participants": [
+        {
+          "name": "Claudia Fernandez / Martina Calvo",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030802570/Claudia Fernandez / Martina Calvo.png"
+        },
+        {
+          "name": "Paula Josemaria / Beatriz Gonzalez",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030802570/Paula Josemaria / Beatriz Gonzalez.png"
+        }
+      ]
+    },
+    {
+      "id": "1006000000000030802571",
+      "gameId": "1006000000000030802571",
+      "slug": "delfina-brea-senesi-gemma-triay-ariana-sanchez-falladaandrea-ustero-prieto-1006000000000030802571",
+      "title": "Delfina Brea Senesi / Gemma Triay - Ariana Sanchez Fallada/Andrea Ustero Prieto",
+      "startsAt": "1788602400",
+      "state": "Prematch",
+      "turnover": "0",
+      "sport": {
+        "sportId": "45",
+        "slug": "tennis",
+        "name": "Tennis",
+        "sporthub": {
+          "id": "f800a0de-5fb6-45ff-8ed2-35daab086119",
+          "slug": "sports"
+        }
+      },
+      "league": {
+        "id": "2584e1a4-9d02-4d06-9e2a-8251e444a7e1",
+        "slug": "premier-padel-madrid-w",
+        "name": "Premier Padel Madrid (W)",
+        "isTopLeague": false,
+        "topWeight": 0
+      },
+      "country": {
+        "id": "699286d6-12ac-42f2-9fd8-06d55eaf20ff",
+        "slug": "international-tournaments",
+        "name": "International Tournaments"
+      },
+      "participants": [
+        {
+          "name": "Delfina Brea Senesi / Gemma Triay",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030802571/Delfina Brea Senesi / Gemma Triay.png"
+        },
+        {
+          "name": "Ariana Sanchez Fallada/Andrea Ustero Prieto",
+          "image": "https://avatars.azuro.org/images/45/1006000000000030802571/Ariana Sanchez Fallada/Andrea Ustero Prieto.png"
+        }
+      ]
+    }
+  ]
+}

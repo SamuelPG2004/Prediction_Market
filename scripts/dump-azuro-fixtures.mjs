@@ -10,6 +10,7 @@ import {
   getBetCalculation,
   getBetFee,
   getNavigation,
+  searchGames,
 } from '@azuro-org/toolkit'
 
 const outDir = process.argv[2]
@@ -58,3 +59,9 @@ save('bet-fee.json', fee)
 // agrupa ambos bajo la categoría 'sports'.
 const navigation = await getNavigation({ chainId })
 save('navigation.json', navigation)
+
+// OJO: la búsqueda responde SOLO { games }, sin page/totalPages (la doc del
+// toolkit promete paginación que la API real no envía). El fixture conserva
+// esa forma real; los tests de regresión dependen de que NO tenga paginación.
+const search = await searchGames({ chainId, query: 'madrid', page: 1, perPage: 10 })
+save('games-search.json', search)

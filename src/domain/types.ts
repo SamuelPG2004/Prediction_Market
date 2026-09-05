@@ -134,6 +134,8 @@ export interface MarketGroup {
   participants?: { name: string; imageUrl?: string }[]
   /** Nombre de la competición (liga, torneo), si el venue lo aporta. */
   leagueName?: string
+  /** País/ámbito de la competición, si el venue lo aporta. */
+  countryName?: string
   /** El evento está en juego ahora mismo (partido en vivo). */
   isLive?: boolean
   /**
@@ -430,6 +432,14 @@ export type Result<T> =
 export interface MarketFilter {
   category?: MarketCategory
   subcategory?: string
+  /**
+   * Liga concreta dentro de la subcategoría. `id` es el identificador que
+   * publicó `listLeagues`; como algunos venues repiten el id entre países
+   * (nueve países tienen una "premier-league" en Azuro), `country` desambigua
+   * y el adaptador refina. Un venue que no puede aplicar el filtro devuelve
+   * página vacía: jamás responde con mercados de otra liga.
+   */
+  league?: { id: string; country?: string }
   /** Búsqueda por texto libre. */
   query?: string
   /** Solo estos venues. Si falta, todos los registrados. */
@@ -487,6 +497,8 @@ export interface VenueCapabilities {
   canSearch: boolean
   /** Enumerar las subcategorías activas de una categoría (deportes, etc.). */
   canListSubcategories: boolean
+  /** Enumerar ligas/competiciones por país dentro de una subcategoría. */
+  canListLeagues: boolean
   /** Cobrar posiciones ganadoras/canceladas ('redeemable'). */
   canRedeem: boolean
   /** Listar ordenado por popularidad (`MarketFilter.orderBy: 'popularity'`). */
@@ -510,6 +522,21 @@ export interface Subcategory {
   activeCount: number | null
 }
 
+/**
+ * Liga/competición activa dentro de una subcategoría (LaLiga dentro de
+ * 'football', p. ej.). `id` va en `MarketFilter.league.id`; como puede
+ * repetirse entre países, `country` viaja con él para desambiguar.
+ */
+export interface League {
+  id: string
+  /** Nombre tal y como lo publica el venue. */
+  label: string
+  /** País o ámbito de la competición ("Spain", "International Tournaments"). */
+  country: string
+  /** Eventos activos ahora mismo, o `null` si el venue no lo da. */
+  activeCount: number | null
+}
+
 export interface MarketSource {
   readonly venue: VenueId
   readonly chainId: number
@@ -526,6 +553,16 @@ export interface MarketSource {
    * devuelve `unsupported`; si la categoría no le aplica, lista vacía.
    */
   listSubcategories(category: MarketCategory): Promise<Result<Subcategory[]>>
+
+  /**
+   * Ligas con actividad dentro de `subcategory` (p. ej. las competiciones de
+   * 'football'). Si el venue no lo soporta (`canListLeagues: false`), devuelve
+   * `unsupported`; si la categoría o subcategoría no le aplica, lista vacía.
+   */
+  listLeagues(
+    category: MarketCategory,
+    subcategory: string,
+  ): Promise<Result<League[]>>
 
   getQuote(
     marketId: string,

@@ -47,6 +47,8 @@ import type { AzuroChainId } from './config.ts'
 
 export interface ListGamesParams {
   sportSlug?: string
+  /** Slug de liga (OJO: se repite entre países; el adaptador refina). */
+  leagueSlug?: string
   page: number
   perPage: number
   /** Ordenar por volumen apostado descendente (lo más popular primero). */
@@ -175,11 +177,12 @@ const ERC721_APPROVAL_ABI = [
 export function createAzuroGateway(chainId: AzuroChainId): AzuroGateway {
   const id = chainId as ChainId
   return {
-    listGames: ({ sportSlug, page, perPage, orderByTurnover, live }) =>
+    listGames: ({ sportSlug, leagueSlug, page, perPage, orderByTurnover, live }) =>
       getGamesByFilters({
         chainId: id,
         state: live === true ? GameState.Live : GameState.Prematch,
         sportSlug,
+        leagueSlug,
         page,
         perPage,
         ...(orderByTurnover === true

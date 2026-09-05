@@ -202,6 +202,7 @@ export function mapConditionToMarket(
       ...(groupImage !== undefined ? { imageUrl: groupImage } : {}),
       ...(participants.length > 0 ? { participants } : {}),
       leagueName: game.league.name,
+      ...(game.country !== null ? { countryName: game.country.name } : {}),
       isLive: game.state === 'Live',
       // El turnover del juego SÍ es el total apostado al partido (en USDT ≈
       // USD); un cero (partido recién publicado) se omite para no pintarlo.

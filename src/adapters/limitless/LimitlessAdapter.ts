@@ -24,6 +24,7 @@ import {
   type ComboQuote,
   type ComboSelection,
   type DecimalString,
+  type League,
   type Market,
   type MarketCategory,
   type MarketFilter,
@@ -171,6 +172,8 @@ export class LimitlessAdapter implements MarketSource {
       canSearch: true,
       // La API no expone un listado de subcategorías activas.
       canListSubcategories: false,
+      // Sin subcategorías tampoco hay ligas/competiciones que enumerar.
+      canListLeagues: false,
       // La API pública no expone un orden por volumen utilizable; antes que
       // fingir popularidad con el orden por defecto: no se ofrece.
       canRankPopular: false,
@@ -220,6 +223,10 @@ export class LimitlessAdapter implements MarketSource {
     }
     // Limitless no tiene concepto de "en vivo": antes que fingirlo, vacío.
     if (filter.state === 'live') {
+      return { ok: true, data: { markets: [], nextCursor: null } }
+    }
+    // Sin ligas no se puede aplicar el filtro: vacío antes que mercados de otra cosa.
+    if (filter.league !== undefined) {
       return { ok: true, data: { markets: [], nextCursor: null } }
     }
 
@@ -290,6 +297,16 @@ export class LimitlessAdapter implements MarketSource {
     return this.fail(
       'unsupported',
       'Limitless no publica un listado de subcategorías.',
+    )
+  }
+
+  async listLeagues(
+    _category: MarketCategory,
+    _subcategory: string,
+  ): Promise<Result<League[]>> {
+    return this.fail(
+      'unsupported',
+      'Limitless no publica ligas ni competiciones.',
     )
   }
 

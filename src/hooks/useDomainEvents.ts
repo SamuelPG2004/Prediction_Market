@@ -59,6 +59,7 @@ export interface UseDomainEventsState {
 function buildFilter(
   category: MarketCategory | undefined,
   subcategory: string | undefined,
+  league: MarketFilter['league'],
   search: string,
   liveOnly: boolean,
   cursor?: string,
@@ -66,6 +67,9 @@ function buildFilter(
   return {
     ...(category !== undefined ? { category } : {}),
     ...(subcategory !== undefined ? { subcategory } : {}),
+    // La búsqueda por texto y el filtro de liga no se combinan: al escribir,
+    // manda el texto (la búsqueda de los venues no acepta liga).
+    ...(league !== undefined && search.trim() === '' ? { league } : {}),
     ...(search.trim() !== '' ? { query: search.trim() } : {}),
     ...(liveOnly ? { state: 'live' as const } : {}),
     ...(cursor !== undefined ? { cursor } : {}),
@@ -89,6 +93,8 @@ export function useDomainEvents(options: {
   category?: MarketCategory
   /** Subcategoría dentro de `category` (un deporte de 'sports', p. ej.). */
   subcategory?: string
+  /** Liga concreta dentro de la subcategoría (id + país, de `listLeagues`). */
+  league?: MarketFilter['league']
   search?: string
   /** Solo eventos en juego ahora mismo (los venues sin en-vivo aportan cero). */
   liveOnly?: boolean
@@ -97,6 +103,7 @@ export function useDomainEvents(options: {
   const {
     category,
     subcategory,
+    league,
     search = '',
     liveOnly = false,
     refreshMs = DEFAULT_REFRESH_MS,
@@ -116,10 +123,27 @@ export function useDomainEvents(options: {
   const feedsRef = useRef(feeds)
   feedsRef.current = feeds
 
+  // Identidad estable del filtro de liga: el llamante puede construir el
+  // objeto en cada render y eso relanzaría la carga inicial en bucle.
+  const leagueId = league?.id
+  const leagueCountry = league?.country
+  const stableLeague = useMemo<MarketFilter['league']>(
+    () =>
+      leagueId !== undefined
+        ? {
+            id: leagueId,
+            ...(leagueCountry !== undefined ? { country: leagueCountry } : {}),
+          }
+        : undefined,
+    [leagueId, leagueCountry],
+  )
+
   const fetchFirstPage = useCallback(
     async (source: MarketSource) =>
-      source.listMarkets(buildFilter(category, subcategory, search, liveOnly)),
-    [category, subcategory, search, liveOnly],
+      source.listMarkets(
+        buildFilter(category, subcategory, stableLeague, search, liveOnly),
+      ),
+    [category, subcategory, stableLeague, search, liveOnly],
   )
 
   // Carga inicial; se repite al cambiar categoría, búsqueda o al recargar.
@@ -186,7 +210,14 @@ export function useDomainEvents(options: {
           const source = marketSources.byVenue(feed.venue)
           if (source === null || feed.cursor === null) return null
           const result = await source.listMarkets(
-            buildFilter(category, subcategory, search, liveOnly, feed.cursor),
+            buildFilter(
+              category,
+              subcategory,
+              stableLeague,
+              search,
+              liveOnly,
+              feed.cursor,
+            ),
           )
           return { venue: feed.venue, result }
         }),
@@ -212,7 +243,7 @@ export function useDomainEvents(options: {
       loadingRef.current = false
       setIsLoadingMore(false)
     }
-  }, [category, subcategory, search, liveOnly])
+  }, [category, subcategory, stableLeague, search, liveOnly])
 
   const events = useMemo(
     () => interleave(feeds.map((feed) => groupMarketsIntoEvents(feed.markets))),

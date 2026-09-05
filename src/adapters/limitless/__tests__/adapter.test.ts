@@ -162,6 +162,7 @@ describe('capacidades', () => {
       canSubscribe: false,
       canSearch: true,
       canListSubcategories: false,
+      canListLeagues: false,
       canRedeem: true,
       canRankPopular: false,
       canCombo: false,
@@ -177,6 +178,19 @@ describe('capacidades', () => {
     const { adapter } = makeAdapter()
     const subcats = await adapter.listSubcategories('sports')
     expect(!subcats.ok && subcats.error.kind).toBe('unsupported')
+  })
+
+  it('listLeagues no está soportado y el filtro de liga devuelve vacío', async () => {
+    const { adapter, gateway } = makeAdapter()
+    const leagues = await adapter.listLeagues('sports', 'football')
+    expect(!leagues.ok && leagues.error.kind).toBe('unsupported')
+
+    // Sin ligas, aplicar el filtro sería mentir: página vacía sin tocar la red.
+    const filtered = await adapter.listMarkets({
+      league: { id: 'laliga', country: 'Spain' },
+    })
+    expect(filtered).toEqual({ ok: true, data: { markets: [], nextCursor: null } })
+    expect(gateway.lastListParams).toBeNull()
   })
 })
 

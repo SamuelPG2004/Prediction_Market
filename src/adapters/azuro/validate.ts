@@ -25,6 +25,8 @@ export interface RawGame {
   state: string
   sport: { sportId: string; slug: string; name: string }
   league: { slug: string; name: string; isTopLeague: boolean }
+  /** País/ámbito de la competición; la API puede omitirlo. */
+  country: { slug: string; name: string } | null
   participants: { name: string; image: string | null }[]
   /**
    * Volumen apostado acumulado del juego, como string decimal, o `null` si la
@@ -134,12 +136,28 @@ export interface RawBetOrder {
   conditions: RawBetOrderCondition[]
 }
 
+/** Liga de la navegación, dentro de un país. */
+export interface RawNavigationLeague {
+  slug: string
+  name: string
+  activePrematchGamesCount: number | null
+}
+
+/** País de la navegación, con sus ligas. */
+export interface RawNavigationCountry {
+  slug: string
+  name: string
+  leagues: RawNavigationLeague[]
+}
+
 /** Deporte de la navegación: solo lo que consume el adaptador. */
 export interface RawNavigationSport {
   slug: string
   name: string
   /** El listado usa estado Prematch; este recuento es el que le corresponde. */
   activePrematchGamesCount: number | null
+  /** Países → ligas. Un elemento malformado se descarta sin tirar el deporte. */
+  countries: RawNavigationCountry[]
 }
 
 export interface Parsed<T> {
@@ -202,6 +220,17 @@ function parseGame(u: unknown): RawGame | null {
   // que solo degrada el orden de Destacados, nunca el catálogo.
   const isTopLeague = u.league.isTopLeague === true
 
+  // País: opcional. Sin él solo se pierde la desambiguación del filtro de
+  // liga y la etiqueta de país, nunca el juego.
+  let country: RawGame['country'] = null
+  if (isRecord(u.country)) {
+    const countrySlug = asString(u.country.slug)
+    const countryName = asString(u.country.name)
+    if (countrySlug !== null && countryName !== null) {
+      country = { slug: countrySlug, name: countryName }
+    }
+  }
+
   const participants: RawGame['participants'] = []
   if (Array.isArray(u.participants)) {
     for (const p of u.participants) {
@@ -225,6 +254,7 @@ function parseGame(u: unknown): RawGame | null {
     state,
     sport: { sportId, slug: sportSlug, name: sportName },
     league: { slug: leagueSlug, name: leagueName, isTopLeague },
+    country,
     participants,
     turnover,
   }
@@ -246,7 +276,28 @@ export function parseGamesPage(u: unknown): Parsed<RawGamesPage> | null {
   return { value: { games, page, totalPages }, dropped }
 }
 
-function parseNavigationSport(u: unknown): RawNavigationSport | null {
+/**
+ * Respuesta de la BÚSQUEDA. La doc del toolkit promete la misma paginación que
+ * el listado, pero la API real (verificado 2026-09-05) devuelve solo
+ * `{ games }`: exigir `page`/`totalPages` aquí tiraba TODA búsqueda como
+ * respuesta inválida ("Real Madrid" → "Sin resultados"). El total de elementos
+ * crudos (`rawCount`) permite al adaptador deducir si puede haber más páginas.
+ */
+export function parseSearchGames(
+  u: unknown,
+): Parsed<{ games: RawGame[]; rawCount: number }> | null {
+  if (!isRecord(u) || !Array.isArray(u.games)) return null
+  const games: RawGame[] = []
+  let dropped = 0
+  for (const raw of u.games) {
+    const game = parseGame(raw)
+    if (game === null) dropped += 1
+    else games.push(game)
+  }
+  return { value: { games, rawCount: u.games.length }, dropped }
+}
+
+function parseNavigationLeague(u: unknown): RawNavigationLeague | null {
   if (!isRecord(u)) return null
   const slug = asString(u.slug)
   const name = asString(u.name)
@@ -255,6 +306,38 @@ function parseNavigationSport(u: unknown): RawNavigationSport | null {
     slug,
     name,
     activePrematchGamesCount: asFiniteNumber(u.activePrematchGamesCount),
+  }
+}
+
+function parseNavigationSport(u: unknown): RawNavigationSport | null {
+  if (!isRecord(u)) return null
+  const slug = asString(u.slug)
+  const name = asString(u.name)
+  if (slug === null || name === null) return null
+
+  const countries: RawNavigationCountry[] = []
+  if (Array.isArray(u.countries)) {
+    for (const c of u.countries) {
+      if (!isRecord(c)) continue
+      const countrySlug = asString(c.slug)
+      const countryName = asString(c.name)
+      if (countrySlug === null || countryName === null) continue
+      const leagues: RawNavigationLeague[] = []
+      if (Array.isArray(c.leagues)) {
+        for (const l of c.leagues) {
+          const league = parseNavigationLeague(l)
+          if (league !== null) leagues.push(league)
+        }
+      }
+      countries.push({ slug: countrySlug, name: countryName, leagues })
+    }
+  }
+
+  return {
+    slug,
+    name,
+    activePrematchGamesCount: asFiniteNumber(u.activePrematchGamesCount),
+    countries,
   }
 }
 
