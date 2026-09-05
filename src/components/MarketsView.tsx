@@ -5,6 +5,8 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  Trophy,
+  X,
   AlertTriangle,
   ShieldCheck,
 } from 'lucide-react';
@@ -18,6 +20,7 @@ import {
   groupEventsForList,
   type MarketEventView,
 } from '../utils/eventGrouping';
+import { buildSearchIndex, querySearchIndex } from '../utils/searchIndex';
 import { BetSlip } from './BetSlip';
 import { EventCard, EventListRow } from './EventCard';
 import { FeaturedMatches } from './FeaturedMatches';
@@ -101,6 +104,14 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     return () => window.clearTimeout(t);
   }, [query]);
 
+  // Panel de sugerencias instantáneas bajo el buscador. Abierto mientras el
+  // input tiene el foco; elegir una sugerencia lo cierra sin soltar el foco.
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+
+  // Filtro de liga elegido en una sugerencia. Es un recorte en cliente sobre
+  // lo descargado: la liga no es dimensión de filtro del puerto MarketSource.
+  const [leagueFilter, setLeagueFilter] = useState<string | null>(null);
+
   const {
     events,
     isLoading,
@@ -144,26 +155,78 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     [],
   );
 
+  // Corpus de sugerencias: el último catálogo SIN búsqueda activa. En cuanto
+  // el retardo dispara la búsqueda de servidor, `events` pasa a ser sus
+  // resultados (o se vacía si un venue falla); congelar el corpus evita que
+  // las sugerencias desaparezcan justo mientras se escribe.
+  const [indexEvents, setIndexEvents] = useState<MarketEventView[]>([]);
+  useEffect(() => {
+    if (debouncedQuery.trim() === '') setIndexEvents(events);
+  }, [events, debouncedQuery]);
+
+  // Índice normalizado (equipos, ligas, títulos) sobre ese corpus: las
+  // sugerencias salen de aquí al instante, sin esperar al servidor.
+  const searchIndex = useMemo(() => buildSearchIndex(indexEvents), [indexEvents]);
+  const suggestions = useMemo(
+    () => querySearchIndex(searchIndex, query),
+    [searchIndex, query],
+  );
+  const hasSuggestions =
+    suggestions.leagues.length > 0 || suggestions.events.length > 0;
+
+  /** Sugerencia de liga: aplica el recorte y despeja el texto de búsqueda. */
+  const applyLeagueFilter = useCallback((league: string) => {
+    setLeagueFilter(league);
+    setQuery('');
+    setDebouncedQuery('');
+    setSuggestionsOpen(false);
+  }, []);
+
+  /**
+   * Sugerencia de partido/equipo: directo al detalle del evento, en su mercado
+   * estrella si cotiza (mismo criterio que la cabecera de la tarjeta).
+   */
+  const openSuggestedEvent = useCallback((event: MarketEventView) => {
+    const star = findStarMarket(event.markets);
+    const target =
+      (star !== null && star.isQuotable ? star : undefined) ??
+      event.markets.find((m) => m.isQuotable) ??
+      event.markets[0];
+    if (target !== undefined) setSelected({ event, market: target });
+    setSuggestionsOpen(false);
+  }, []);
+
+  // El recorte de liga se aplica en cliente sobre los eventos descargados.
+  const filteredEvents = useMemo(
+    () =>
+      leagueFilter === null
+        ? events
+        : events.filter((e) => e.leagueName === leagueFilter),
+    [events, leagueFilter],
+  );
+
   // Destacados solo donde aportan: portada y Deportes, sin búsqueda ni filtro
   // de deporte o de en-vivo activos (ahí el usuario ya está buscando otra cosa).
   const showFeatured =
     (tab.category === undefined || tab.category === 'sports') &&
     debouncedQuery.trim() === '' &&
     subcategory === undefined &&
+    leagueFilter === null &&
     !liveOnly;
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [tabIndex, subcategory, debouncedQuery, liveOnly]);
+  }, [tabIndex, subcategory, debouncedQuery, liveOnly, leagueFilter]);
 
   // Cambiar de pestaña abandona los filtros de la anterior.
   useEffect(() => {
     setSubcategory(undefined);
     setLiveOnly(false);
+    setLeagueFilter(null);
   }, [tabIndex]);
 
-  const eventsRef = useRef(events);
-  eventsRef.current = events;
+  const eventsRef = useRef(filteredEvents);
+  eventsRef.current = filteredEvents;
 
   /**
    * Un único centinela cubre las dos paginaciones: primero revela más de lo
@@ -186,7 +249,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
   const visible = useMemo(() => {
     const ordered =
       tab.category === 'sports'
-        ? [...events].sort((a, b) => {
+        ? [...filteredEvents].sort((a, b) => {
             if ((a.isLive === true) !== (b.isLive === true)) {
               return a.isLive === true ? -1 : 1;
             }
@@ -196,18 +259,18 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
               b.markets[0]?.closesAt?.getTime() ?? Number.POSITIVE_INFINITY;
             return ta - tb;
           })
-        : events;
+        : filteredEvents;
     return ordered.slice(0, visibleCount);
-  }, [events, visibleCount, tab.category]);
+  }, [filteredEvents, visibleCount, tab.category]);
 
   const sentinelRef = useInfiniteScroll({
     onReachEnd: reachEnd,
-    enabled: !isLoading && (visibleCount < events.length || hasMore),
+    enabled: !isLoading && (visibleCount < filteredEvents.length || hasMore),
   });
 
   const totalMarkets = useMemo(
-    () => events.reduce((a, e) => a + e.markets.length, 0),
-    [events],
+    () => filteredEvents.reduce((a, e) => a + e.markets.length, 0),
+    [filteredEvents],
   );
 
   return (
@@ -326,10 +389,77 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSuggestionsOpen(true);
+            }}
+            onFocus={() => setSuggestionsOpen(true)}
+            onBlur={() => setSuggestionsOpen(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setSuggestionsOpen(false);
+            }}
             placeholder={`Buscar en ${tab.label.toLowerCase()}… (mínimo 3 letras)`}
             className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#0f121a] border border-neutral-800 focus:border-emerald-500/50 focus:outline-none text-sm text-neutral-100 placeholder:text-neutral-600"
           />
+
+          {/* Sugerencias instantáneas sobre lo ya descargado. mousedown con
+              preventDefault: el clic no roba el foco al input, así el blur no
+              cierra el panel antes de que llegue el click de la sugerencia. */}
+          {suggestionsOpen && hasSuggestions && (
+            <div
+              onMouseDown={(e) => e.preventDefault()}
+              className="absolute top-full left-0 right-0 mt-2 z-30 rounded-xl bg-[#0b0d13] border border-neutral-800 shadow-2xl overflow-hidden"
+            >
+              <div className="max-h-80 overflow-y-auto py-1.5">
+                {suggestions.leagues.length > 0 && (
+                  <SuggestionSection label="Ligas">
+                    {suggestions.leagues.map((l) => (
+                      <button
+                        key={l.normalizedName}
+                        onClick={() => applyLeagueFilter(l.name)}
+                        className="w-full px-3.5 py-2 flex items-center gap-2.5 text-left hover:bg-neutral-800/50 transition-colors"
+                      >
+                        <Trophy className="w-3.5 h-3.5 text-amber-400/80 shrink-0" />
+                        <span className="flex-1 truncate text-xs font-semibold text-neutral-200">
+                          {l.name}
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-600">
+                          {l.eventCount}
+                        </span>
+                      </button>
+                    ))}
+                  </SuggestionSection>
+                )}
+                {suggestions.events.length > 0 && (
+                  <SuggestionSection label="Partidos / Equipos">
+                    {suggestions.events.map((s) => (
+                      <button
+                        key={s.event.id}
+                        onClick={() => openSuggestedEvent(s.event)}
+                        className="w-full px-3.5 py-2 flex items-center gap-2.5 text-left hover:bg-neutral-800/50 transition-colors"
+                      >
+                        {s.event.isLive ? (
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                        ) : (
+                          <span className="w-1.5 h-1.5 rounded-full bg-neutral-700 shrink-0" />
+                        )}
+                        <span className="flex-1 min-w-0">
+                          <span className="block truncate text-xs font-semibold text-neutral-200">
+                            {s.event.title}
+                          </span>
+                          {s.event.leagueName !== undefined && (
+                            <span className="block truncate text-[10px] text-neutral-500">
+                              {s.event.leagueName}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </SuggestionSection>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         {/* Tarjetas / lista compacta: la lista solo aporta en Deportes. */}
         {tab.category === 'sports' && (
@@ -368,6 +498,21 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
         </button>
       </div>
 
+      {/* Filtro de liga activo (elegido en una sugerencia); un toque lo quita. */}
+      {leagueFilter !== null && (
+        <div className="flex items-center gap-2 -mt-2">
+          <button
+            onClick={() => setLeagueFilter(null)}
+            title="Quitar el filtro de liga"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/40 hover:bg-amber-500/15 transition-colors"
+          >
+            <Trophy className="w-3 h-3" />
+            <span>{leagueFilter}</span>
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
       {error !== null && (
         <div className="rounded-xl bg-rose-500/10 border border-rose-500/25 p-4 flex items-start gap-2 text-xs text-rose-300">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -400,8 +545,8 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-mono text-neutral-500">
               <span className="text-neutral-300">{visible.length}</span> de{' '}
-              <span className="text-neutral-300">{events.length}</span> eventos ·{' '}
-              {totalMarkets} mercados operables
+              <span className="text-neutral-300">{filteredEvents.length}</span>{' '}
+              eventos · {totalMarkets} mercados operables
             </p>
 
             <SyncIndicator isSyncing={isSyncing} lastSyncAt={lastSyncAt} />
@@ -425,9 +570,11 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
               <p className="text-xs text-neutral-500 max-w-xs text-center">
                 {query
                   ? 'Ninguna fuente devolvió mercados para esa búsqueda.'
-                  : liveOnly
-                    ? 'No hay eventos en juego ahora mismo.'
-                    : 'Esta categoría no tiene mercados operables ahora mismo.'}
+                  : leagueFilter !== null
+                    ? 'Ningún evento cargado pertenece a esa liga ya.'
+                    : liveOnly
+                      ? 'No hay eventos en juego ahora mismo.'
+                      : 'Esta categoría no tiene mercados operables ahora mismo.'}
               </p>
             </div>
           ) : tab.category === 'sports' && viewMode === 'list' ? (
@@ -513,15 +660,15 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
 
           {/* Centinela: dispara la carga al acercarse el final. */}
           <div ref={sentinelRef} className="flex items-center justify-center py-6">
-            {visibleCount < events.length || hasMore ? (
+            {visibleCount < filteredEvents.length || hasMore ? (
               <div className="flex items-center gap-2 text-[11px] font-mono text-neutral-600">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 <span>{isLoadingMore ? 'Trayendo más mercados…' : 'Cargando más…'}</span>
               </div>
             ) : (
-              events.length > 0 && (
+              filteredEvents.length > 0 && (
                 <p className="text-[11px] font-mono text-neutral-700">
-                  {events.length} eventos · catálogo completo de {tab.label}
+                  {filteredEvents.length} eventos · catálogo completo de {tab.label}
                 </p>
               )
             )}
@@ -590,6 +737,19 @@ const SyncIndicator: React.FC<{
     </span>
   );
 };
+
+/** Sección del panel de sugerencias: rótulo y sus filas. */
+const SuggestionSection: React.FC<{
+  label: string;
+  children: React.ReactNode;
+}> = ({ label, children }) => (
+  <div className="flex flex-col">
+    <p className="px-3.5 pt-2 pb-1 text-[9px] font-mono font-bold uppercase tracking-wider text-neutral-600">
+      {label}
+    </p>
+    {children}
+  </div>
+);
 
 const SubcategoryChip: React.FC<{
   label: string;
