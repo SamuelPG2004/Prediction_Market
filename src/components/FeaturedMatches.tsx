@@ -53,10 +53,15 @@ export const FeaturedMatches: React.FC<{
   );
 };
 
-const FeaturedCard: React.FC<{
+/**
+ * Tarjeta de enfrentamiento del carrusel (liga, escudos, mercado estrella).
+ * La comparte la sección "En vivo": `accent: 'live'` la tiñe de su rojo.
+ */
+export const FeaturedCard: React.FC<{
   event: MarketEventView;
   onSelectMarket: SelectMarketHandler;
-}> = ({ event, onSelectMarket }) => {
+  accent?: 'live';
+}> = ({ event, onSelectMarket, accent }) => {
   const [a, b] = event.participants!;
   const star = findStarMarket(event.markets);
   const subcategory = event.markets[0]?.subcategory;
@@ -72,7 +77,13 @@ const FeaturedCard: React.FC<{
   };
 
   return (
-    <div className="w-[290px] shrink-0 snap-start rounded-2xl bg-[#0d1017] border border-neutral-800/80 hover:border-neutral-700 transition-colors p-3.5 flex flex-col gap-2.5">
+    <div
+      className={`w-[290px] shrink-0 snap-start rounded-2xl bg-[#0d1017] border transition-colors p-3.5 flex flex-col gap-2.5 ${
+        accent === 'live'
+          ? 'border-rose-500/25 hover:border-rose-500/45'
+          : 'border-neutral-800/80 hover:border-neutral-700'
+      }`}
+    >
       {/* Liga + en vivo / comienzo */}
       <div className="flex items-center justify-between gap-2">
         <span className="text-[9.5px] font-mono uppercase tracking-wide text-neutral-400 truncate flex items-center gap-1 min-w-0">
@@ -164,7 +175,7 @@ const FeaturedLogo: React.FC<{
 };
 
 /** Silueta de tarjeta destacada: el carrusel no salta al llegar los datos. */
-const FeaturedSkeleton: React.FC = () => (
+export const FeaturedSkeleton: React.FC = () => (
   <div className="w-[290px] shrink-0 rounded-2xl bg-[#0d1017] border border-neutral-800/80 p-3.5 flex flex-col gap-3 animate-pulse">
     <div className="h-2.5 rounded bg-neutral-800/60 w-1/2" />
     <div className="flex items-center gap-2">

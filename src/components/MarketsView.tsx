@@ -26,7 +26,9 @@ import { BetSlip } from './BetSlip';
 import { EventCard, EventListRow } from './EventCard';
 import { CountryFlag, LeagueBrowser } from './LeagueBrowser';
 import { FEATURED_COUNT, FeaturedMatches } from './FeaturedMatches';
+import { LIVE_COUNT, LiveMatches } from './LiveMatches';
 import { useFeaturedEvents } from '../hooks/useFeaturedEvents';
+import { useLiveEvents } from '../hooks/useLiveEvents';
 import { LowGasBanner } from './LowGasBanner';
 import { TradePanel } from './TradePanel';
 import { toggleSelection } from '../hooks/useBetSlip';
@@ -192,6 +194,25 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
   const { events: featuredEvents, isLoading: isFeaturedLoading } =
     useFeaturedEvents(FEATURED_COUNT);
 
+  // Partidos en juego ahora mismo, para la sección "En vivo".
+  const { events: liveEvents, isLoading: isLiveLoading } =
+    useLiveEvents(LIVE_COUNT);
+
+  /**
+   * "Ver todos" de la sección En vivo: salta a Deportes con el filtro en vivo
+   * puesto. El efecto de cambio de pestaña resetea los filtros; esta bandera
+   * le pide que respete el que acabamos de encender.
+   */
+  const keepLiveRef = useRef(false);
+  const viewAllLive = useCallback(() => {
+    const sportsIndex = TABS.findIndex((t) => t.category === 'sports');
+    setTabIndex((current) => {
+      if (current !== sportsIndex) keepLiveRef.current = true;
+      return sportsIndex;
+    });
+    setLiveOnly(true);
+  }, []);
+
   // Índice normalizado (equipos, ligas, títulos) sobre ese corpus: las
   // sugerencias salen de aquí al instante, sin esperar al servidor.
   const searchIndex = useMemo(() => {
@@ -252,12 +273,14 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     setVisibleCount(PAGE_SIZE);
   }, [tabIndex, subcategory, debouncedQuery, liveOnly, leagueFilter, selectedLeague]);
 
-  // Cambiar de pestaña abandona los filtros de la anterior.
+  // Cambiar de pestaña abandona los filtros de la anterior (salvo el en-vivo
+  // recién puesto por el "Ver todos" de la sección En vivo).
   useEffect(() => {
     setSubcategory(undefined);
-    setLiveOnly(false);
     setLeagueFilter(null);
     setBrowseAll(false);
+    if (keepLiveRef.current) keepLiveRef.current = false;
+    else setLiveOnly(false);
   }, [tabIndex]);
 
   /**
@@ -388,7 +411,15 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
       {/* Gas nativo bajo: aviso accionable antes de que una operación falle */}
       <LowGasBanner onGetGas={onGetGas} />
 
-      {/* Partidos destacados: lo más apostado, según los venues que rankean */}
+      {/* En juego ahora mismo, con cuotas moviéndose; y lo más apostado */}
+      {showFeatured && (
+        <LiveMatches
+          events={liveEvents}
+          isLoading={isLiveLoading}
+          onSelectMarket={selectMarket}
+          onViewAll={viewAllLive}
+        />
+      )}
       {showFeatured && (
         <FeaturedMatches
           events={featuredEvents}
