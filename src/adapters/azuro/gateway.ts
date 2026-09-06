@@ -44,6 +44,7 @@ import {
   type WalletClient,
 } from 'viem'
 import type { AzuroChainId } from './config.ts'
+import { tryGaslessApprove } from './gasStation.ts'
 
 export interface ListGamesParams {
   sportSlug?: string
@@ -110,6 +111,12 @@ export interface AzuroWalletBridge {
   readAllowance(token: Address, owner: Address, spender: Address): Promise<bigint>
   /** Aprueba `amount` del token al relayer y espera la confirmación. */
   approve(token: Address, spender: Address, amount: bigint): Promise<void>
+  /**
+   * Approve ilimitado SIN GAS vía la gasolinera (meta-transacción del token,
+   * pagada por `api/gas-station.ts` y cobrada en USDT). `true` si quedó
+   * hecho; `false` si no está disponible — el adaptador cae a `approve`.
+   */
+  approveGasless(token: Address, owner: Address, spender: Address): Promise<boolean>
   /** Firma EIP-712 de la apuesta. */
   signBetTypedData(typedData: BetTypedData): Promise<Hex>
   /** Firma EIP-712 de una combinada. */
@@ -237,6 +244,9 @@ export function createViemWalletBridge(
         chain: walletClient.chain,
       })
       await publicClient.waitForTransactionReceipt({ hash })
+    },
+    async approveGasless(token, owner, spender) {
+      return tryGaslessApprove({ publicClient, walletClient, token, owner, spender })
     },
     async signBetTypedData(typedData) {
       return walletClient.signTypedData(typedData)

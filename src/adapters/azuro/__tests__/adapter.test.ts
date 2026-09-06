@@ -3,7 +3,7 @@
  * fixtures reales. Ni un byte de red.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Address, Hex } from 'viem'
+import { maxUint256, type Address, type Hex } from 'viem'
 import { toDecimal, type Quote } from '../../../domain/types.ts'
 import { AzuroAdapter } from '../AzuroAdapter.ts'
 import { makeAzuroConfig, type AzuroConfig } from '../config.ts'
@@ -130,6 +130,9 @@ class FakeGateway implements AzuroGateway {
 class FakeWallet implements AzuroWalletBridge {
   allowance = 0n
   approvals: { spender: Address; amount: bigint }[] = []
+  /** Si `true`, la gasolinera "ejecuta" el approve sin gas (y sin approve()). */
+  gaslessAvailable = false
+  gaslessCalls: { owner: Address; spender: Address }[] = []
   signedTypedData: BetTypedData | null = null
   signError: unknown = null
   withdrawals: { lp: Address; core: Address; tokenId: bigint }[] = []
@@ -141,6 +144,12 @@ class FakeWallet implements AzuroWalletBridge {
   async approve(_token: Address, spender: Address, amount: bigint) {
     this.approvals.push({ spender, amount })
     this.allowance = amount
+  }
+  async approveGasless(_token: Address, owner: Address, spender: Address) {
+    this.gaslessCalls.push({ owner, spender })
+    if (!this.gaslessAvailable) return false
+    this.allowance = maxUint256
+    return true
   }
   async signBetTypedData(typedData: BetTypedData): Promise<Hex> {
     if (this.signError !== null) throw this.signError
@@ -553,9 +562,11 @@ describe('placeBet', () => {
     expect(result.data.explorerUrl).toBeNull()
     expect(result.data.placedAt).toEqual(FROZEN_NOW)
 
-    // Aprobó el gasto al relayer (allowance partía de 0).
+    // Aprobó el gasto al relayer (allowance partía de 0): sin gasolinera
+    // disponible, approve on-chain ILIMITADO — una sola tx de gas por wallet.
+    expect(wallet.gaslessCalls.length).toBe(1)
     expect(wallet.approvals.length).toBe(1)
-    expect(wallet.approvals[0].amount).toBe(10_000_000n) // 10 USDT + fee 0
+    expect(wallet.approvals[0].amount).toBe(maxUint256)
 
     // La orden enviada lleva lo firmado.
     const submitted = gateway.lastSubmit as {
@@ -578,6 +589,39 @@ describe('placeBet', () => {
 
     // La firma usó el dominio EIP-712 del core de Azuro.
     expect(wallet.signedTypedData?.primaryType).toBe('ClientBetData')
+  })
+
+  it('con gasolinera disponible, el approve va sin gas y no toca la cadena', async () => {
+    const wallet = new FakeWallet()
+    wallet.gaslessAvailable = true
+    const { adapter } = makeAdapter({ wallet })
+    const quote = await quoteForActiveMarket(adapter, '10')
+
+    const result = await adapter.placeBet(quote, {
+      slippageTolerance: 0.05,
+      from: BETTOR,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(wallet.gaslessCalls.length).toBe(1)
+    expect(wallet.gaslessCalls[0].owner).toBe(BETTOR)
+    expect(wallet.approvals.length).toBe(0) // ni una transacción on-chain
+  })
+
+  it('con allowance suficiente no se molesta ni a la gasolinera', async () => {
+    const wallet = new FakeWallet()
+    wallet.allowance = maxUint256
+    const { adapter } = makeAdapter({ wallet })
+    const quote = await quoteForActiveMarket(adapter, '10')
+
+    const result = await adapter.placeBet(quote, {
+      slippageTolerance: 0.05,
+      from: BETTOR,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(wallet.gaslessCalls.length).toBe(0)
+    expect(wallet.approvals.length).toBe(0)
   })
 
   it('rechazo del usuario en la wallet → kind rejected', async () => {
@@ -883,8 +927,9 @@ describe('combinadas', () => {
     const totalOddsUnits = Number(quoted.data.totalOdds) * 1e12
     expect(Number(submit.minOdds)).toBeLessThan(totalOddsUnits)
     expect(Number(submit.minOdds)).toBeGreaterThan(0)
-    // La allowance cubrió apuesta + tarifa con una aprobación.
+    // Una única aprobación (ilimitada) cubrió apuesta + tarifa.
     expect(wallet.approvals).toHaveLength(1)
+    expect(wallet.approvals[0].amount).toBe(maxUint256)
   })
 
   it('sin wallet no se puede colocar; la cotización sí funciona', async () => {

@@ -19,7 +19,14 @@ import {
   getComboBetTypedData,
   type ChainId,
 } from '@azuro-org/toolkit'
-import { isAddress, parseUnits, formatUnits, type Address, type Hex } from 'viem'
+import {
+  isAddress,
+  maxUint256,
+  parseUnits,
+  formatUnits,
+  type Address,
+  type Hex,
+} from 'viem'
 import {
   isListable,
   parseMarketId,
@@ -848,6 +855,7 @@ export class AzuroAdapter implements MarketSource {
       return this.fail('not_quotable', 'El importe de la apuesta debe ser mayor que cero.')
     }
 
+    // Allowance como en placeBet: gasolinera primero, si no on-chain ilimitado.
     try {
       const required = amount + BigInt(fee.relayerFeeAmount)
       const current = await this.wallet.readAllowance(
@@ -856,7 +864,18 @@ export class AzuroAdapter implements MarketSource {
         this.config.relayerAddress,
       )
       if (current < required) {
-        await this.wallet.approve(tokenAddress, this.config.relayerAddress, required)
+        const gasless = await this.wallet.approveGasless(
+          tokenAddress,
+          opts.from,
+          this.config.relayerAddress,
+        )
+        if (!gasless) {
+          await this.wallet.approve(
+            tokenAddress,
+            this.config.relayerAddress,
+            maxUint256,
+          )
+        }
       }
     } catch (cause) {
       return this.walletFail('No se pudo aprobar el gasto del token de apuesta.', cause)
@@ -1001,7 +1020,10 @@ export class AzuroAdapter implements MarketSource {
     }
     const relayerFee = BigInt(fee.relayerFeeAmount)
 
-    // 3. Allowance hacia el relayer (cubre apuesta + tarifa).
+    // 3. Allowance hacia el relayer (cubre apuesta + tarifa). Primero sin gas
+    //    vía gasolinera; si no está, approve on-chain ILIMITADO: una única
+    //    transacción de gas en la vida de la wallet, no una por apuesta (el
+    //    relayer consume la allowance en cada orden).
     try {
       const required = amount + relayerFee
       const current = await this.wallet.readAllowance(
@@ -1010,7 +1032,18 @@ export class AzuroAdapter implements MarketSource {
         this.config.relayerAddress,
       )
       if (current < required) {
-        await this.wallet.approve(tokenAddress, this.config.relayerAddress, required)
+        const gasless = await this.wallet.approveGasless(
+          tokenAddress,
+          opts.from,
+          this.config.relayerAddress,
+        )
+        if (!gasless) {
+          await this.wallet.approve(
+            tokenAddress,
+            this.config.relayerAddress,
+            maxUint256,
+          )
+        }
       }
     } catch (cause) {
       return this.walletFail('No se pudo aprobar el gasto del token de apuesta.', cause)
