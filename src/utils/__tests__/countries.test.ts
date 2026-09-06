@@ -7,6 +7,7 @@ describe('countryDisplay', () => {
       label: 'Alemania',
       flagUrl: 'https://flagcdn.com/w40/de.png',
       fallback: '🇩🇪',
+      supranational: false,
     })
     expect(countryDisplay('Saudi Arabia').label).toBe('Arabia Saudí')
     expect(countryDisplay('United States').label).toBe('Estados Unidos')
@@ -17,12 +18,15 @@ describe('countryDisplay', () => {
       label: 'Inglaterra',
       flagUrl: 'https://flagcdn.com/w40/gb-eng.png',
       fallback: '🌍',
+      supranational: false,
     })
     expect(countryDisplay('International Tournaments')).toEqual({
       label: 'Torneos internacionales',
       flagUrl: null,
       fallback: '🌍',
+      supranational: true,
     })
+    expect(countryDisplay('Europe').supranational).toBe(true)
   })
 
   it('traduce el sufijo de ámbito conservando el país base', () => {
@@ -30,6 +34,7 @@ describe('countryDisplay', () => {
       label: 'Alemania Aficionado',
       flagUrl: 'https://flagcdn.com/w40/de.png',
       fallback: '🇩🇪',
+      supranational: false,
     })
   })
 
@@ -38,6 +43,7 @@ describe('countryDisplay', () => {
       label: 'ATP',
       flagUrl: null,
       fallback: '🌐',
+      supranational: false,
     })
   })
 

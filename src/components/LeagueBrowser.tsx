@@ -53,6 +53,8 @@ export const LeagueBrowser: React.FC<{
 
   // País → sus ligas, ordenado por el nombre YA en español: el usuario ve
   // "Alemania" antes que "Arabia Saudí", no el orden del inglés original.
+  // Los ámbitos supranacionales (Torneos internacionales, Europa…) van
+  // delante: ahí viven Champions o Libertadores y en la T nadie las busca.
   const countries = useMemo(() => {
     const byCountry = new Map<string, League[]>();
     for (const league of leagues) {
@@ -67,7 +69,11 @@ export const LeagueBrowser: React.FC<{
         leagues: group,
         total: group.reduce((a, l) => a + (l.activeCount ?? 0), 0),
       }))
-      .sort((a, b) => a.display.label.localeCompare(b.display.label, 'es'));
+      .sort(
+        (a, b) =>
+          Number(b.display.supranational) - Number(a.display.supranational) ||
+          a.display.label.localeCompare(b.display.label, 'es'),
+      );
   }, [leagues]);
 
   const total = countries.reduce((a, c) => a + c.total, 0);

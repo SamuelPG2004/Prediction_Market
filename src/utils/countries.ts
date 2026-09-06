@@ -117,16 +117,25 @@ const COUNTRY_ISO = new Map<string, string>([
 /**
  * Ámbitos sin ISO 3166-1 propio: naciones constituyentes (flagcdn las sirve
  * con códigos gb-*) y agrupaciones supranacionales (sin bandera: globo).
+ * `scope` marca las supranacionales: agrupan las grandes competiciones
+ * (Champions, Libertadores, Mundial) y el navegador las ancla delante de los
+ * países en vez de dejarlas enterradas en el orden alfabético.
  */
-const SPECIALS = new Map<string, { code: string | null; label: string }>([
+const SPECIALS = new Map<
+  string,
+  { code: string | null; label: string; scope?: true }
+>([
   ['england', { code: 'gb-eng', label: 'Inglaterra' }],
   ['scotland', { code: 'gb-sct', label: 'Escocia' }],
   ['wales', { code: 'gb-wls', label: 'Gales' }],
   ['northern ireland', { code: 'gb-nir', label: 'Irlanda del Norte' }],
-  ['international', { code: null, label: 'Internacional' }],
-  ['international tournaments', { code: null, label: 'Torneos internacionales' }],
-  ['world', { code: null, label: 'Mundo' }],
-  ['europe', { code: 'eu', label: 'Europa' }],
+  ['international', { code: null, label: 'Internacional', scope: true }],
+  [
+    'international tournaments',
+    { code: null, label: 'Torneos internacionales', scope: true },
+  ],
+  ['world', { code: null, label: 'Mundo', scope: true }],
+  ['europe', { code: 'eu', label: 'Europa', scope: true }],
 ])
 
 /** Sufijos de ámbito que algunos venues pegan al país ("Germany Amateur"). */
@@ -163,6 +172,8 @@ export interface CountryDisplay {
   flagUrl: string | null
   /** Emoji de reserva: la bandera si existe, 🌍 para ámbitos, 🌐 desconocidos. */
   fallback: string
+  /** Agrupación supranacional (Torneos internacionales, Europa…), no un país. */
+  supranational: boolean
 }
 
 /** Bandera y nombre en español de un país de competición del venue. */
@@ -183,6 +194,7 @@ export function countryDisplay(name: string): CountryDisplay {
       label: special.label,
       flagUrl: special.code !== null ? flagUrlOf(special.code) : null,
       fallback: '🌍',
+      supranational: special.scope === true,
     }
   }
 
@@ -194,9 +206,14 @@ export function countryDisplay(name: string): CountryDisplay {
     } catch {
       // código fuera del estándar según este runtime: se queda el original
     }
-    return { label, flagUrl: flagUrlOf(iso), fallback: isoToEmoji(iso) }
+    return {
+      label,
+      flagUrl: flagUrlOf(iso),
+      fallback: isoToEmoji(iso),
+      supranational: false,
+    }
   }
 
   // Organizaciones (ATP, NCAA…) o países fuera del mapa: tal cual, con globo.
-  return { label: name, flagUrl: null, fallback: '🌐' }
+  return { label: name, flagUrl: null, fallback: '🌐', supranational: false }
 }
