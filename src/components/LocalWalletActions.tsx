@@ -28,6 +28,7 @@ import {
 import { localWalletVault } from '../services/localWallet';
 import { venueTokens } from '../services/marketSources';
 import { useVenueBalances } from '../hooks/useVenueBalances';
+import { BinanceDepositGuide } from './BinanceDepositGuide';
 import { QrCodeCanvas } from './QrCodeCanvas';
 
 interface LocalWalletActionsProps {
@@ -76,6 +77,8 @@ export const LocalWalletActions: React.FC<LocalWalletActionsProps> = ({
 }) => {
   const [view, setView] = useState<ActionView>('menu');
   const [copied, setCopied] = useState(false);
+  /** Depósito guiado desde Binance (para quien no sabe de redes) o avanzado. */
+  const [depositMode, setDepositMode] = useState<'binance' | 'advanced'>('binance');
 
   // Gas nativo de cada red, para avisar si falta antes de operar.
   const polBalance = useBalance({ address, chainId: POLYGON_CHAIN_ID });
@@ -263,7 +266,7 @@ export const LocalWalletActions: React.FC<LocalWalletActionsProps> = ({
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs font-bold text-emerald-300 transition-all active:scale-95"
           >
             <ArrowDownToLine className="w-3.5 h-3.5" />
-            <span>Depositar · dirección y QR</span>
+            <span>Depositar · desde Binance o QR</span>
           </button>
           <button
             onClick={() => setView('withdraw')}
@@ -284,71 +287,109 @@ export const LocalWalletActions: React.FC<LocalWalletActionsProps> = ({
 
       {view === 'deposit' && (
         <div className="flex flex-col gap-3">
-          <div className="flex flex-col items-center gap-2">
-            <div className="p-2 rounded-xl bg-white">
-              <QrCodeCanvas value={address} />
-            </div>
-            <div className="w-full rounded-lg bg-[#090b0f] border border-neutral-800 p-2.5 flex items-start gap-2">
-              <span className="flex-1 text-[11px] font-mono text-neutral-200 break-all select-all">
-                {address}
-              </span>
+          {/* Guiado para novatos por defecto; avanzado con todas las redes. */}
+          <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[#090b0f] border border-neutral-800">
+            {(
+              [
+                ['binance', 'Desde Binance'],
+                ['advanced', 'Avanzado'],
+              ] as const
+            ).map(([mode, label]) => (
               <button
-                onClick={handleCopyAddress}
-                title="Copiar dirección"
-                className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-emerald-400 transition-colors"
+                key={mode}
+                onClick={() => setDepositMode(mode)}
+                className={`py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
+                  depositMode === mode
+                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                    : 'text-neutral-500 hover:text-neutral-300 border border-transparent'
+                }`}
               >
-                {copied ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
+                {label}
               </button>
-            </div>
-          </div>
-
-          <div className="rounded-lg bg-[#090b0f] border border-neutral-800 p-2.5 flex flex-col gap-1.5">
-            {venueTokens.map((t) => (
-              <div
-                key={`${t.chainId}-${t.address}`}
-                className="flex items-center justify-between text-[11px] font-mono text-neutral-400"
-              >
-                <span>
-                  {t.symbol} · red {chainLabel(t.chainId)}
-                </span>
-                <span className="text-neutral-500">{t.displayName}</span>
-              </div>
             ))}
-            {gasRow}
-            {gasRowBase}
           </div>
 
-          <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/25 p-2.5 text-[11px] text-amber-200/90">
-            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-            <span>
-              Envía cada token SOLO por su red (USDT por Polygon, USDC por
-              Base); en otra red se pierde. Deposita también un poco de gas
-              nativo (POL en Polygon, ETH en Base): hace falta para aprobar
-              tokens y retirar premios. Con 1–2 € por red hay para meses.
-            </span>
-          </div>
+          {depositMode === 'binance' && (
+            <BinanceDepositGuide
+              address={address}
+              balance={
+                tokenBalances.find((b) => b.chainId === POLYGON_CHAIN_ID)
+                  ?.balance ?? null
+              }
+              refetch={refetchTokens}
+            />
+          )}
 
-          {/* Reponer gas sin salir de la app: bridge preseleccionado. */}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => onGetGas(POLYGON_CHAIN_ID)}
-              className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/30 text-[11px] font-semibold text-neutral-300 transition-all active:scale-95"
-            >
-              <Fuel className="w-3 h-3 text-emerald-400" />
-              <span>Conseguir POL</span>
-            </button>
-            <button
-              onClick={() => onGetGas(BASE_CHAIN_ID)}
-              className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/30 text-[11px] font-semibold text-neutral-300 transition-all active:scale-95"
-            >
-              <Fuel className="w-3 h-3 text-emerald-400" />
-              <span>Conseguir ETH</span>
-            </button>
-          </div>
+          {depositMode === 'advanced' && (
+            <>
+              <div className="flex flex-col items-center gap-2">
+                <div className="p-2 rounded-xl bg-white">
+                  <QrCodeCanvas value={address} />
+                </div>
+                <div className="w-full rounded-lg bg-[#090b0f] border border-neutral-800 p-2.5 flex items-start gap-2">
+                  <span className="flex-1 text-[11px] font-mono text-neutral-200 break-all select-all">
+                    {address}
+                  </span>
+                  <button
+                    onClick={handleCopyAddress}
+                    title="Copiar dirección"
+                    className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-emerald-400 transition-colors"
+                  >
+                    {copied ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-[#090b0f] border border-neutral-800 p-2.5 flex flex-col gap-1.5">
+                {venueTokens.map((t) => (
+                  <div
+                    key={`${t.chainId}-${t.address}`}
+                    className="flex items-center justify-between text-[11px] font-mono text-neutral-400"
+                  >
+                    <span>
+                      {t.symbol} · red {chainLabel(t.chainId)}
+                    </span>
+                    <span className="text-neutral-500">{t.displayName}</span>
+                  </div>
+                ))}
+                {gasRow}
+                {gasRowBase}
+              </div>
+
+              <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/25 p-2.5 text-[11px] text-amber-200/90">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>
+                  Envía cada token SOLO por su red (USDT por Polygon, USDC por
+                  Base); en otra red se pierde. Para apostar con USDT no hace
+                  falta gas (la app lo resuelve con una comisión de 0,10 USDT
+                  la primera vez); cobrar premios o retirar sí pide un poco de
+                  gas nativo (POL en Polygon, ETH en Base).
+                </span>
+              </div>
+
+              {/* Reponer gas sin salir de la app: bridge preseleccionado. */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => onGetGas(POLYGON_CHAIN_ID)}
+                  className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/30 text-[11px] font-semibold text-neutral-300 transition-all active:scale-95"
+                >
+                  <Fuel className="w-3 h-3 text-emerald-400" />
+                  <span>Conseguir POL</span>
+                </button>
+                <button
+                  onClick={() => onGetGas(BASE_CHAIN_ID)}
+                  className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/30 text-[11px] font-semibold text-neutral-300 transition-all active:scale-95"
+                >
+                  <Fuel className="w-3 h-3 text-emerald-400" />
+                  <span>Conseguir ETH</span>
+                </button>
+              </div>
+            </>
+          )}
           {backButton}
         </div>
       )}
