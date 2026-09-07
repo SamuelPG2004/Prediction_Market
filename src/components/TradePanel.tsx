@@ -21,6 +21,7 @@ import {
 import { marketSources } from '../services/marketSources';
 import { useWallet } from '../services/web3Service';
 import { useVenueBalances } from '../hooks/useVenueBalances';
+import { useLiveScores } from '../hooks/useLiveScores';
 import { chainLabel } from '../config/chains';
 import {
   groupMarketsForDisplay,
@@ -34,7 +35,7 @@ import {
   type MarketEventView,
 } from '../utils/eventGrouping';
 import { isValidAmount, outcomeOddsText } from '../utils/betting';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatLiveScorePhase } from '../utils/formatters';
 import { translateOutcomeLabel } from '../utils/marketLabels';
 import { toggleSelection, useBetSlip } from '../hooks/useBetSlip';
 
@@ -339,6 +340,18 @@ export const TradePanel: React.FC<TradePanelProps> = ({
     [event.markets],
   );
 
+  // Marcador en vivo del evento abierto (push por el socket del venue). Un
+  // marcador `suspended` no se pinta: quien está a punto de apostar no puede
+  // fiarse de un marcador con la cobertura perdida.
+  const eventList = useMemo(() => [event], [event]);
+  const liveScoreRaw = useLiveScores(eventList).get(event.id);
+  const liveScore =
+    liveScoreRaw !== undefined && liveScoreRaw.status !== 'suspended'
+      ? liveScoreRaw
+      : undefined;
+  const livePhase =
+    liveScore !== undefined ? formatLiveScorePhase(liveScore) : null;
+
   // Al cambiar de opción dentro del evento, se reinicia la selección. Manda
   // la celda clicada en el selector; en el mercado inicial, la cuota clicada
   // en la tarjeta.
@@ -478,12 +491,20 @@ export const TradePanel: React.FC<TradePanelProps> = ({
                   {source.displayName}
                 </span>
               )}
-              {event.isLive && (
-                <span className="flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                  En vivo
-                </span>
-              )}
+              {event.isLive &&
+                (liveScore !== undefined && liveScore.status === 'finished' ? (
+                  <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-300">
+                    Final · {liveScore.home}-{liveScore.guest}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                    {/* Con marcador, este es el dato que importa antes de apostar. */}
+                    {liveScore !== undefined
+                      ? `${liveScore.home}-${liveScore.guest}${livePhase !== null ? ` · ${livePhase}` : ''}`
+                      : 'En vivo'}
+                  </span>
+                ))}
               {!market.isQuotable && (
                 <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400">
                   sin cotización

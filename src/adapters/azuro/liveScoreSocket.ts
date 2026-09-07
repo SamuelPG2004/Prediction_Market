@@ -129,15 +129,16 @@ export function createAzuroLiveScoreClient(
       const sub: Subscription = { gameIds: [...new Set(gameIds)], onMessage }
       subscriptions.add(sub)
 
-      const fresh: string[] = []
       for (const id of sub.gameIds) {
-        const count = listenersPerGame.get(id) ?? 0
-        listenersPerGame.set(id, count + 1)
-        if (count === 0) fresh.push(id)
+        listenersPerGame.set(id, (listenersPerGame.get(id) ?? 0) + 1)
       }
-      // Con el socket ya abierto solo se suscriben los juegos nuevos; si está
-      // conectando (o aún no existe), el `open` suscribirá todos.
-      sendAction('subscribe', fresh)
+      // Se piden TODOS los juegos del suscriptor, aunque otro ya los tenga: el
+      // servidor responde a un subscribe repetido reenviando el snapshot
+      // (verificado 2026-09-06), que es justo lo que el oyente nuevo necesita
+      // para pintar el marcador al instante en vez de esperar al siguiente
+      // cambio. Si el socket está conectando (o no existe), el `open` los
+      // suscribirá todos.
+      sendAction('subscribe', sub.gameIds)
       connect()
 
       let done = false

@@ -2,28 +2,13 @@ import React, { useState } from 'react';
 import { Flame } from 'lucide-react';
 import type { LiveScore } from '../domain/types';
 import { findStarMarket, type MarketEventView } from '../utils/eventGrouping';
-import { formatCompactNumber, formatEventDate } from '../utils/formatters';
+import {
+  formatCompactNumber,
+  formatEventDate,
+  formatLiveScorePhase,
+} from '../utils/formatters';
 import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
 import { StarMarketRow, type SelectMarketHandler } from './EventCard';
-
-/**
- * Momento del juego como texto corto: "67'", "Set 2", "Q4 03:00". `null`
- * cuando el venue no lo publica (la insignia cae a "En vivo" a secas).
- */
-function phaseLabelOf(score: LiveScore): string | null {
-  const phase = score.phase;
-  if (phase === null) return null;
-  switch (phase.kind) {
-    case 'match':
-      return phase.minute !== null ? `${phase.minute}'` : null;
-    case 'set':
-      return `Set ${phase.number}`;
-    case 'quarter':
-      return phase.clock !== null
-        ? `Q${phase.number} ${phase.clock}`
-        : `Q${phase.number}`;
-  }
-}
 
 /** Cuántos partidos pide el carrusel. */
 export const FEATURED_COUNT = 8;
@@ -97,7 +82,7 @@ export const FeaturedCard: React.FC<{
     liveScore !== undefined && liveScore.status !== 'suspended'
       ? liveScore
       : undefined;
-  const phaseLabel = score !== undefined ? phaseLabelOf(score) : null;
+  const phaseLabel = score !== undefined ? formatLiveScorePhase(score) : null;
 
   const open = () => {
     const target =

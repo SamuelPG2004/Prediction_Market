@@ -1,6 +1,27 @@
 /**
  * Formatter and Calculation Utilities for Web3 Prediction Dashboard
  */
+import type { LiveScore } from '../domain/types';
+
+/**
+ * Momento del juego de un marcador en vivo, como texto corto: "67'", "Set 2",
+ * "Q4 03:00". `null` cuando el venue no lo publica (el llamante cae a su
+ * etiqueta genérica, "En vivo").
+ */
+export function formatLiveScorePhase(score: LiveScore): string | null {
+  const phase = score.phase;
+  if (phase === null) return null;
+  switch (phase.kind) {
+    case 'match':
+      return phase.minute !== null ? `${phase.minute}'` : null;
+    case 'set':
+      return `Set ${phase.number}`;
+    case 'quarter':
+      return phase.clock !== null
+        ? `Q${phase.number} ${phase.clock}`
+        : `Q${phase.number}`;
+  }
+}
 
 export function formatCurrency(amount: number, minimumFractionDigits: number = 2): string {
   return new Intl.NumberFormat('en-US', {

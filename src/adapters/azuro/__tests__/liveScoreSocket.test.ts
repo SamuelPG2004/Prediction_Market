@@ -80,7 +80,7 @@ describe('createAzuroLiveScoreClient', () => {
     ])
   })
 
-  it('con el socket ya abierto, un suscriptor nuevo solo añade sus juegos nuevos', () => {
+  it('un suscriptor nuevo pide TODOS sus juegos, aunque otro ya los tenga', () => {
     const { client, sockets } = makeClient()
     client.subscribe(['g1'], () => {})
     sockets[0].fireOpen()
@@ -89,7 +89,10 @@ describe('createAzuroLiveScoreClient', () => {
     expect(sockets).toHaveLength(1) // misma conexión
     expect(actionsOf(sockets[0])).toEqual([
       { action: 'subscribe', gameIds: ['g1'] },
-      { action: 'subscribe', gameIds: ['g2'] }, // g1 ya estaba suscrito
+      // g1 se repite a propósito: el servidor responde a un subscribe
+      // repetido reenviando el snapshot, y el oyente nuevo necesita el
+      // marcador actual al instante, no con el siguiente cambio.
+      { action: 'subscribe', gameIds: ['g1', 'g2'] },
     ])
   })
 
