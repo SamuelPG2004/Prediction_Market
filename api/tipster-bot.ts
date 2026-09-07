@@ -5,6 +5,8 @@
  * listos para la dApp.
  *
  * GET /api/tipster-bot → { generatedAt, picks: [...], aviso }
+ * GET /api/tipster-bot?gameIds=a,b,c → igual, pero evaluando SOLO esos
+ *   partidos (los que el usuario eligió en la dApp; máximo 15).
  *
  * Diseño (dinero real, así que con red de seguridad):
  *  - El bot NUNCA apuesta: solo propone. Apostar sigue siendo un acto humano
@@ -51,6 +53,8 @@ const DEFAULT_TTL_MIN = 15
 
 interface VercelRequest {
   method?: string
+  /** Ruta con query string, p. ej. "/api/tipster-bot?gameIds=1,2". */
+  url?: string
 }
 interface VercelResponse {
   status(code: number): VercelResponse
@@ -113,12 +117,8 @@ function marketNameOf(outcomeId: string, title: unknown): string {
   }
 }
 
-/**
- * Trae los juegos prematch más apostados y sus mercados activos, ya reducidos
- * a lo que el modelo necesita leer. Todo lo externo se valida campo a campo:
- * un elemento malformado se descarta sin tirar la pasada.
- */
-async function fetchAzuroCatalog(sportSlug: string | undefined): Promise<CatalogGame[]> {
+/** Juegos prematch más apostados (el modo automático del bot). */
+async function fetchTopGames(sportSlug: string | undefined): Promise<unknown[]> {
   const params = new URLSearchParams({
     environment: AZURO_ENVIRONMENT,
     gameState: 'Prematch',
@@ -128,19 +128,41 @@ async function fetchAzuroCatalog(sportSlug: string | undefined): Promise<Catalog
     page: '1',
   })
   if (sportSlug !== undefined) params.set('sportSlug', sportSlug)
-
-  const gamesRes = await fetch(`${AZURO_API}/market-manager/games-by-filters?${params}`, {
+  const res = await fetch(`${AZURO_API}/market-manager/games-by-filters?${params}`, {
     headers: { Accept: 'application/json' },
   })
-  if (!gamesRes.ok) throw new Error(`Azuro games-by-filters: ${gamesRes.status}`)
-  const gamesBody: unknown = await gamesRes.json()
-  if (!isRecord(gamesBody) || !Array.isArray(gamesBody.games)) {
+  if (!res.ok) throw new Error(`Azuro games-by-filters: ${res.status}`)
+  const body: unknown = await res.json()
+  if (!isRecord(body) || !Array.isArray(body.games)) {
     throw new Error('Azuro games-by-filters: respuesta inesperada')
   }
+  return body.games
+}
 
+/** Los juegos concretos que eligió el usuario en la dApp. */
+async function fetchGamesByIds(gameIds: string[]): Promise<unknown[]> {
+  const res = await fetch(`${AZURO_API}/market-manager/games-by-ids`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gameIds }),
+  })
+  if (!res.ok) throw new Error(`Azuro games-by-ids: ${res.status}`)
+  const body: unknown = await res.json()
+  if (!isRecord(body) || !Array.isArray(body.games)) {
+    throw new Error('Azuro games-by-ids: respuesta inesperada')
+  }
+  return body.games
+}
+
+/**
+ * Reduce los juegos crudos + sus mercados activos a lo que el modelo necesita
+ * leer. Todo lo externo se valida campo a campo: un elemento malformado se
+ * descarta sin tirar la pasada.
+ */
+async function buildCatalog(rawGames: unknown[]): Promise<CatalogGame[]> {
   const games = new Map<string, CatalogGame>()
   const now = Date.now()
-  for (const raw of gamesBody.games) {
+  for (const raw of rawGames) {
     if (!isRecord(raw) || typeof raw.gameId !== 'string' || typeof raw.title !== 'string') continue
     const startsAtMs = Number(raw.startsAt) * 1000
     if (!Number.isFinite(startsAtMs)) continue
@@ -414,8 +436,26 @@ function validatePicks(picks: GeminiPick[], catalog: CatalogGame[]): {
 const AVISO =
   'Picks generados por una IA imitando las reglas públicas de un tipster, solo con equipos, ligas y cuotas como datos. Sin validación estadística: NO son consejo financiero ni garantizan nada. Apostar es decisión (y firma) tuya.'
 
-/** Caché por instancia de la función: TTL para el tier gratuito de Gemini. */
-let cache: { at: number; payload: unknown } | null = null
+/**
+ * Caché por instancia de la función, con TTL, para el tier gratuito de
+ * Gemini: una entrada por conjunto pedido ('auto' o los gameIds elegidos),
+ * con un tope de entradas para que las selecciones personalizadas no crezcan
+ * sin límite.
+ */
+const cache = new Map<string, { at: number; payload: unknown }>()
+const CACHE_MAX_ENTRIES = 8
+
+/** gameIds del query string, validados; null = modo automático. */
+function parseRequestedGameIds(url: string | undefined): string[] | null {
+  const query = url?.split('?')[1]
+  if (query === undefined) return null
+  const raw = new URLSearchParams(query).get('gameIds')
+  if (raw === null || raw.trim() === '') return null
+  const ids = [...new Set(raw.split(','))]
+    .map((id) => id.trim())
+    .filter((id) => /^\d{10,30}$/.test(id))
+  return ids.length > 0 ? ids.slice(0, GAMES_TO_EVALUATE) : null
+}
 
 export default async function handler(
   req: VercelRequest,
@@ -443,39 +483,58 @@ export default async function handler(
     return
   }
 
+  const requestedIds = parseRequestedGameIds(req.url)
+  const cacheKey = requestedIds === null ? 'auto' : [...requestedIds].sort().join(',')
+
   const ttlMin = Number(readEnv('TIPSTER_BOT_TTL_MIN') ?? DEFAULT_TTL_MIN)
   const ttlMs = (Number.isFinite(ttlMin) && ttlMin > 0 ? ttlMin : DEFAULT_TTL_MIN) * 60_000
-  if (cache !== null && Date.now() - cache.at < ttlMs) {
-    sendJson(res, 200, cache.payload)
+  const cached = cache.get(cacheKey)
+  if (cached !== undefined && Date.now() - cached.at < ttlMs) {
+    sendJson(res, 200, cached.payload)
     return
   }
 
   try {
-    const catalog = await fetchAzuroCatalog(readEnv('TIPSTER_BOT_SPORT'))
+    const rawGames =
+      requestedIds !== null
+        ? await fetchGamesByIds(requestedIds)
+        : await fetchTopGames(readEnv('TIPSTER_BOT_SPORT'))
+    const catalog = await buildCatalog(rawGames)
+    const model = readEnv('TIPSTER_BOT_MODEL') ?? DEFAULT_MODEL
+    const base = {
+      modo: requestedIds !== null ? 'personalizado' : 'auto',
+      modelo: model,
+      aviso: AVISO,
+    }
     if (catalog.length === 0) {
       sendJson(res, 200, {
+        ...base,
         generatedAt: new Date().toISOString(),
         partidosEvaluados: 0,
         picks: [],
-        aviso: AVISO,
+        descartadosPorInvalidos: 0,
       })
       return
     }
 
-    const model = readEnv('TIPSTER_BOT_MODEL') ?? DEFAULT_MODEL
     const rawPicks = await askGemini(apiKey, model, systemPrompt, catalog)
     const { validos, descartados } = validatePicks(rawPicks, catalog)
 
     const payload = {
+      ...base,
       generatedAt: new Date().toISOString(),
-      modelo: model,
       partidosEvaluados: catalog.length,
       picks: validos,
       // Picks que el modelo inventó (ids inexistentes) o repitió: descartados.
       descartadosPorInvalidos: descartados,
-      aviso: AVISO,
     }
-    cache = { at: Date.now(), payload }
+    cache.set(cacheKey, { at: Date.now(), payload })
+    // Tope de entradas: fuera la más vieja (el iterador del Map va por orden
+    // de inserción).
+    if (cache.size > CACHE_MAX_ENTRIES) {
+      const oldest = cache.keys().next().value
+      if (oldest !== undefined) cache.delete(oldest)
+    }
     sendJson(res, 200, payload)
   } catch (error) {
     sendJson(res, 502, {

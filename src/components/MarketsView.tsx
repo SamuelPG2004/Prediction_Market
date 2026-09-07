@@ -434,9 +434,11 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
         />
       )}
       {/* Picks del bot tipster (IA). Solo existe si /api/tipster-bot responde;
-          abre el panel con el resultado preseleccionado, nunca apuesta. */}
+          abre el panel con el resultado preseleccionado, nunca apuesta. Los
+          destacados hacen de candidatos del modo "yo elijo los partidos". */}
       {showFeatured && (
         <TipsterPicks
+          candidateEvents={featuredEvents}
           onOpenMarket={(event, market, outcomeId) =>
             setSelected({ event, market, outcomeId })
           }
