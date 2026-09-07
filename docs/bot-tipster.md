@@ -37,7 +37,7 @@ es siempre un acto humano.
    Variables). SIN prefijo `VITE_` (todo `VITE_` acaba en el bundle público).
 
 Opcionales: `TIPSTER_BOT_SPORT` (p. ej. `football`, para acotar al terreno
-del tipster), `TIPSTER_BOT_MODEL` (por defecto `gemini-2.5-flash`),
+del tipster), `TIPSTER_BOT_MODEL` (por defecto `gemini-3.6-flash`),
 `TIPSTER_BOT_TTL_MIN` (caché, por defecto 15).
 
 ## Qué devuelve

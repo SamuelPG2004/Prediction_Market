@@ -21,7 +21,7 @@
  * Entorno (en Vercel, sin prefijo VITE_: jamás llegan al navegador):
  *  - GEMINI_API_KEY        obligatoria; sin ella el endpoint responde 503.
  *                          Gratis en https://aistudio.google.com/apikey
- *  - TIPSTER_BOT_MODEL     opcional; por defecto "gemini-2.5-flash".
+ *  - TIPSTER_BOT_MODEL     opcional; por defecto "gemini-3.6-flash".
  *  - TIPSTER_BOT_SPORT     opcional; slug de deporte de Azuro ("football")
  *                          para acotar el catálogo al terreno del tipster.
  *  - TIPSTER_BOT_TTL_MIN   opcional; minutos de caché (por defecto 15).
@@ -42,7 +42,9 @@ const AZURO_ENVIRONMENT = 'PolygonUSDT'
 const GAMES_TO_EVALUATE = 15
 /** Mercados por partido que se enseñan al modelo (los primeros del feed). */
 const MAX_MARKETS_PER_GAME = 10
-const DEFAULT_MODEL = 'gemini-2.5-flash'
+// gemini-2.5-flash ya no existe para cuentas nuevas (404 verificado
+// 2026-09-07): Google redirige a esta generación.
+const DEFAULT_MODEL = 'gemini-3.6-flash'
 const DEFAULT_TTL_MIN = 15
 
 // --- Firma (req, res) del runtime Node de Vercel, como en gas-station.ts ---
