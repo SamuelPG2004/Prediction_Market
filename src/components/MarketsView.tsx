@@ -31,6 +31,7 @@ import { useFeaturedEvents } from '../hooks/useFeaturedEvents';
 import { useLiveEvents } from '../hooks/useLiveEvents';
 import { useLiveScores } from '../hooks/useLiveScores';
 import { LowGasBanner } from './LowGasBanner';
+import { TipsterPicks } from './TipsterPicks';
 import { TradePanel } from './TradePanel';
 import { toggleSelection } from '../hooks/useBetSlip';
 import { countryDisplay } from '../utils/countries';
@@ -430,6 +431,15 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
           events={featuredEvents}
           isLoading={isFeaturedLoading}
           onSelectMarket={selectMarket}
+        />
+      )}
+      {/* Picks del bot tipster (IA). Solo existe si /api/tipster-bot responde;
+          abre el panel con el resultado preseleccionado, nunca apuesta. */}
+      {showFeatured && (
+        <TipsterPicks
+          onOpenMarket={(event, market, outcomeId) =>
+            setSelected({ event, market, outcomeId })
+          }
         />
       )}
 
