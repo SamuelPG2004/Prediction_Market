@@ -44,7 +44,7 @@ del tipster), `TIPSTER_BOT_MODEL` (por defecto `gemini-3.6-flash`),
 
 ```json
 {
-  "generatedAt": "…", "modelo": "gemini-2.5-flash",
+  "generatedAt": "…", "modelo": "gemini-3.6-flash",
   "partidosEvaluados": 15,
   "picks": [{
     "marketId": "azuro:<gameId>/<conditionId>",  ← formato del dominio
