@@ -22,7 +22,10 @@ español.
 - `src/services/marketSources.ts` — ÚNICO punto de composición de venues.
 - `api/` — funciones serverless de Vercel, autocontenidas, desplegadas con
   cada push a `main` (produce en
-  https://prediction-market-phi-rust.vercel.app).
+  https://prediction-market-phi-rust.vercel.app). OJO: el repo es
+  `"type": "module"`, así que los imports RELATIVOS dentro de `api/` llevan
+  extensión `.js` (sin ella, FUNCTION_INVOCATION_FAILED en producción);
+  las carpetas `api/_*` no se exponen como rutas.
 - Vite exige `import.meta.env` LITERAL en el fuente (no aliasear).
 
 ## Depósito y gas: cómo apuesta alguien que solo tiene Binance
