@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
+import type { LiveScore } from '../domain/types';
 import type { MarketEventView } from '../utils/eventGrouping';
 import { FeaturedCard, FeaturedSkeleton } from './FeaturedMatches';
 import type { SelectMarketHandler } from './EventCard';
@@ -10,8 +11,9 @@ export const LIVE_COUNT = 10;
 /**
  * Sección "En vivo": los partidos en juego ahora mismo, en carrusel, con sus
  * cuotas moviéndose (el hook refresca cada pocos segundos y los botones
- * destellan al cambiar el precio). "Ver todos" salta al filtro en vivo de
- * Deportes.
+ * destellan al cambiar el precio) y su marcador en push cuando el venue lo
+ * publica (`scores`, por id de evento). "Ver todos" salta al filtro en vivo
+ * de Deportes.
  *
  * Sin partidos en juego, la sección desaparece entera: un rótulo "En vivo"
  * vacío a las 4 de la mañana solo enseñaría un hueco.
@@ -19,9 +21,10 @@ export const LIVE_COUNT = 10;
 export const LiveMatches: React.FC<{
   events: MarketEventView[];
   isLoading: boolean;
+  scores: ReadonlyMap<string, LiveScore>;
   onSelectMarket: SelectMarketHandler;
   onViewAll: () => void;
-}> = ({ events, isLoading, onSelectMarket, onViewAll }) => {
+}> = ({ events, isLoading, scores, onSelectMarket, onViewAll }) => {
   if (!isLoading && events.length === 0) return null;
 
   return (
@@ -57,6 +60,7 @@ export const LiveMatches: React.FC<{
                 event={event}
                 onSelectMarket={onSelectMarket}
                 accent="live"
+                liveScore={scores.get(event.id)}
               />
             ))}
       </div>

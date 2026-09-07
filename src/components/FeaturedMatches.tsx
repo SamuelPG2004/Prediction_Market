@@ -1,9 +1,29 @@
 import React, { useState } from 'react';
 import { Flame } from 'lucide-react';
+import type { LiveScore } from '../domain/types';
 import { findStarMarket, type MarketEventView } from '../utils/eventGrouping';
 import { formatCompactNumber, formatEventDate } from '../utils/formatters';
 import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
 import { StarMarketRow, type SelectMarketHandler } from './EventCard';
+
+/**
+ * Momento del juego como texto corto: "67'", "Set 2", "Q4 03:00". `null`
+ * cuando el venue no lo publica (la insignia cae a "En vivo" a secas).
+ */
+function phaseLabelOf(score: LiveScore): string | null {
+  const phase = score.phase;
+  if (phase === null) return null;
+  switch (phase.kind) {
+    case 'match':
+      return phase.minute !== null ? `${phase.minute}'` : null;
+    case 'set':
+      return `Set ${phase.number}`;
+    case 'quarter':
+      return phase.clock !== null
+        ? `Q${phase.number} ${phase.clock}`
+        : `Q${phase.number}`;
+  }
+}
 
 /** Cuántos partidos pide el carrusel. */
 export const FEATURED_COUNT = 8;
@@ -55,18 +75,29 @@ export const FeaturedMatches: React.FC<{
 
 /**
  * Tarjeta de enfrentamiento del carrusel (liga, escudos, mercado estrella).
- * La comparte la sección "En vivo": `accent: 'live'` la tiñe de su rojo.
+ * La comparte la sección "En vivo": `accent: 'live'` la tiñe de su rojo y le
+ * pasa el marcador en vivo cuando el venue lo publica.
+ *
+ * DINERO REAL: un marcador `suspended` (cobertura perdida) NO se pinta — se
+ * vuelve a la insignia "En vivo" a secas — porque un marcador congelado junto
+ * a un botón de apostar es peor que ninguno.
  */
 export const FeaturedCard: React.FC<{
   event: MarketEventView;
   onSelectMarket: SelectMarketHandler;
   accent?: 'live';
-}> = ({ event, onSelectMarket, accent }) => {
+  liveScore?: LiveScore;
+}> = ({ event, onSelectMarket, accent, liveScore }) => {
   const [a, b] = event.participants!;
   const star = findStarMarket(event.markets);
   const subcategory = event.markets[0]?.subcategory;
   const icon = subcategory !== undefined ? subcategoryIcon(subcategory) : null;
   const wagered = event.totalVolumeUsd ?? event.volume24hUsd;
+  const score =
+    liveScore !== undefined && liveScore.status !== 'suspended'
+      ? liveScore
+      : undefined;
+  const phaseLabel = score !== undefined ? phaseLabelOf(score) : null;
 
   const open = () => {
     const target =
@@ -107,10 +138,20 @@ export const FeaturedCard: React.FC<{
           </span>
         )}
         {event.isLive ? (
-          <span className="flex items-center gap-1 text-[9px] font-mono font-bold text-rose-400 uppercase shrink-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-            En vivo
-          </span>
+          score !== undefined && score.status === 'finished' ? (
+            <span className="text-[9px] font-mono font-bold text-neutral-400 uppercase shrink-0">
+              Final
+            </span>
+          ) : (
+            <span
+              className="flex items-center gap-1 text-[9px] font-mono font-bold text-rose-400 uppercase shrink-0"
+              title="En vivo"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+              {/* Con marcador, el minuto/set/cuarto dice más que "En vivo". */}
+              {phaseLabel ?? 'En vivo'}
+            </span>
+          )
         ) : (
           event.markets[0]?.closesAt != null && (
             <span className="text-[9.5px] font-mono text-neutral-600 shrink-0">
@@ -132,6 +173,17 @@ export const FeaturedCard: React.FC<{
           <span className="line-clamp-1 text-neutral-300">{b.name}</span>
         </span>
         <FeaturedLogo participant={b} />
+        {/* Marcador en vivo, alineado línea a línea con cada equipo. */}
+        {score !== undefined && (
+          <span
+            className={`flex flex-col items-center text-[12.5px] font-mono font-bold leading-tight shrink-0 tabular-nums ${
+              score.status === 'finished' ? 'text-neutral-400' : 'text-rose-300'
+            }`}
+          >
+            <span>{score.home}</span>
+            <span>{score.guest}</span>
+          </span>
+        )}
       </button>
 
       {/* Cuotas del mercado estrella; el clic preselecciona el resultado.

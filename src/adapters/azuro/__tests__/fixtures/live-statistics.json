@@ -1,0 +1,5175 @@
+[
+  {
+    "fixture": {
+      "eventId": 89890534,
+      "startDate": 1788741000000,
+      "properties": {
+        "eventType": 1,
+        "eventName": "1",
+        "eventRound": "",
+        "counter": 1788747739120
+      },
+      "status": "In progress",
+      "lastUpdate": 1788747744763,
+      "providerId": 4,
+      "sportRadarId": 73265280,
+      "betGeniusId": null,
+      "statsPerformId": null,
+      "outright": false,
+      "racing": false,
+      "participantsInfo": [],
+      "competitionSeqId": 2562,
+      "regionSeqId": 480,
+      "seqId": 42768857,
+      "id": 2248216,
+      "virtualCourtId": "ef32a345-8435-5c54-8eaf-bea1d3729896",
+      "sport": {
+        "name": "Soccer",
+        "id": 1
+      },
+      "competition": {
+        "seqId": 2562,
+        "id": 10,
+        "name": "Liga Profesional",
+        "providerId": 195785,
+        "providerName": "Liga Profesional"
+      },
+      "region": {
+        "seqId": 480,
+        "id": 4,
+        "name": "Argentina",
+        "providerId": 11319,
+        "providerName": "Argentina"
+      },
+      "participants": [
+        {
+          "seqId": 35698,
+          "id": 44670,
+          "name": "Racing Club",
+          "providerId": 865742,
+          "providerName": "Racing Club",
+          "home": true
+        },
+        {
+          "seqId": 35693,
+          "id": 44669,
+          "name": "Club Atletico Tucuman",
+          "providerId": 11165654,
+          "providerName": "Club Atletico Tucuman"
+        }
+      ],
+      "statsId": "243d909c82da7b7e9e6ca54754df8525"
+    },
+    "markets": [],
+    "live": {
+      "scoreBoard": {},
+      "timeline": [
+        {
+          "id": 1033,
+          "type": "injury_time",
+          "description": "Injury time added",
+          "source": "Injury Time Minutes: 6'",
+          "minute": 91,
+          "half": 2
+        },
+        {
+          "id": 1008,
+          "type": "substitution",
+          "description": "Player substitution",
+          "source": "8th Substitution: Juan Infante (In), Ignacio Galvan (Out) (Club Atletico Tucuman)",
+          "minute": 88,
+          "participant": 2,
+          "player_in": "Juan Infante",
+          "player_out": "Ignacio Galvan",
+          "half": 2
+        },
+        {
+          "id": 1008,
+          "type": "substitution",
+          "description": "Player substitution",
+          "source": "7th Substitution: Julian Rodrigo Fernandez (In), Franco Nicola (Out) (Club Atletico Tucuman)",
+          "minute": 86,
+          "participant": 2,
+          "player_in": "Julian Rodrigo Fernandez",
+          "player_out": "Franco Nicola",
+          "half": 2
+        },
+        {
+          "id": 1008,
+          "type": "substitution",
+          "description": "Player substitution",
+          "source": "6th Substitution: Gabriel Compagnucci (In), Renzo Tesuri (Out) (Club Atletico Tucuman)",
+          "minute": 86,
+          "participant": 2,
+          "player_in": "Gabriel Compagnucci",
+          "player_out": "Renzo Tesuri",
+          "half": 2
+        },
+        {
+          "id": 1013,
+          "type": "goal_kick",
+          "description": "Goal kick",
+          "source": "Goal Kick 80",
+          "minute": 80,
+          "time_span": "70-80",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1013,
+          "type": "goal_kick",
+          "description": "Goal kick",
+          "source": "Goal Kick 80",
+          "minute": 80,
+          "time_span": "70-80",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1013,
+          "type": "goal_kick",
+          "description": "Goal kick",
+          "source": "Goal Kick 80",
+          "minute": 80,
+          "time_span": "70-80",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 80",
+          "minute": 80,
+          "time_span": "70-80",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 80",
+          "minute": 80,
+          "time_span": "70-80",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 80",
+          "minute": 80,
+          "time_span": "70-80",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 80",
+          "minute": 80,
+          "time_span": "70-80",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1008,
+          "type": "substitution",
+          "description": "Player substitution",
+          "source": "5th Substitution: Adrian Fernandez (In), Lautaro Diaz (Out) (Racing Club)",
+          "minute": 81,
+          "participant": 1,
+          "player_in": "Adrian Fernandez",
+          "player_out": "Lautaro Diaz",
+          "half": 2
+        },
+        {
+          "id": 1008,
+          "type": "substitution",
+          "description": "Player substitution",
+          "source": "4th Substitution: Ramiro Ruiz Rodriguez (In), Leandro Diaz (Out) (Club Atletico Tucuman)",
+          "minute": 81,
+          "participant": 2,
+          "player_in": "Ramiro Ruiz Rodriguez",
+          "player_out": "Leandro Diaz",
+          "half": 2
+        },
+        {
+          "id": 1004,
+          "type": "corner",
+          "description": "Corner kick",
+          "source": "6th Corner Kick: Club Atletico Tucuman",
+          "minute": 80,
+          "participant": 2,
+          "half": 2,
+          "corner": 6
+        },
+        {
+          "id": 1018,
+          "type": "offside",
+          "description": "Offside",
+          "source": "Offside: Club Atletico Tucuman",
+          "minute": 77,
+          "participant": 2,
+          "half": 2
+        },
+        {
+          "id": 1047,
+          "type": "var_review_end",
+          "description": "End of VAR review",
+          "source": "VAR Ended",
+          "minute": 73,
+          "half": 2
+        },
+        {
+          "id": 1046,
+          "type": "var_review_start",
+          "description": "Start of VAR review",
+          "source": "VAR Started",
+          "minute": 72,
+          "half": 2
+        },
+        {
+          "id": 1013,
+          "type": "goal_kick",
+          "description": "Goal kick",
+          "source": "Goal Kick 70",
+          "minute": 70,
+          "time_span": "60-70",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 70",
+          "minute": 70,
+          "time_span": "60-70",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 70",
+          "minute": 70,
+          "time_span": "60-70",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 70",
+          "minute": 70,
+          "time_span": "60-70",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 70",
+          "minute": 70,
+          "time_span": "60-70",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 70",
+          "minute": 70,
+          "time_span": "60-70",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1003,
+          "type": "goal",
+          "description": "Goal scored",
+          "source": "1-1 Racing Club Leonel Perez (with Shot)",
+          "minute": 71,
+          "participant": 1,
+          "method": "shot",
+          "half": 2,
+          "goal": 2
+        },
+        {
+          "id": 1018,
+          "type": "offside",
+          "description": "Offside",
+          "source": "Offside: Club Atletico Tucuman",
+          "minute": 67,
+          "participant": 2,
+          "half": 2
+        },
+        {
+          "id": 1005,
+          "type": "yellow_card",
+          "description": "Yellow card issued",
+          "source": "3rd Yellow Card: Racing Club (Matias Perez)",
+          "minute": 67,
+          "participant": 1,
+          "half": 2,
+          "card": 3
+        },
+        {
+          "id": 1018,
+          "type": "offside",
+          "description": "Offside",
+          "source": "Offside: Racing Club",
+          "minute": 64,
+          "participant": 1,
+          "half": 2
+        },
+        {
+          "id": 1013,
+          "type": "goal_kick",
+          "description": "Goal kick",
+          "source": "Goal Kick 60",
+          "minute": 60,
+          "time_span": "50-60",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1013,
+          "type": "goal_kick",
+          "description": "Goal kick",
+          "source": "Goal Kick 60",
+          "minute": 60,
+          "time_span": "50-60",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 60",
+          "minute": 60,
+          "time_span": "50-60",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 60",
+          "minute": 60,
+          "time_span": "50-60",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 60",
+          "minute": 60,
+          "time_span": "50-60",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 60",
+          "minute": 60,
+          "time_span": "50-60",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 60",
+          "minute": 60,
+          "time_span": "50-60",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 60",
+          "minute": 60,
+          "time_span": "50-60",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 60",
+          "minute": 60,
+          "time_span": "50-60",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 50",
+          "minute": 50,
+          "time_span": "45-50",
+          "participant": 0,
+          "half": 2
+        },
+        {
+          "id": 1004,
+          "type": "corner",
+          "description": "Corner kick",
+          "source": "5th Corner Kick: Racing Club",
+          "minute": 47,
+          "participant": 1,
+          "half": 2,
+          "corner": 5
+        },
+        {
+          "id": 1008,
+          "type": "substitution",
+          "description": "Player substitution",
+          "source": "3rd Substitution: Duvan Vergara (In), Tomas Conechny (Out) (Racing Club)",
+          "minute": 46,
+          "participant": 1,
+          "player_in": "Duvan Vergara",
+          "player_out": "Tomas Conechny",
+          "half": 2
+        },
+        {
+          "id": 1024,
+          "type": "second_half_start",
+          "description": "Start of second half",
+          "source": "Start Of Second Half"
+        },
+        {
+          "id": 1027,
+          "type": "score_after_first_half",
+          "description": "Score after first half",
+          "source": "End of 1st Half",
+          "score": "0-1",
+          "participant1_points": 0,
+          "participant2_points": 1,
+          "winner": 2
+        },
+        {
+          "id": 1013,
+          "type": "goal_kick",
+          "description": "Goal kick",
+          "source": "Goal Kick 46",
+          "minute": 46,
+          "time_span": "40-46",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1013,
+          "type": "goal_kick",
+          "description": "Goal kick",
+          "source": "Goal Kick 46",
+          "minute": 46,
+          "time_span": "40-46",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 46",
+          "minute": 46,
+          "time_span": "40-46",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 46",
+          "minute": 46,
+          "time_span": "40-46",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 46",
+          "minute": 46,
+          "time_span": "40-46",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 46",
+          "minute": 46,
+          "time_span": "40-46",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 46",
+          "minute": 46,
+          "time_span": "40-46",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 46",
+          "minute": 46,
+          "time_span": "40-46",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 46",
+          "minute": 46,
+          "time_span": "40-46",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 46",
+          "minute": 46,
+          "time_span": "40-46",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1033,
+          "type": "injury_time",
+          "description": "Injury time added",
+          "source": "Injury Time Minutes: 4'",
+          "minute": 46,
+          "half": 1
+        },
+        {
+          "id": 1004,
+          "type": "corner",
+          "description": "Corner kick",
+          "source": "4th Corner Kick: Racing Club",
+          "minute": 45,
+          "participant": 1,
+          "half": 1,
+          "corner": 4
+        },
+        {
+          "id": 1013,
+          "type": "goal_kick",
+          "description": "Goal kick",
+          "source": "Goal Kick 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1013,
+          "type": "goal_kick",
+          "description": "Goal kick",
+          "source": "Goal Kick 30",
+          "minute": 30,
+          "time_span": "20-30",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 30",
+          "minute": 30,
+          "time_span": "20-30",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 30",
+          "minute": 30,
+          "time_span": "20-30",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 30",
+          "minute": 30,
+          "time_span": "20-30",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 30",
+          "minute": 30,
+          "time_span": "20-30",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 30",
+          "minute": 30,
+          "time_span": "20-30",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1018,
+          "type": "offside",
+          "description": "Offside",
+          "source": "Offside: Racing Club",
+          "minute": 31,
+          "participant": 1,
+          "half": 1
+        },
+        {
+          "id": 1008,
+          "type": "substitution",
+          "description": "Player substitution",
+          "source": "2nd Substitution: Gaston Lodico (In), Diego Ortegoza (Out) (Racing Club)",
+          "minute": 31,
+          "participant": 1,
+          "player_in": "Gaston Lodico",
+          "player_out": "Diego Ortegoza",
+          "half": 1
+        },
+        {
+          "id": 1008,
+          "type": "substitution",
+          "description": "Player substitution",
+          "source": "1st Substitution: Matías Zaracho (In), Matko Miljevic (Out) (Racing Club)",
+          "minute": 31,
+          "participant": 1,
+          "player_in": "Matías Zaracho",
+          "player_out": "Matko Miljevic",
+          "half": 1
+        },
+        {
+          "id": 1005,
+          "type": "yellow_card",
+          "description": "Yellow card issued",
+          "source": "2nd Yellow Card: Club Atletico Tucuman (Di Placido)",
+          "minute": 28,
+          "participant": 2,
+          "half": 1,
+          "card": 2
+        },
+        {
+          "id": 1004,
+          "type": "corner",
+          "description": "Corner kick",
+          "source": "3rd Corner Kick: Club Atletico Tucuman",
+          "minute": 27,
+          "participant": 2,
+          "half": 1,
+          "corner": 3
+        },
+        {
+          "id": 1004,
+          "type": "corner",
+          "description": "Corner kick",
+          "source": "2nd Corner Kick: Club Atletico Tucuman",
+          "minute": 26,
+          "participant": 2,
+          "half": 1,
+          "corner": 2
+        },
+        {
+          "id": 1003,
+          "type": "goal",
+          "description": "Goal scored",
+          "source": "0-1 Club Atletico Tucuman Lautaro Godoy (with Shot)",
+          "minute": 24,
+          "participant": 2,
+          "method": "shot",
+          "half": 1,
+          "goal": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 20",
+          "minute": 20,
+          "time_span": "10-20",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 20",
+          "minute": 20,
+          "time_span": "10-20",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 20",
+          "minute": 20,
+          "time_span": "10-20",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 20",
+          "minute": 20,
+          "time_span": "10-20",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1004,
+          "type": "corner",
+          "description": "Corner kick",
+          "source": "1st Corner Kick: Racing Club",
+          "minute": 18,
+          "participant": 1,
+          "half": 1,
+          "corner": 1
+        },
+        {
+          "id": 1018,
+          "type": "offside",
+          "description": "Offside",
+          "source": "Offside: Club Atletico Tucuman",
+          "minute": 16,
+          "participant": 2,
+          "half": 1
+        },
+        {
+          "id": 1047,
+          "type": "var_review_end",
+          "description": "End of VAR review",
+          "source": "VAR Ended",
+          "minute": 15,
+          "half": 1
+        },
+        {
+          "id": 1046,
+          "type": "var_review_start",
+          "description": "Start of VAR review",
+          "source": "VAR Started",
+          "minute": 15,
+          "half": 1
+        },
+        {
+          "id": 1020,
+          "type": "miss_penalty",
+          "description": "Missed penalty",
+          "source": "Penalty Miss: Club Atletico Tucuman",
+          "minute": 14,
+          "participant": 2,
+          "half": 1
+        },
+        {
+          "id": 1047,
+          "type": "var_review_end",
+          "description": "End of VAR review",
+          "source": "VAR Ended",
+          "minute": 13,
+          "half": 1
+        },
+        {
+          "id": 1005,
+          "type": "yellow_card",
+          "description": "Yellow card issued",
+          "source": "1st Yellow Card: Racing Club (Diego Ortegoza)",
+          "minute": 13,
+          "participant": 1,
+          "half": 1,
+          "card": 1
+        },
+        {
+          "id": 1019,
+          "type": "penalty",
+          "description": "Penalty awarded",
+          "source": "1st Penalty: Club Atletico Tucuman",
+          "minute": 13,
+          "participant": 2,
+          "half": 1
+        },
+        {
+          "id": 1013,
+          "type": "goal_kick",
+          "description": "Goal kick",
+          "source": "Goal Kick 10",
+          "minute": 10,
+          "time_span": "0-10",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 10",
+          "minute": 10,
+          "time_span": "0-10",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 10",
+          "minute": 10,
+          "time_span": "0-10",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 10",
+          "minute": 10,
+          "time_span": "0-10",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 10",
+          "minute": 10,
+          "time_span": "0-10",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 10",
+          "minute": 10,
+          "time_span": "0-10",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 10",
+          "minute": 10,
+          "time_span": "0-10",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1046,
+          "type": "var_review_start",
+          "description": "Start of VAR review",
+          "source": "VAR Started",
+          "minute": 10,
+          "half": 1
+        },
+        {
+          "id": 1001,
+          "type": "match_start",
+          "description": "Start of match",
+          "source": "Match started"
+        }
+      ],
+      "jerseyColors": {},
+      "clock": {
+        "clock_status": "running",
+        "clock_direction": "up",
+        "clock_seconds": 0,
+        "clock_tm": 1788747744763
+      },
+      "incidents": {
+        "whistle": "In Possession",
+        "whistleId": 1017,
+        "par": 2,
+        "ballPos": {
+          "x": 88.2,
+          "y": 41.8
+        },
+        "player": null,
+        "info": null,
+        "type": "in_possession",
+        "tries": null,
+        "ball": null
+      },
+      "virtualCourt": true,
+      "virtualCourtId": 2248216,
+      "stats": {
+        "dangerousAttacks": {
+          "h": 84,
+          "g": 54
+        },
+        "attacks": {
+          "h": 191,
+          "g": 91
+        },
+        "goals": {
+          "h": 1,
+          "g": 1
+        },
+        "possession": {
+          "h": 75,
+          "g": 25
+        },
+        "penalties": {
+          "h": -1,
+          "g": -1
+        },
+        "corners": {
+          "h": 3,
+          "g": 3
+        },
+        "yellowCards": {
+          "h": 2,
+          "g": 1
+        },
+        "redCards": {
+          "h": 0,
+          "g": 0
+        },
+        "totalShots": {
+          "h": 16,
+          "g": 11
+        },
+        "shotsOnTarget": {
+          "h": 4,
+          "g": 5
+        },
+        "shotsOffTarget": {
+          "h": 8,
+          "g": 3
+        },
+        "shotsInsideBox": {
+          "h": 11,
+          "g": 4
+        },
+        "shotsOutsideBox": {
+          "h": 5,
+          "g": 7
+        },
+        "bigChances": {
+          "h": 0,
+          "g": 0
+        },
+        "bigChancesMissed": {
+          "h": 0,
+          "g": 1
+        },
+        "woodwork": {
+          "h": 0,
+          "g": 0
+        },
+        "throwIns": {
+          "h": 19,
+          "g": 15
+        },
+        "freeKicks": {
+          "h": -1,
+          "g": -1
+        },
+        "goalKicks": {
+          "h": -1,
+          "g": -1
+        },
+        "substitutions": {
+          "h": -1,
+          "g": -1
+        },
+        "actionArea": {
+          "h": -1,
+          "g": -1
+        },
+        "expectedGoals": {
+          "h": 1.3741,
+          "g": 1.3779
+        },
+        "passes": {
+          "h": 652,
+          "g": 221
+        },
+        "passesAttempted": {
+          "h": -1,
+          "g": -1
+        },
+        "passesCompleted": {
+          "h": 561,
+          "g": 123
+        },
+        "accLongBalls": {
+          "h": 33,
+          "g": 14
+        },
+        "accCrosses": {
+          "h": 6,
+          "g": 3
+        },
+        "goalkeeperSaves": {
+          "h": 4,
+          "g": 3
+        },
+        "fouls": {
+          "h": 8,
+          "g": 11
+        },
+        "tackles": {
+          "h": 13,
+          "g": 18
+        },
+        "interceptions": {
+          "h": 8,
+          "g": 11
+        },
+        "clearances": {
+          "h": 17,
+          "g": 29
+        },
+        "aerialsWon": {
+          "h": 20,
+          "g": 14
+        },
+        "duelsWon": {
+          "h": 54,
+          "g": 49
+        },
+        "possessionLost": {
+          "h": 159,
+          "g": 142
+        },
+        "dribbles": {
+          "h": 9,
+          "g": 11
+        },
+        "passingAccuracy": {
+          "h": 86,
+          "g": 55
+        },
+        "crosses": {
+          "h": -1,
+          "g": -1
+        },
+        "offsides": {
+          "h": 2,
+          "g": 3
+        },
+        "ballSafe": {
+          "h": -1,
+          "g": -1
+        },
+        "shotsBlocked": {
+          "h": 4,
+          "g": 3
+        },
+        "injuryBreaks": {
+          "h": -1,
+          "g": -1
+        },
+        "missedPenalties": {
+          "h": -1,
+          "g": -1
+        },
+        "kickoffs": {
+          "h": -1,
+          "g": -1
+        },
+        "players": {
+          "1038842": {
+            "team": "home",
+            "name": "Marcos Rojo",
+            "goals": 0,
+            "totalShots": 2,
+            "shotsOnTarget": 0,
+            "passes": 112,
+            "tackles": 1,
+            "fouls": 1,
+            "expectedGoals": 0.0271,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "18945141": {
+            "team": "home",
+            "name": "Tomas Conechny",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 0,
+            "passes": 7,
+            "tackles": 1,
+            "fouls": 1,
+            "expectedGoals": 0.0211,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "18950980": {
+            "team": "home",
+            "name": "Matías Zaracho",
+            "goals": 0,
+            "totalShots": 2,
+            "shotsOnTarget": 0,
+            "passes": 56,
+            "tackles": 1,
+            "fouls": 1,
+            "expectedGoals": 0.1666,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19160306": {
+            "team": "home",
+            "name": "Adrián Martínez",
+            "goals": 0,
+            "totalShots": 3,
+            "shotsOnTarget": 1,
+            "passes": 16,
+            "tackles": 0,
+            "fouls": 1,
+            "expectedGoals": 0.2783,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19162247": {
+            "team": "home",
+            "name": "Gaston Lodico",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 1,
+            "passes": 67,
+            "tackles": 1,
+            "fouls": 0,
+            "expectedGoals": 0.1604,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19162252": {
+            "team": "away",
+            "name": "Di Placido",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 0,
+            "passes": 17,
+            "tackles": 3,
+            "fouls": 4,
+            "expectedGoals": 0.0048,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 1,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19169027": {
+            "team": "home",
+            "name": "Duvan Vergara",
+            "goals": 0,
+            "totalShots": 3,
+            "shotsOnTarget": 1,
+            "passes": 19,
+            "tackles": 1,
+            "fouls": 0,
+            "expectedGoals": 0.3306,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19170665": {
+            "team": "away",
+            "name": "Ignacio Galvan",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 0,
+            "passes": 23,
+            "tackles": 1,
+            "fouls": 0,
+            "expectedGoals": 0.0326,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19173805": {
+            "team": "home",
+            "name": "Matko Miljevic",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 0,
+            "passes": 16,
+            "tackles": 0,
+            "fouls": 0,
+            "expectedGoals": 0.0321,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19174247": {
+            "team": "away",
+            "name": "Juan Infante",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 0,
+            "tackles": 0,
+            "fouls": 0,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19174437": {
+            "team": "away",
+            "name": "Leandro Diaz",
+            "goals": 0,
+            "totalShots": 2,
+            "shotsOnTarget": 2,
+            "passes": 14,
+            "tackles": 0,
+            "fouls": 1,
+            "expectedGoals": 0.8416,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19174530": {
+            "team": "away",
+            "name": "Gabriel Compagnucci",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 0,
+            "tackles": 0,
+            "fouls": 0,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19174602": {
+            "team": "away",
+            "name": "Nicolas Lamendola",
+            "goals": 0,
+            "totalShots": 2,
+            "shotsOnTarget": 2,
+            "passes": 23,
+            "tackles": 4,
+            "fouls": 3,
+            "expectedGoals": 0.0685,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19174607": {
+            "team": "away",
+            "name": "Renzo Tesuri",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 20,
+            "tackles": 2,
+            "fouls": 0,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19201368": {
+            "team": "home",
+            "name": "Ezequiel Cannavo",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 0,
+            "passes": 47,
+            "tackles": 3,
+            "fouls": 0,
+            "expectedGoals": 0.0492,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19206766": {
+            "team": "home",
+            "name": "Diego Ortegoza",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 24,
+            "tackles": 0,
+            "fouls": 1,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 1,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19207172": {
+            "team": "home",
+            "name": "Lautaro Diaz",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 0,
+            "passes": 20,
+            "tackles": 1,
+            "fouls": 2,
+            "expectedGoals": 0.0401,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19210189": {
+            "team": "home",
+            "name": "Matias Perez",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 113,
+            "tackles": 0,
+            "fouls": 1,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 1,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19224078": {
+            "team": "away",
+            "name": "Julian Rodrigo Fernandez",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 3,
+            "tackles": 0,
+            "fouls": 0,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19240521": {
+            "team": "home",
+            "name": "Ignacio Rodriguez",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 53,
+            "tackles": 2,
+            "fouls": 0,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19258837": {
+            "team": "away",
+            "name": "Franco Nicola",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 0,
+            "passes": 22,
+            "tackles": 1,
+            "fouls": 2,
+            "expectedGoals": 0.1773,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19264744": {
+            "team": "away",
+            "name": "Clever Ferreira",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 14,
+            "tackles": 1,
+            "fouls": 0,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19270428": {
+            "team": "away",
+            "name": "Lautaro Godoy",
+            "goals": 1,
+            "totalShots": 2,
+            "shotsOnTarget": 1,
+            "passes": 35,
+            "tackles": 2,
+            "fouls": 0,
+            "expectedGoals": 0.1721,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19271831": {
+            "team": "home",
+            "name": "Adrian Fernandez",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 4,
+            "tackles": 0,
+            "fouls": 0,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19287126": {
+            "team": "away",
+            "name": "Ramiro Ruiz Rodriguez",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 0,
+            "passes": 0,
+            "tackles": 0,
+            "fouls": 0,
+            "expectedGoals": 0.0097,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19287677": {
+            "team": "home",
+            "name": "Leonel Perez",
+            "goals": 1,
+            "totalShots": 1,
+            "shotsOnTarget": 1,
+            "passes": 77,
+            "tackles": 2,
+            "fouls": 0,
+            "expectedGoals": 0.2686,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19292943": {
+            "team": "away",
+            "name": "Luciano Andres Vallejo",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 0,
+            "passes": 15,
+            "tackles": 1,
+            "fouls": 0,
+            "expectedGoals": 0.0712,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19311738": {
+            "team": "away",
+            "name": "Leonel Vega",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 14,
+            "tackles": 3,
+            "fouls": 1,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          }
+        },
+        "lineups": {
+          "1038842": {
+            "team": "home",
+            "name": "Marcos Rojo",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 6,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18905473": {
+            "team": "home",
+            "name": "Matías Kranevitter",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 5,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18943395": {
+            "team": "away",
+            "name": "Maximiliano Villa",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 3,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18945141": {
+            "team": "home",
+            "name": "Tomas Conechny",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": true,
+            "number": 17,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": {
+              "time": 46,
+              "playerIn": "Duvan Vergara",
+              "playerOut": "Tomas Conechny",
+              "playerInNumber": 7,
+              "playerOutNumber": 17
+            }
+          },
+          "19155947": {
+            "team": "home",
+            "name": "Alfonso Espino",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 18,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19160306": {
+            "team": "home",
+            "name": "Adrián Martínez",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 9,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19162252": {
+            "team": "away",
+            "name": "Di Placido",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 24,
+            "goals": [],
+            "yellowCards": [
+              28
+            ],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19162500": {
+            "team": "away",
+            "name": "Alexis Canelo",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 14,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19170665": {
+            "team": "away",
+            "name": "Ignacio Galvan",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": true,
+            "number": 21,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": {
+              "time": 88,
+              "playerIn": "Juan Infante",
+              "playerOut": "Ignacio Galvan",
+              "playerInNumber": 32,
+              "playerOutNumber": 21
+            }
+          },
+          "19173805": {
+            "team": "home",
+            "name": "Matko Miljevic",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": true,
+            "number": 10,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": {
+              "time": 31,
+              "playerIn": "Matías Zaracho",
+              "playerOut": "Matko Miljevic",
+              "playerInNumber": 11,
+              "playerOutNumber": 10
+            }
+          },
+          "19174437": {
+            "team": "away",
+            "name": "Leandro Diaz",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": true,
+            "number": 9,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": {
+              "time": 81,
+              "playerIn": "Ramiro Ruiz Rodriguez",
+              "playerOut": "Leandro Diaz",
+              "playerInNumber": 18,
+              "playerOutNumber": 9
+            }
+          },
+          "19174505": {
+            "team": "away",
+            "name": "Tomas Durso",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 25,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19174602": {
+            "team": "away",
+            "name": "Nicolas Lamendola",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 23,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19174607": {
+            "team": "away",
+            "name": "Renzo Tesuri",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": true,
+            "number": 11,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": {
+              "time": 86,
+              "playerIn": "Gabriel Compagnucci",
+              "playerOut": "Renzo Tesuri",
+              "playerInNumber": 28,
+              "playerOutNumber": 11
+            }
+          },
+          "19174727": {
+            "team": "away",
+            "name": "Gianluca Ferrari",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 6,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19190162": {
+            "team": "home",
+            "name": "Matias Tagliamonte",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 30,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19201368": {
+            "team": "home",
+            "name": "Ezequiel Cannavo",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 4,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19206766": {
+            "team": "home",
+            "name": "Diego Ortegoza",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": true,
+            "number": 16,
+            "goals": [],
+            "yellowCards": [
+              13
+            ],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": {
+              "time": 31,
+              "playerIn": "Gaston Lodico",
+              "playerOut": "Diego Ortegoza",
+              "playerInNumber": 20,
+              "playerOutNumber": 16
+            }
+          },
+          "19207172": {
+            "team": "home",
+            "name": "Lautaro Diaz",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": true,
+            "number": 32,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": {
+              "time": 81,
+              "playerIn": "Adrian Fernandez",
+              "playerOut": "Lautaro Diaz",
+              "playerInNumber": 24,
+              "playerOutNumber": 32
+            }
+          },
+          "19210189": {
+            "team": "home",
+            "name": "Matias Perez",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 2,
+            "goals": [],
+            "yellowCards": [
+              67
+            ],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19210195": {
+            "team": "away",
+            "name": "Luis Ingolotti",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 1,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19223973": {
+            "team": "home",
+            "name": "Facundo Cambeses",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 25,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19240521": {
+            "team": "home",
+            "name": "Ignacio Rodriguez",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 19,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19241895": {
+            "team": "away",
+            "name": "Manuel Brondo",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 30,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19250887": {
+            "team": "away",
+            "name": "Ezequiel Ham",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 8,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19252963": {
+            "team": "home",
+            "name": "Juan Barinaga",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 14,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19258837": {
+            "team": "away",
+            "name": "Franco Nicola",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": true,
+            "number": 10,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": {
+              "time": 86,
+              "playerIn": "Julian Rodrigo Fernandez",
+              "playerOut": "Franco Nicola",
+              "playerInNumber": 5,
+              "playerOutNumber": 10
+            }
+          },
+          "19264744": {
+            "team": "away",
+            "name": "Clever Ferreira",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 26,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19270428": {
+            "team": "away",
+            "name": "Lautaro Godoy",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 31,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19276171": {
+            "team": "home",
+            "name": "Gonzalo Escudero",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 43,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19282656": {
+            "team": "away",
+            "name": "Facundo Pimienta",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 22,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19287239": {
+            "team": "home",
+            "name": "Elias Torres",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 22,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19287677": {
+            "team": "home",
+            "name": "Leonel Perez",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 33,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19292943": {
+            "team": "away",
+            "name": "Luciano Andres Vallejo",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 36,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19311738": {
+            "team": "away",
+            "name": "Leonel Vega",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 19,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19329266": {
+            "team": "away",
+            "name": "Rodrigo Granillo",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 27,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19335211": {
+            "team": "home",
+            "name": "Alberto Campo",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 35,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19335214": {
+            "team": "home",
+            "name": "Mateo Ezequiel Martinez",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 38,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          }
+        }
+      },
+      "status": {
+        "info": "1st Half",
+        "time": 0
+      },
+      "hasLiveCourt": true
+    },
+    "id": "1006000000000089890534"
+  },
+  {
+    "fixture": {
+      "eventId": 30814144,
+      "startDate": 1788742800000,
+      "properties": {
+        "eventName": "1",
+        "eventRound": null,
+        "eventType": 1
+      },
+      "status": "In progress",
+      "lastUpdate": 1788747733811,
+      "providerId": 2,
+      "sportRadarId": 0,
+      "betGeniusId": null,
+      "outright": false,
+      "racing": false,
+      "participantsInfo": [],
+      "competitionSeqId": 88499,
+      "regionSeqId": 5596,
+      "seqId": 43337661,
+      "id": 2274298,
+      "virtualCourtId": "aaec256a-c4d7-5abb-94ea-360c9db9e903",
+      "sport": {
+        "name": "Tennis",
+        "id": 3
+      },
+      "competition": {
+        "seqId": 88499,
+        "id": 8617,
+        "name": "Japan",
+        "providerId": 18283418,
+        "providerName": "WTT Men - Sapporo - Hard"
+      },
+      "region": {
+        "seqId": 5596,
+        "id": 217,
+        "name": "ITF Men",
+        "providerId": 1190,
+        "providerName": "Japan"
+      },
+      "participants": [
+        {
+          "seqId": 83366,
+          "id": 74258,
+          "name": "Riku Takahata",
+          "providerId": 718281,
+          "providerName": "Riku Takahata",
+          "home": true
+        },
+        {
+          "seqId": 1351315,
+          "id": 104353,
+          "name": "Takumi Katsuda",
+          "providerId": 1054664,
+          "providerName": "Takumi Katsuda"
+        }
+      ],
+      "statsId": "f0f5fa4e35544f8088bf6ad99e675e2d"
+    },
+    "markets": [],
+    "live": {
+      "scoreBoard": {
+        "points": {
+          "h": "15",
+          "g": "0"
+        },
+        "s1": {
+          "h": 6,
+          "g": 1
+        },
+        "s2": {
+          "h": 4,
+          "g": 3
+        },
+        "s3": {
+          "h": -1,
+          "g": -1
+        },
+        "s4": {
+          "h": -1,
+          "g": -1
+        },
+        "s5": {
+          "h": -1,
+          "g": -1
+        },
+        "sets": {
+          "h": 1,
+          "g": 0
+        },
+        "servis": {
+          "h": "true",
+          "g": "false"
+        },
+        "state": "S2"
+      },
+      "timeline": [],
+      "jerseyColors": {
+        "h": "000000",
+        "g": "000000"
+      },
+      "clock": null,
+      "virtualCourt": true,
+      "virtualCourtId": 2274298,
+      "stats": {
+        "aces": {
+          "h": -1,
+          "g": -1
+        },
+        "breakPoints": {
+          "h": -1,
+          "g": -1
+        },
+        "breakPointsConversion": {
+          "h": -1,
+          "g": -1
+        },
+        "winFirstServePerc": {
+          "h": -1,
+          "g": -1
+        },
+        "winSecondServePerc": {
+          "h": -1,
+          "g": -1
+        },
+        "pointsOnOwnServe": {
+          "h": -1,
+          "g": -1
+        },
+        "serviceFaults": {
+          "h": 10,
+          "g": 10
+        },
+        "doubleFaults": {
+          "h": -1,
+          "g": -1
+        },
+        "totalPointsWon": {
+          "h": 51,
+          "g": 34
+        }
+      },
+      "status": {
+        "time": 0,
+        "info": "set2"
+      },
+      "incidents": {
+        "whistle": "Service Fault",
+        "whistleId": 3006,
+        "par": 1,
+        "ballPos": null,
+        "player": null,
+        "info": null,
+        "type": "service_fault",
+        "tries": null,
+        "ball": null
+      },
+      "hasLiveCourt": true
+    },
+    "id": "1006000000000030814144"
+  },
+  {
+    "fixture": {
+      "eventId": 30816262,
+      "startDate": 1788742800000,
+      "properties": {
+        "eventName": "1",
+        "eventRound": null,
+        "eventType": 1
+      },
+      "status": "In progress",
+      "lastUpdate": 1788747733392,
+      "providerId": 2,
+      "sportRadarId": 0,
+      "betGeniusId": null,
+      "outright": false,
+      "racing": false,
+      "participantsInfo": [],
+      "competitionSeqId": 88499,
+      "regionSeqId": 5596,
+      "seqId": 43340168,
+      "id": null,
+      "virtualCourtId": "3c059fff-e615-5472-b200-5e2d9427a6ea",
+      "sport": {
+        "name": "Tennis",
+        "id": 3
+      },
+      "competition": {
+        "seqId": 88499,
+        "id": 8617,
+        "name": "Japan",
+        "providerId": 18283418,
+        "providerName": "WTT Men - Sapporo - Hard"
+      },
+      "region": {
+        "seqId": 5596,
+        "id": 55,
+        "name": "Japan",
+        "providerId": 1190,
+        "providerName": "Japan"
+      },
+      "participants": [
+        {
+          "seqId": 1277795,
+          "id": 97552,
+          "name": "Saki Tange",
+          "providerId": 1021138,
+          "providerName": "Saki Tange",
+          "home": true
+        },
+        {
+          "seqId": 2105942,
+          "id": null,
+          "name": null,
+          "providerId": 1339023,
+          "providerName": "Riku Nakamoto"
+        }
+      ],
+      "statsId": "90cf90b41e66d007373283f221410adb"
+    },
+    "markets": [],
+    "live": {
+      "scoreBoard": {
+        "points": {
+          "h": "30",
+          "g": "15"
+        },
+        "s1": {
+          "h": 6,
+          "g": 2
+        },
+        "s2": {
+          "h": 2,
+          "g": 1
+        },
+        "s3": {
+          "h": -1,
+          "g": -1
+        },
+        "s4": {
+          "h": -1,
+          "g": -1
+        },
+        "s5": {
+          "h": -1,
+          "g": -1
+        },
+        "sets": {
+          "h": 1,
+          "g": 0
+        },
+        "servis": {
+          "h": "true",
+          "g": "false"
+        },
+        "state": "S2"
+      },
+      "timeline": [],
+      "jerseyColors": {
+        "h": "000000",
+        "g": "000000"
+      },
+      "clock": null,
+      "virtualCourt": true,
+      "virtualCourtId": 30816262,
+      "stats": {
+        "aces": {
+          "h": -1,
+          "g": -1
+        },
+        "breakPoints": {
+          "h": -1,
+          "g": -1
+        },
+        "breakPointsConversion": {
+          "h": -1,
+          "g": -1
+        },
+        "winFirstServePerc": {
+          "h": -1,
+          "g": -1
+        },
+        "winSecondServePerc": {
+          "h": -1,
+          "g": -1
+        },
+        "pointsOnOwnServe": {
+          "h": -1,
+          "g": -1
+        },
+        "serviceFaults": {
+          "h": 9,
+          "g": 27
+        },
+        "doubleFaults": {
+          "h": -1,
+          "g": -1
+        },
+        "totalPointsWon": {
+          "h": 53,
+          "g": 42
+        }
+      },
+      "status": {
+        "time": 0,
+        "info": "set2"
+      },
+      "incidents": {
+        "whistle": "Point Won",
+        "whistleId": 3023,
+        "par": 1,
+        "ballPos": null,
+        "player": null,
+        "info": null,
+        "type": "point_won",
+        "tries": null,
+        "ball": null
+      },
+      "hasLiveCourt": true
+    },
+    "id": "1006000000000030816262"
+  },
+  {
+    "fixture": {
+      "eventId": 30816229,
+      "startDate": 1788743100000,
+      "properties": {
+        "eventName": "1",
+        "eventRound": null,
+        "eventType": 1
+      },
+      "status": "In progress",
+      "lastUpdate": 1788747741586,
+      "providerId": 2,
+      "sportRadarId": 0,
+      "betGeniusId": null,
+      "outright": false,
+      "racing": false,
+      "participantsInfo": [],
+      "competitionSeqId": 88499,
+      "regionSeqId": 5596,
+      "seqId": 43349432,
+      "id": 2275275,
+      "virtualCourtId": "182107e9-b96a-5fe3-9b10-284f431ba5f6",
+      "sport": {
+        "name": "Tennis",
+        "id": 3
+      },
+      "competition": {
+        "seqId": 88499,
+        "id": 8617,
+        "name": "Japan",
+        "providerId": 18283418,
+        "providerName": "WTT Men - Sapporo - Hard"
+      },
+      "region": {
+        "seqId": 5596,
+        "id": 217,
+        "name": "ITF Men",
+        "providerId": 1190,
+        "providerName": "Japan"
+      },
+      "participants": [
+        {
+          "seqId": 41374,
+          "id": 53265,
+          "name": "Makoto Ochi",
+          "providerId": 179798,
+          "providerName": "Makoto Ochi",
+          "home": true
+        },
+        {
+          "seqId": 280300,
+          "id": 60058,
+          "name": "Seiya Nakanishi",
+          "providerId": 209440,
+          "providerName": "Seiya Nakanishi"
+        }
+      ],
+      "statsId": "3d417cb0b80bfdcb7f7c1d32d27209c5"
+    },
+    "markets": [],
+    "live": {
+      "scoreBoard": {
+        "points": {
+          "h": "30",
+          "g": "0"
+        },
+        "s1": {
+          "h": 6,
+          "g": 4
+        },
+        "s2": {
+          "h": 1,
+          "g": 1
+        },
+        "s3": {
+          "h": -1,
+          "g": -1
+        },
+        "s4": {
+          "h": -1,
+          "g": -1
+        },
+        "s5": {
+          "h": -1,
+          "g": -1
+        },
+        "sets": {
+          "h": 1,
+          "g": 0
+        },
+        "servis": {
+          "h": "false",
+          "g": "true"
+        },
+        "state": "S2"
+      },
+      "timeline": [],
+      "jerseyColors": {
+        "h": "000000",
+        "g": "000000"
+      },
+      "clock": null,
+      "virtualCourt": true,
+      "virtualCourtId": 2275275,
+      "stats": {
+        "aces": {
+          "h": -1,
+          "g": -1
+        },
+        "breakPoints": {
+          "h": -1,
+          "g": -1
+        },
+        "breakPointsConversion": {
+          "h": -1,
+          "g": -1
+        },
+        "winFirstServePerc": {
+          "h": -1,
+          "g": -1
+        },
+        "winSecondServePerc": {
+          "h": -1,
+          "g": -1
+        },
+        "pointsOnOwnServe": {
+          "h": -1,
+          "g": -1
+        },
+        "serviceFaults": {
+          "h": 5,
+          "g": 21
+        },
+        "doubleFaults": {
+          "h": -1,
+          "g": -1
+        },
+        "totalPointsWon": {
+          "h": 45,
+          "g": 34
+        }
+      },
+      "status": {
+        "time": 0,
+        "info": "set2"
+      },
+      "incidents": {
+        "whistle": "Point Won",
+        "whistleId": 3023,
+        "par": 1,
+        "ballPos": null,
+        "player": null,
+        "info": null,
+        "type": "point_won",
+        "tries": null,
+        "ball": null
+      },
+      "hasLiveCourt": true
+    },
+    "id": "1006000000000030816229"
+  },
+  {
+    "fixture": {
+      "eventId": 91879868,
+      "startDate": 1788743700000,
+      "properties": {
+        "eventType": 1,
+        "eventName": "1",
+        "eventRound": "",
+        "counter": 1788747746066
+      },
+      "status": "In progress",
+      "lastUpdate": 1788747746419,
+      "providerId": 4,
+      "sportRadarId": 74308424,
+      "betGeniusId": null,
+      "statsPerformId": null,
+      "outright": false,
+      "racing": false,
+      "participantsInfo": [],
+      "competitionSeqId": 50570,
+      "regionSeqId": 820,
+      "seqId": 43208080,
+      "id": 2268204,
+      "virtualCourtId": "5ed4a515-908f-500d-b86b-64a9c7e26e8a",
+      "sport": {
+        "name": "Soccer",
+        "id": 1
+      },
+      "competition": {
+        "seqId": 50570,
+        "id": 3144,
+        "name": "Leagues Cup",
+        "providerId": 197376,
+        "providerName": "Leagues Cup"
+      },
+      "region": {
+        "seqId": 820,
+        "id": 203,
+        "name": "North America",
+        "providerId": 189657,
+        "providerName": "CONCACAF Clubs"
+      },
+      "participants": [
+        {
+          "seqId": 36108,
+          "id": 44051,
+          "name": "Deportivo Toluca FC",
+          "providerId": 10316151,
+          "providerName": "Deportivo Toluca FC",
+          "home": true
+        },
+        {
+          "seqId": 36494,
+          "id": 3789,
+          "name": "CF Monterrey",
+          "providerId": 11368564,
+          "providerName": "CF Monterrey"
+        }
+      ],
+      "statsId": "df62f5e3fb9bfcc607a31ce6c879063f"
+    },
+    "markets": [],
+    "live": {
+      "scoreBoard": {},
+      "timeline": [
+        {
+          "id": 1033,
+          "type": "injury_time",
+          "description": "Injury time added",
+          "source": "Injury Time Minutes: 2'",
+          "minute": 47,
+          "half": 1
+        },
+        {
+          "id": 1004,
+          "type": "corner",
+          "description": "Corner kick",
+          "source": "7th Corner Kick: CF Monterrey",
+          "minute": 45,
+          "participant": 2,
+          "half": 1,
+          "corner": 7
+        },
+        {
+          "id": 1004,
+          "type": "corner",
+          "description": "Corner kick",
+          "source": "6th Corner Kick: CF Monterrey",
+          "minute": 42,
+          "participant": 2,
+          "half": 1,
+          "corner": 6
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 40",
+          "minute": 40,
+          "time_span": "30-40",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1004,
+          "type": "corner",
+          "description": "Corner kick",
+          "source": "5th Corner Kick: CF Monterrey",
+          "minute": 41,
+          "participant": 2,
+          "half": 1,
+          "corner": 5
+        },
+        {
+          "id": 1005,
+          "type": "yellow_card",
+          "description": "Yellow card issued",
+          "source": "3rd Yellow Card: Deportivo Toluca FC (Franco Romero)",
+          "minute": 38,
+          "participant": 1,
+          "half": 1,
+          "card": 3
+        },
+        {
+          "id": 1004,
+          "type": "corner",
+          "description": "Corner kick",
+          "source": "4th Corner Kick: CF Monterrey",
+          "minute": 35,
+          "participant": 2,
+          "half": 1,
+          "corner": 4
+        },
+        {
+          "id": 1004,
+          "type": "corner",
+          "description": "Corner kick",
+          "source": "3rd Corner Kick: CF Monterrey",
+          "minute": 32,
+          "participant": 2,
+          "half": 1,
+          "corner": 3
+        },
+        {
+          "id": 1013,
+          "type": "goal_kick",
+          "description": "Goal kick",
+          "source": "Goal Kick 30",
+          "minute": 30,
+          "time_span": "20-30",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1013,
+          "type": "goal_kick",
+          "description": "Goal kick",
+          "source": "Goal Kick 30",
+          "minute": 30,
+          "time_span": "20-30",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 30",
+          "minute": 30,
+          "time_span": "20-30",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 30",
+          "minute": 30,
+          "time_span": "20-30",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 30",
+          "minute": 30,
+          "time_span": "20-30",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 30",
+          "minute": 30,
+          "time_span": "20-30",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 30",
+          "minute": 30,
+          "time_span": "20-30",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 30",
+          "minute": 30,
+          "time_span": "20-30",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 30",
+          "minute": 30,
+          "time_span": "20-30",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1004,
+          "type": "corner",
+          "description": "Corner kick",
+          "source": "2nd Corner Kick: CF Monterrey",
+          "minute": 31,
+          "participant": 2,
+          "half": 1,
+          "corner": 2
+        },
+        {
+          "id": 1004,
+          "type": "corner",
+          "description": "Corner kick",
+          "source": "1st Corner Kick: CF Monterrey",
+          "minute": 28,
+          "participant": 2,
+          "half": 1,
+          "corner": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 20",
+          "minute": 20,
+          "time_span": "10-20",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 20",
+          "minute": 20,
+          "time_span": "10-20",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 20",
+          "minute": 20,
+          "time_span": "10-20",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 20",
+          "minute": 20,
+          "time_span": "10-20",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 20",
+          "minute": 20,
+          "time_span": "10-20",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 20",
+          "minute": 20,
+          "time_span": "10-20",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 20",
+          "minute": 20,
+          "time_span": "10-20",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 20",
+          "minute": 20,
+          "time_span": "10-20",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1018,
+          "type": "offside",
+          "description": "Offside",
+          "source": "Offside: CF Monterrey",
+          "minute": 19,
+          "participant": 2,
+          "half": 1
+        },
+        {
+          "id": 1005,
+          "type": "yellow_card",
+          "description": "Yellow card issued",
+          "source": "2nd Yellow Card: CF Monterrey (Orbelín Pineda)",
+          "minute": 13,
+          "participant": 2,
+          "half": 1,
+          "card": 2
+        },
+        {
+          "id": 1013,
+          "type": "goal_kick",
+          "description": "Goal kick",
+          "source": "Goal Kick 10",
+          "minute": 10,
+          "time_span": "0-10",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1013,
+          "type": "goal_kick",
+          "description": "Goal kick",
+          "source": "Goal Kick 10",
+          "minute": 10,
+          "time_span": "0-10",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 10",
+          "minute": 10,
+          "time_span": "0-10",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1014,
+          "type": "free_kick",
+          "description": "Free kick",
+          "source": "Free Kick 10",
+          "minute": 10,
+          "time_span": "0-10",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 10",
+          "minute": 10,
+          "time_span": "0-10",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 10",
+          "minute": 10,
+          "time_span": "0-10",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1009,
+          "type": "throwin",
+          "description": "Throw-in",
+          "source": "Throwin 10",
+          "minute": 10,
+          "time_span": "0-10",
+          "participant": 0,
+          "half": 1
+        },
+        {
+          "id": 1003,
+          "type": "goal",
+          "description": "Goal scored",
+          "source": "1-0 Deportivo Toluca FC Alexis Vega (with Shot)",
+          "minute": 4,
+          "participant": 1,
+          "method": "shot",
+          "half": 1,
+          "goal": 1
+        },
+        {
+          "id": 1005,
+          "type": "yellow_card",
+          "description": "Yellow card issued",
+          "source": "1st Yellow Card: Deportivo Toluca FC (Federico Pereira)",
+          "minute": 1,
+          "participant": 1,
+          "half": 1,
+          "card": 1
+        },
+        {
+          "id": 1001,
+          "type": "match_start",
+          "description": "Start of match",
+          "source": "Match started"
+        }
+      ],
+      "jerseyColors": {},
+      "clock": {
+        "clock_status": "running",
+        "clock_direction": "up",
+        "clock_seconds": 0,
+        "clock_tm": 1788747746419
+      },
+      "incidents": {
+        "whistle": "Attack",
+        "whistleId": 1001,
+        "par": 1,
+        "ballPos": {
+          "x": 49.4,
+          "y": 36.6
+        },
+        "player": null,
+        "info": null,
+        "type": "attack",
+        "tries": null,
+        "ball": null
+      },
+      "virtualCourt": true,
+      "virtualCourtId": 2268204,
+      "stats": {
+        "dangerousAttacks": {
+          "h": 14,
+          "g": 39
+        },
+        "attacks": {
+          "h": 46,
+          "g": 32
+        },
+        "goals": {
+          "h": 1,
+          "g": 0
+        },
+        "possession": {
+          "h": 57,
+          "g": 43
+        },
+        "penalties": {
+          "h": -1,
+          "g": -1
+        },
+        "corners": {
+          "h": 0,
+          "g": 6
+        },
+        "yellowCards": {
+          "h": 2,
+          "g": 1
+        },
+        "redCards": {
+          "h": 0,
+          "g": 0
+        },
+        "totalShots": {
+          "h": 5,
+          "g": 7
+        },
+        "shotsOnTarget": {
+          "h": 3,
+          "g": 2
+        },
+        "shotsOffTarget": {
+          "h": 1,
+          "g": 4
+        },
+        "shotsInsideBox": {
+          "h": 3,
+          "g": 6
+        },
+        "shotsOutsideBox": {
+          "h": 2,
+          "g": 1
+        },
+        "bigChances": {
+          "h": 0,
+          "g": 0
+        },
+        "bigChancesMissed": {
+          "h": 0,
+          "g": 0
+        },
+        "woodwork": {
+          "h": 0,
+          "g": 0
+        },
+        "throwIns": {
+          "h": 4,
+          "g": 11
+        },
+        "freeKicks": {
+          "h": -1,
+          "g": -1
+        },
+        "goalKicks": {
+          "h": -1,
+          "g": -1
+        },
+        "substitutions": {
+          "h": -1,
+          "g": -1
+        },
+        "actionArea": {
+          "h": -1,
+          "g": -1
+        },
+        "expectedGoals": {
+          "h": 1.0586,
+          "g": 0.7211
+        },
+        "passes": {
+          "h": 182,
+          "g": 125
+        },
+        "passesAttempted": {
+          "h": -1,
+          "g": -1
+        },
+        "passesCompleted": {
+          "h": 153,
+          "g": 101
+        },
+        "accLongBalls": {
+          "h": 27,
+          "g": 9
+        },
+        "accCrosses": {
+          "h": 1,
+          "g": 5
+        },
+        "goalkeeperSaves": {
+          "h": 2,
+          "g": 2
+        },
+        "fouls": {
+          "h": 6,
+          "g": 9
+        },
+        "tackles": {
+          "h": 7,
+          "g": 5
+        },
+        "interceptions": {
+          "h": 3,
+          "g": 1
+        },
+        "clearances": {
+          "h": 13,
+          "g": 5
+        },
+        "aerialsWon": {
+          "h": 2,
+          "g": 1
+        },
+        "duelsWon": {
+          "h": 19,
+          "g": 16
+        },
+        "possessionLost": {
+          "h": 44,
+          "g": 55
+        },
+        "dribbles": {
+          "h": 2,
+          "g": 3
+        },
+        "passingAccuracy": {
+          "h": 84,
+          "g": 80
+        },
+        "crosses": {
+          "h": -1,
+          "g": -1
+        },
+        "offsides": {
+          "h": 0,
+          "g": 1
+        },
+        "ballSafe": {
+          "h": -1,
+          "g": -1
+        },
+        "shotsBlocked": {
+          "h": 1,
+          "g": 1
+        },
+        "injuryBreaks": {
+          "h": -1,
+          "g": -1
+        },
+        "missedPenalties": {
+          "h": -1,
+          "g": -1
+        },
+        "kickoffs": {
+          "h": -1,
+          "g": -1
+        },
+        "players": {
+          "1032870": {
+            "team": "away",
+            "name": "Diego Rossi",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 0,
+            "passes": 9,
+            "tackles": 0,
+            "fouls": 1,
+            "expectedGoals": 0.0289,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "1104754": {
+            "team": "away",
+            "name": "Oliver Torres",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 14,
+            "tackles": 1,
+            "fouls": 2,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "18898974": {
+            "team": "away",
+            "name": "Jesús Corona",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 8,
+            "tackles": 0,
+            "fouls": 1,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "18912583": {
+            "team": "away",
+            "name": "Orbelín Pineda",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 7,
+            "tackles": 1,
+            "fouls": 2,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 1,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "18922180": {
+            "team": "away",
+            "name": "Carlos Salcedo",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 0,
+            "passes": 13,
+            "tackles": 0,
+            "fouls": 2,
+            "expectedGoals": 0.0934,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "18930599": {
+            "team": "home",
+            "name": "Jesus Gallardo",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 14,
+            "tackles": 0,
+            "fouls": 1,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "18948424": {
+            "team": "away",
+            "name": "Hugo Cuypers",
+            "goals": 0,
+            "totalShots": 2,
+            "shotsOnTarget": 0,
+            "passes": 9,
+            "tackles": 0,
+            "fouls": 0,
+            "expectedGoals": 0.217,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "18959380": {
+            "team": "away",
+            "name": "Lucas Ocampos",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 1,
+            "passes": 8,
+            "tackles": 0,
+            "fouls": 0,
+            "expectedGoals": 0.2995,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "18961309": {
+            "team": "away",
+            "name": "Gerardo Arteaga",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 0,
+            "passes": 9,
+            "tackles": 3,
+            "fouls": 0,
+            "expectedGoals": 0.0184,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "18970255": {
+            "team": "home",
+            "name": "Helinho",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 14,
+            "tackles": 0,
+            "fouls": 1,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "18973756": {
+            "team": "home",
+            "name": "Alexis Vega",
+            "goals": 1,
+            "totalShots": 2,
+            "shotsOnTarget": 1,
+            "passes": 20,
+            "tackles": 0,
+            "fouls": 0,
+            "expectedGoals": 0.5671,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19068319": {
+            "team": "home",
+            "name": "Federico Vinas",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 1,
+            "passes": 6,
+            "tackles": 0,
+            "fouls": 0,
+            "expectedGoals": 0.3859,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19162431": {
+            "team": "away",
+            "name": "Victor Guzman",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 21,
+            "tackles": 0,
+            "fouls": 0,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19162496": {
+            "team": "away",
+            "name": "Ricardo Chavez Soto",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 1,
+            "passes": 15,
+            "tackles": 0,
+            "fouls": 1,
+            "expectedGoals": 0.0639,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19174525": {
+            "team": "home",
+            "name": "Nicolas Castro",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 1,
+            "passes": 16,
+            "tackles": 0,
+            "fouls": 0,
+            "expectedGoals": 0.0683,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19175409": {
+            "team": "home",
+            "name": "Jesus Angulo",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 10,
+            "tackles": 0,
+            "fouls": 0,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19175640": {
+            "team": "home",
+            "name": "Brian García",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 12,
+            "tackles": 1,
+            "fouls": 1,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19175884": {
+            "team": "home",
+            "name": "Franco Romero",
+            "goals": 0,
+            "totalShots": 1,
+            "shotsOnTarget": 0,
+            "passes": 16,
+            "tackles": 1,
+            "fouls": 1,
+            "expectedGoals": 0.0372,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 1,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19230079": {
+            "team": "home",
+            "name": "Federico Pereira",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 26,
+            "tackles": 1,
+            "fouls": 2,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 1,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          },
+          "19235484": {
+            "team": "home",
+            "name": "Everardo del Villar",
+            "goals": 0,
+            "totalShots": 0,
+            "shotsOnTarget": 0,
+            "passes": 26,
+            "tackles": 3,
+            "fouls": 0,
+            "expectedGoals": 0,
+            "scoredPenalties": -1,
+            "missedPenalties": -1,
+            "totalPenalties": -1,
+            "assists": -1,
+            "corners": -1,
+            "yellowCards": 0,
+            "redCards": 0,
+            "ownGoals": 0,
+            "shotsOffTarget": -1
+          }
+        },
+        "lineups": {
+          "1019120": {
+            "team": "home",
+            "name": "Antonio Briseno",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 3,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "1032870": {
+            "team": "away",
+            "name": "Diego Rossi",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 9,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "1037693": {
+            "team": "away",
+            "name": "Esteban Andrada",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 1,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "1104754": {
+            "team": "away",
+            "name": "Oliver Torres",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 8,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18898974": {
+            "team": "away",
+            "name": "Jesús Corona",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 17,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18899694": {
+            "team": "home",
+            "name": "Paulinho",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 26,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18906951": {
+            "team": "away",
+            "name": "Uros Djurdjevic",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 32,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18907130": {
+            "team": "home",
+            "name": "Luan",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 13,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18912583": {
+            "team": "away",
+            "name": "Orbelín Pineda",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 25,
+            "goals": [],
+            "yellowCards": [
+              13
+            ],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18919838": {
+            "team": "away",
+            "name": "Stefan Medina",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 33,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18922178": {
+            "team": "away",
+            "name": "Erick Aguirre",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 14,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18922180": {
+            "team": "away",
+            "name": "Carlos Salcedo",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 13,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18930599": {
+            "team": "home",
+            "name": "Jesus Gallardo",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 20,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18943919": {
+            "team": "away",
+            "name": "Roberto de la Rosa",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 27,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18948424": {
+            "team": "away",
+            "name": "Hugo Cuypers",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 99,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18959380": {
+            "team": "away",
+            "name": "Lucas Ocampos",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 7,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18961309": {
+            "team": "away",
+            "name": "Gerardo Arteaga",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 3,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18970255": {
+            "team": "home",
+            "name": "Helinho",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 11,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18973756": {
+            "team": "home",
+            "name": "Alexis Vega",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 9,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "18978608": {
+            "team": "home",
+            "name": "Hugo Gonzalez",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 1,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19068319": {
+            "team": "home",
+            "name": "Federico Vinas",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 16,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19131686": {
+            "team": "home",
+            "name": "Fernando Arce",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 24,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19160433": {
+            "team": "away",
+            "name": "Fidel Ambriz",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 5,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19162198": {
+            "team": "away",
+            "name": "Luca Orellano",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 10,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19162431": {
+            "team": "away",
+            "name": "Victor Guzman",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 4,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19162458": {
+            "team": "home",
+            "name": "Diego Barbosa",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 2,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19162496": {
+            "team": "away",
+            "name": "Ricardo Chavez Soto",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 2,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19174443": {
+            "team": "away",
+            "name": "Jorge Rodríguez",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 30,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19174525": {
+            "team": "home",
+            "name": "Nicolas Castro",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 8,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19175409": {
+            "team": "home",
+            "name": "Jesus Angulo",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 10,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19175640": {
+            "team": "home",
+            "name": "Brian García",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 17,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19175684": {
+            "team": "away",
+            "name": "Luis Reyes",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 21,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19175696": {
+            "team": "away",
+            "name": "Luis Cardenas",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 22,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19175697": {
+            "team": "away",
+            "name": "Cesar Ramos",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 31,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19175884": {
+            "team": "home",
+            "name": "Franco Romero",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 5,
+            "goals": [],
+            "yellowCards": [
+              38
+            ],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19177927": {
+            "team": "home",
+            "name": "Pavel Perez",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 15,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19206967": {
+            "team": "home",
+            "name": "Jorge Diaz",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 29,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19230079": {
+            "team": "home",
+            "name": "Federico Pereira",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 6,
+            "goals": [],
+            "yellowCards": [
+              1
+            ],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19235484": {
+            "team": "home",
+            "name": "Everardo del Villar",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": false,
+            "isSubstituted": false,
+            "number": 25,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19235490": {
+            "team": "home",
+            "name": "Victor Guzman",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 7,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19236089": {
+            "team": "home",
+            "name": "Ronaldo Beltrán",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 12,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19244699": {
+            "team": "away",
+            "name": "Iker Fimbres",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 11,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19251402": {
+            "team": "away",
+            "name": "Cesar Garza",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 18,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19261322": {
+            "team": "home",
+            "name": "Luis Navarrete",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 192,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19286920": {
+            "team": "home",
+            "name": "Oswaldo Virgen",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 23,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          },
+          "19286921": {
+            "team": "home",
+            "name": "David Shrem",
+            "firstName": "",
+            "lastName": "",
+            "inTheBench": true,
+            "isSubstituted": false,
+            "number": 18,
+            "goals": [],
+            "yellowCards": [],
+            "redCards": [],
+            "ownGoals": [],
+            "substitution": null
+          }
+        }
+      },
+      "status": {
+        "info": "1st Half",
+        "time": 0
+      },
+      "hasLiveCourt": true
+    },
+    "id": "1006000000000091879868"
+  },
+  {
+    "fixture": {
+      "eventId": 30802953,
+      "startDate": 1788744300000,
+      "properties": {
+        "eventName": "1",
+        "eventRound": null,
+        "eventType": 1
+      },
+      "status": "In progress",
+      "lastUpdate": 1788747735667,
+      "providerId": 2,
+      "sportRadarId": 73992588,
+      "betGeniusId": null,
+      "outright": false,
+      "racing": false,
+      "participantsInfo": [],
+      "competitionSeqId": 83791,
+      "regionSeqId": 5873,
+      "seqId": 43282251,
+      "id": 2271489,
+      "virtualCourtId": "fe8224be-50ec-5e77-a9de-157292ed4a55",
+      "sport": {
+        "name": "Tennis",
+        "id": 3
+      },
+      "competition": {
+        "seqId": 83791,
+        "id": 8894,
+        "name": "US Open (W)",
+        "providerId": 4836,
+        "providerName": "US Open - Women"
+      },
+      "region": {
+        "seqId": 5873,
+        "id": 237,
+        "name": "US Open",
+        "providerId": 2420,
+        "providerName": "USA"
+      },
+      "participants": [
+        {
+          "seqId": 49211,
+          "id": 54878,
+          "name": "Anna Kalinskaya",
+          "providerId": 191831,
+          "providerName": "Anna Kalinskaya",
+          "home": true
+        },
+        {
+          "seqId": 47617,
+          "id": 54857,
+          "name": "Emma Navarro",
+          "providerId": 225458,
+          "providerName": "Emma Navarro"
+        }
+      ],
+      "statsId": "e790e5c67288a5326c7494cf9ef7f315"
+    },
+    "markets": [],
+    "live": {
+      "scoreBoard": {
+        "points": {
+          "h": "40",
+          "g": "A"
+        },
+        "s1": {
+          "h": 4,
+          "g": 6
+        },
+        "s2": {
+          "h": 0,
+          "g": 0
+        },
+        "s3": {
+          "h": -1,
+          "g": -1
+        },
+        "s4": {
+          "h": -1,
+          "g": -1
+        },
+        "s5": {
+          "h": -1,
+          "g": -1
+        },
+        "sets": {
+          "h": 0,
+          "g": 1
+        },
+        "servis": {
+          "h": "false",
+          "g": "true"
+        },
+        "state": "S2"
+      },
+      "timeline": [],
+      "jerseyColors": {
+        "h": "000000",
+        "g": "000000"
+      },
+      "clock": null,
+      "virtualCourt": true,
+      "virtualCourtId": 2271489,
+      "stats": {
+        "aces": {
+          "h": 1,
+          "g": 3
+        },
+        "breakPoints": {
+          "h": -1,
+          "g": -1
+        },
+        "breakPointsConversion": {
+          "h": -1,
+          "g": -1
+        },
+        "winFirstServePerc": {
+          "h": -1,
+          "g": -1
+        },
+        "winSecondServePerc": {
+          "h": -1,
+          "g": -1
+        },
+        "pointsOnOwnServe": {
+          "h": -1,
+          "g": -1
+        },
+        "serviceFaults": {
+          "h": 13,
+          "g": 13
+        },
+        "doubleFaults": {
+          "h": 4,
+          "g": 0
+        },
+        "totalPointsWon": {
+          "h": 29,
+          "g": 37
+        }
+      },
+      "status": {
+        "time": 0,
+        "info": "set2"
+      },
+      "incidents": {
+        "whistle": "Point Won",
+        "whistleId": 3023,
+        "par": 2,
+        "ballPos": null,
+        "player": null,
+        "info": null,
+        "type": "point_won",
+        "tries": null,
+        "ball": null
+      },
+      "hasLiveCourt": true
+    },
+    "id": "1006000000000030802953"
+  },
+  {
+    "fixture": {
+      "eventId": 30820034,
+      "startDate": 1788745050000,
+      "properties": {
+        "eventName": "1",
+        "eventRound": null,
+        "eventType": 1
+      },
+      "status": "In progress",
+      "lastUpdate": 1788747748604,
+      "providerId": 2,
+      "sportRadarId": 0,
+      "betGeniusId": null,
+      "outright": false,
+      "racing": false,
+      "participantsInfo": [],
+      "competitionSeqId": 268712,
+      "regionSeqId": 6155,
+      "seqId": 43356781,
+      "id": null,
+      "virtualCourtId": "f5abd363-6a62-59da-bb46-02caa3f2ff96",
+      "sport": {
+        "name": "Basketball",
+        "id": 2
+      },
+      "competition": {
+        "seqId": 268712,
+        "id": null,
+        "name": null,
+        "providerId": 18296756,
+        "providerName": "Betual NBA"
+      },
+      "region": {
+        "seqId": 6155,
+        "id": null,
+        "name": null,
+        "providerId": 16610,
+        "providerName": "Virtual Matches"
+      },
+      "participants": [
+        {
+          "seqId": 2062852,
+          "id": null,
+          "name": null,
+          "providerId": 1421545,
+          "providerName": "Portland Trail Blazers Virtual",
+          "home": true
+        },
+        {
+          "seqId": 2062784,
+          "id": null,
+          "name": null,
+          "providerId": 1421552,
+          "providerName": "Detroit Pistons Virtual"
+        }
+      ],
+      "statsId": "14e3b63b77f5a939ce8693d4d7c56400"
+    },
+    "markets": [],
+    "live": {
+      "scoreBoard": {
+        "half": {
+          "h": 79,
+          "g": 41
+        },
+        "q1": {
+          "h": 47,
+          "g": 21
+        },
+        "q2": {
+          "h": 32,
+          "g": 20
+        },
+        "q3": {
+          "h": 26,
+          "g": 31
+        },
+        "q4": {
+          "h": 23,
+          "g": 19
+        },
+        "total": {
+          "h": 128,
+          "g": 91
+        },
+        "time": "03:00",
+        "over_time": {
+          "h": -1,
+          "g": -1
+        },
+        "possession": {
+          "h": "false",
+          "g": "false"
+        },
+        "state": "Q4"
+      },
+      "timeline": [],
+      "jerseyColors": {
+        "h": "000000",
+        "g": "000000"
+      },
+      "clock": {
+        "clock_status": "stopped",
+        "clock_direction": "up",
+        "clock_seconds": 180,
+        "clock_tm": 1788747748602
+      },
+      "virtualCourt": true,
+      "virtualCourtId": 30820034,
+      "stats": {
+        "fouls": {
+          "h": -1,
+          "g": -1
+        },
+        "freeThrows": {
+          "h": 0,
+          "g": 0
+        },
+        "freeThrowsScoredPerc": {
+          "h": -1,
+          "g": -1
+        },
+        "twoPointers": {
+          "h": 0,
+          "g": 0
+        },
+        "threePointers": {
+          "h": 0,
+          "g": 0
+        },
+        "timeoutsTaken": {
+          "h": -1,
+          "g": -1
+        },
+        "timeoutsRemaining": {
+          "h": 6,
+          "g": 6
+        },
+        "jumpBalls": {
+          "h": -1,
+          "g": -1
+        },
+        "assists": {
+          "h": -1,
+          "g": -1
+        },
+        "offensiveRebounds": {
+          "h": -1,
+          "g": -1
+        },
+        "defensiveRebounds": {
+          "h": -1,
+          "g": -1
+        },
+        "totalRebounds": {
+          "h": -1,
+          "g": -1
+        },
+        "turnovers": {
+          "h": -1,
+          "g": -1
+        },
+        "steals": {
+          "h": -1,
+          "g": -1
+        },
+        "blocks": {
+          "h": -1,
+          "g": -1
+        },
+        "playersDisqualified": {
+          "h": -1,
+          "g": -1
+        },
+        "players": {}
+      },
+      "status": {
+        "time": 0,
+        "info": "4th Quarter"
+      },
+      "incidents": {
+        "whistle": "2 Points",
+        "whistleId": 2034,
+        "par": 1,
+        "ballPos": null,
+        "player": null,
+        "info": null,
+        "type": "two_points",
+        "tries": null,
+        "ball": null
+      },
+      "hasLiveCourt": true
+    },
+    "id": "1006000000000030820034"
+  },
+  {
+    "fixture": {
+      "eventId": 30820037,
+      "startDate": 1788745050000,
+      "properties": {
+        "eventName": "1",
+        "eventRound": null,
+        "eventType": 1
+      },
+      "status": "In progress",
+      "lastUpdate": 1788747746721,
+      "providerId": 2,
+      "sportRadarId": 0,
+      "betGeniusId": null,
+      "outright": false,
+      "racing": false,
+      "participantsInfo": [],
+      "competitionSeqId": 268712,
+      "regionSeqId": 6155,
+      "seqId": 43356785,
+      "id": null,
+      "virtualCourtId": "74f575af-7dc3-5bcf-beab-9d19085173a3",
+      "sport": {
+        "name": "Basketball",
+        "id": 2
+      },
+      "competition": {
+        "seqId": 268712,
+        "id": null,
+        "name": null,
+        "providerId": 18296756,
+        "providerName": "Betual NBA"
+      },
+      "region": {
+        "seqId": 6155,
+        "id": null,
+        "name": null,
+        "providerId": 16610,
+        "providerName": "Virtual Matches"
+      },
+      "participants": [
+        {
+          "seqId": 2062794,
+          "id": null,
+          "name": null,
+          "providerId": 1421557,
+          "providerName": "Milwaukee Bucks Virtual",
+          "home": true
+        },
+        {
+          "seqId": 2062498,
+          "id": null,
+          "name": null,
+          "providerId": 1421561,
+          "providerName": "Oklahoma City Thunder Virtual"
+        }
+      ],
+      "statsId": "79577fb9ed8998779a22bdb4842d25c1"
+    },
+    "markets": [],
+    "live": {
+      "scoreBoard": {
+        "half": {
+          "h": 45,
+          "g": 69
+        },
+        "q1": {
+          "h": 21,
+          "g": 42
+        },
+        "q2": {
+          "h": 24,
+          "g": 27
+        },
+        "q3": {
+          "h": 27,
+          "g": 37
+        },
+        "q4": {
+          "h": 10,
+          "g": 19
+        },
+        "total": {
+          "h": 82,
+          "g": 125
+        },
+        "time": "03:00",
+        "over_time": {
+          "h": -1,
+          "g": -1
+        },
+        "possession": {
+          "h": "false",
+          "g": "false"
+        },
+        "state": "Q4"
+      },
+      "timeline": [],
+      "jerseyColors": {
+        "h": "000000",
+        "g": "000000"
+      },
+      "clock": {
+        "clock_status": "stopped",
+        "clock_direction": "up",
+        "clock_seconds": 180,
+        "clock_tm": 1788747746719
+      },
+      "virtualCourt": true,
+      "virtualCourtId": 30820037,
+      "stats": {
+        "fouls": {
+          "h": -1,
+          "g": -1
+        },
+        "freeThrows": {
+          "h": 0,
+          "g": 0
+        },
+        "freeThrowsScoredPerc": {
+          "h": -1,
+          "g": -1
+        },
+        "twoPointers": {
+          "h": 0,
+          "g": 0
+        },
+        "threePointers": {
+          "h": 0,
+          "g": 0
+        },
+        "timeoutsTaken": {
+          "h": -1,
+          "g": -1
+        },
+        "timeoutsRemaining": {
+          "h": 6,
+          "g": 6
+        },
+        "jumpBalls": {
+          "h": -1,
+          "g": -1
+        },
+        "assists": {
+          "h": -1,
+          "g": -1
+        },
+        "offensiveRebounds": {
+          "h": -1,
+          "g": -1
+        },
+        "defensiveRebounds": {
+          "h": -1,
+          "g": -1
+        },
+        "totalRebounds": {
+          "h": -1,
+          "g": -1
+        },
+        "turnovers": {
+          "h": -1,
+          "g": -1
+        },
+        "steals": {
+          "h": -1,
+          "g": -1
+        },
+        "blocks": {
+          "h": -1,
+          "g": -1
+        },
+        "playersDisqualified": {
+          "h": -1,
+          "g": -1
+        },
+        "players": {}
+      },
+      "status": {
+        "time": 0,
+        "info": "4th Quarter"
+      },
+      "incidents": {
+        "whistle": "2 Points",
+        "whistleId": 2034,
+        "par": 1,
+        "ballPos": null,
+        "player": null,
+        "info": null,
+        "type": "two_points",
+        "tries": null,
+        "ball": null
+      },
+      "hasLiveCourt": true
+    },
+    "id": "1006000000000030820037"
+  }
+]

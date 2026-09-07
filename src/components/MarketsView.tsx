@@ -29,6 +29,7 @@ import { FEATURED_COUNT, FeaturedMatches } from './FeaturedMatches';
 import { LIVE_COUNT, LiveMatches } from './LiveMatches';
 import { useFeaturedEvents } from '../hooks/useFeaturedEvents';
 import { useLiveEvents } from '../hooks/useLiveEvents';
+import { useLiveScores } from '../hooks/useLiveScores';
 import { LowGasBanner } from './LowGasBanner';
 import { TradePanel } from './TradePanel';
 import { toggleSelection } from '../hooks/useBetSlip';
@@ -197,6 +198,9 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
   // Partidos en juego ahora mismo, para la sección "En vivo".
   const { events: liveEvents, isLoading: isLiveLoading } =
     useLiveEvents(LIVE_COUNT);
+
+  // Sus marcadores, en push por el socket del venue (solo los visibles).
+  const liveScores = useLiveScores(liveEvents);
 
   /**
    * "Ver todos" de la sección En vivo: salta a Deportes con el filtro en vivo
@@ -416,6 +420,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
         <LiveMatches
           events={liveEvents}
           isLoading={isLiveLoading}
+          scores={liveScores}
           onSelectMarket={selectMarket}
           onViewAll={viewAllLive}
         />

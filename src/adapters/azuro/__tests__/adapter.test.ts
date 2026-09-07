@@ -238,6 +238,9 @@ describe('capacidades', () => {
       canRankPopular: true,
       canCombo: true,
       canCashout: true,
+      // Sin cliente de socket inyectado no hay marcadores (los tests de la
+      // suscripción viven en liveScores.test.ts).
+      canLiveScores: false,
     })
 
     const sinAfiliado = makeAdapter({ config: makeAzuroConfig(137, null) })

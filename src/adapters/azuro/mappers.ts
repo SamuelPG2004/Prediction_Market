@@ -10,6 +10,8 @@ import {
   priceToProbability,
   toDecimal,
   type DecimalString,
+  type LiveScore,
+  type LiveScorePhase,
   type Market,
   type MarketStatus,
   type Outcome,
@@ -20,6 +22,7 @@ import type {
   RawBetOrder,
   RawCondition,
   RawGame,
+  RawLiveScoreEntry,
   RawOutcome,
 } from './validate.ts'
 
@@ -211,6 +214,117 @@ export function mapConditionToMarket(
         : {}),
     },
     raw: { game, condition },
+  }
+}
+
+// --- Marcadores en vivo -------------------------------------------------------
+
+/**
+ * ¿Puede este juego tener estadísticas en vivo? El socket solo cubre el
+ * proveedor 6, que va codificado en los caracteres 2-4 del gameId (mismo
+ * criterio que `getProviderFromId` del toolkit). Suscribirse a juegos de otro
+ * proveedor no es un error — el socket simplemente no manda nada — pero se
+ * filtran para no pagar suscripciones muertas.
+ */
+export function isLiveScoreEligibleGameId(gameId: string): boolean {
+  return /^\d{4,}$/.test(gameId) && Number(gameId.slice(1, 4)) === 6
+}
+
+/** 'S2' → set 2, 'Q4' → cuarto 4. Cualquier otra cosa no es una fase fiable. */
+function periodNumberOf(state: string | null, prefix: 'S' | 'Q'): number | null {
+  if (state === null) return null
+  const match = state.match(/^([SQ])(\d)$/)
+  if (match === null || match[1] !== prefix) return null
+  return Number(match[2])
+}
+
+/**
+ * Entrada del socket → marcador del dominio, o `null` si no hay nada
+ * mostrable (sin marcador utilizable, o el partido no ha empezado).
+ *
+ * El deporte se detecta por la FORMA del marcador, no por un campo de deporte:
+ * `total` (puntos) es baloncesto, `sets` es tenis/voleibol y los goles
+ * (`stats.goals`, con `scoreBoard.goals` de respaldo) son fútbol. Así una
+ * entrada con `fixture` nulo o un deporte nuevo del proveedor degradan a
+ * "sin marcador" en vez de a un marcador equivocado.
+ */
+export function mapLiveScore(
+  entry: RawLiveScoreEntry,
+  updatedAt: Date,
+): LiveScore | null {
+  let status: LiveScore['status']
+  switch (entry.status) {
+    case 'In progress':
+      status = 'live'
+      break
+    case 'Finished':
+    case 'PreFinished':
+      status = 'finished'
+      break
+    case 'Not started yet':
+      // Aún no hay marcador que enseñar ni que retirar.
+      return null
+    case 'Coverage lost':
+    case 'Suspended':
+      status = 'suspended'
+      break
+    default:
+      // Estado desconocido o ausente: el marcador no es de fiar.
+      status = 'suspended'
+      break
+  }
+
+  const scoreBoard = entry.scoreBoard
+  let score: { h: number; g: number } | null = null
+  let phase: LiveScorePhase | null = null
+  let periodScores: { home: number; guest: number }[] = []
+
+  if (scoreBoard?.total != null) {
+    // Baloncesto: puntos totales y parciales por cuarto.
+    score = scoreBoard.total
+    periodScores = scoreBoard.periods.map((p) => ({ home: p.h, guest: p.g }))
+    const quarter = periodNumberOf(scoreBoard.state, 'Q')
+    if (quarter !== null) {
+      phase = { kind: 'quarter', number: quarter, clock: scoreBoard.time }
+    }
+  } else if (scoreBoard?.sets != null) {
+    // Tenis/voleibol: sets ganados y juegos/puntos por set.
+    score = scoreBoard.sets
+    periodScores = scoreBoard.periods.map((p) => ({ home: p.h, guest: p.g }))
+    const set = periodNumberOf(scoreBoard.state, 'S')
+    if (set !== null) phase = { kind: 'set', number: set }
+  } else {
+    // Fútbol: el scoreBoard real llega vacío; los goles fiables están en
+    // `stats.goals` y el minuto se deduce del timeline.
+    const goals = entry.statsGoals ?? scoreBoard?.goals ?? null
+    if (goals !== null) {
+      score = goals
+      phase = { kind: 'match', minute: entry.lastIncidentMinute }
+    }
+  }
+
+  if (score === null) {
+    // Sin marcador utilizable solo tiene sentido emitir la RETIRADA de uno
+    // (suspended); un "final" o un "en juego" sin marcador serían inventados.
+    if (status !== 'suspended') return null
+    return {
+      groupId: entry.gameId,
+      status,
+      home: 0,
+      guest: 0,
+      phase: null,
+      updatedAt,
+    }
+  }
+
+  return {
+    groupId: entry.gameId,
+    status,
+    home: score.h,
+    guest: score.g,
+    phase,
+    ...(periodScores.length > 0 ? { periodScores } : {}),
+    updatedAt,
   }
 }
 

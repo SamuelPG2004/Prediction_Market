@@ -183,6 +183,8 @@ export class LimitlessAdapter implements MarketSource {
       canRedeem: true,
       // Un order book no ofrece cash out: cerrar es vender contra el libro.
       canCashout: false,
+      // No deportes: no hay partidos de los que dar marcador.
+      canLiveScores: false,
     }
   }
 

@@ -160,6 +160,48 @@ export interface RawNavigationSport {
   countries: RawNavigationCountry[]
 }
 
+/** Par local/visitante del socket de estadísticas (`h`/`g`). */
+export interface RawHomeGuest {
+  h: number
+  g: number
+}
+
+/**
+ * Entrada del socket de estadísticas en vivo, ya normalizada a lo que consume
+ * el mapper. El payload real se desvía MUCHO de los tipos del SDK (verificado
+ * con captura real 2026-09-06): en fútbol `scoreBoard` llega `{}` y el
+ * marcador fiable es `live.stats.goals`; en tenis/baloncesto los números y
+ * booleanos vienen COMO STRINGS (`"4"`, `"true"`) y `-1` marca el set/cuarto
+ * no jugado. Por eso aquí se lee todo con `asLooseNumber` y campo a campo.
+ */
+export interface RawLiveScoreEntry {
+  gameId: string
+  /**
+   * `fixture.status`: 'In progress' | 'Not started yet' | 'Finished' |
+   * 'PreFinished' | 'Coverage lost' | 'Suspended' (tolerante: uno desconocido
+   * no invalida, el mapper degrada).
+   */
+  status: string | null
+  scoreBoard: {
+    /** Momento del juego según el proveedor: 'S2', 'Q4', 'H1'… */
+    state: string | null
+    /** Reloj "MM:SS" (baloncesto). */
+    time: string | null
+    /** Goles (fútbol), si el proveedor puebla el scoreBoard. */
+    goals: RawHomeGuest | null
+    /** Sets GANADOS (tenis/voleibol). */
+    sets: RawHomeGuest | null
+    /** Puntos totales (baloncesto). */
+    total: RawHomeGuest | null
+    /** Parciales jugados en orden: s1..s5 o q1..q4, ya sin los -1. */
+    periods: RawHomeGuest[]
+  } | null
+  /** `live.stats.goals`: el marcador fiable del fútbol. */
+  statsGoals: RawHomeGuest | null
+  /** Minuto más avanzado visto en el timeline (fútbol), o null. */
+  lastIncidentMinute: number | null
+}
+
 export interface Parsed<T> {
   value: T
   /** Elementos individuales descartados por no validar. */
@@ -191,6 +233,18 @@ function asBoolean(u: unknown, fallback: boolean): boolean {
 function asStringArray(u: unknown): string[] {
   if (!Array.isArray(u)) return []
   return u.filter((item): item is string => typeof item === 'string')
+}
+
+/**
+ * Número "laxo" del socket de estadísticas: acepta número finito o string
+ * numérico (el proveedor manda `"4"` y `4` indistintamente según el deporte).
+ */
+function asLooseNumber(u: unknown): number | null {
+  if (typeof u === 'number') return Number.isFinite(u) ? u : null
+  if (typeof u === 'string' && /^-?\d+(\.\d+)?$/.test(u.trim())) {
+    return Number(u.trim())
+  }
+  return null
 }
 
 // --- Parseadores -----------------------------------------------------------
@@ -599,4 +653,104 @@ export function parseBetOrders(u: unknown): Parsed<RawBetOrder[]> | null {
     })
   }
   return { value: orders, dropped }
+}
+
+// --- Socket de estadísticas en vivo ------------------------------------------
+
+/**
+ * Par h/g con ambos lados numéricos y NO negativos. Un `-1` (set/cuarto no
+ * jugado) o un lado corrupto devuelven `null`: un marcador a medias no se
+ * puede enseñar como marcador.
+ */
+function parseHomeGuest(u: unknown): RawHomeGuest | null {
+  if (!isRecord(u)) return null
+  const h = asLooseNumber(u.h)
+  const g = asLooseNumber(u.g)
+  if (h === null || g === null || h < 0 || g < 0) return null
+  return { h, g }
+}
+
+/** Parciales en orden de juego (s1..s5 o q1..q4), cortando en el primero no jugado. */
+function parsePeriods(
+  scoreBoard: Record<string, unknown>,
+  prefix: 's' | 'q',
+  count: number,
+): RawHomeGuest[] {
+  const periods: RawHomeGuest[] = []
+  for (let i = 1; i <= count; i += 1) {
+    const period = parseHomeGuest(scoreBoard[`${prefix}${i}`])
+    if (period === null) break
+    periods.push(period)
+  }
+  return periods
+}
+
+function parseLiveScoreEntry(u: unknown): RawLiveScoreEntry | null {
+  if (!isRecord(u)) return null
+  const gameId = asString(u.id)
+  if (gameId === null) return null
+
+  const fixture = isRecord(u.fixture) ? u.fixture : null
+  const live = isRecord(u.live) ? u.live : null
+
+  let scoreBoard: RawLiveScoreEntry['scoreBoard'] = null
+  if (live !== null && isRecord(live.scoreBoard)) {
+    const sb = live.scoreBoard
+    scoreBoard = {
+      state: asOptionalString(sb.state),
+      time: asOptionalString(sb.time),
+      goals: parseHomeGuest(sb.goals),
+      sets: parseHomeGuest(sb.sets),
+      total: parseHomeGuest(sb.total),
+      periods:
+        parseHomeGuest(sb.total) !== null
+          ? parsePeriods(sb, 'q', 4)
+          : parsePeriods(sb, 's', 5),
+    }
+  }
+
+  const statsGoals =
+    live !== null && isRecord(live.stats) ? parseHomeGuest(live.stats.goals) : null
+
+  // El minuto de fútbol no viene en el scoreBoard real (llega vacío) ni en el
+  // reloj (`clock_seconds` llega 0): se deduce del incidente más avanzado del
+  // timeline, que sí trae `minute`.
+  let lastIncidentMinute: number | null = null
+  if (live !== null && Array.isArray(live.timeline)) {
+    for (const incident of live.timeline) {
+      if (!isRecord(incident)) continue
+      const minute = asLooseNumber(incident.minute)
+      if (minute === null || minute < 0) continue
+      if (lastIncidentMinute === null || minute > lastIncidentMinute) {
+        lastIncidentMinute = minute
+      }
+    }
+  }
+
+  return {
+    gameId,
+    status: fixture !== null ? asOptionalString(fixture.status) : null,
+    scoreBoard,
+    statsGoals,
+    lastIncidentMinute,
+  }
+}
+
+/**
+ * Mensaje completo del socket de estadísticas: un array de entradas (el
+ * snapshot inicial trae varias; las actualizaciones, una). Una entrada
+ * malformada se descarta sin tirar el mensaje.
+ */
+export function parseLiveScoreEntries(
+  u: unknown,
+): Parsed<RawLiveScoreEntry[]> | null {
+  if (!Array.isArray(u)) return null
+  const entries: RawLiveScoreEntry[] = []
+  let dropped = 0
+  for (const raw of u) {
+    const entry = parseLiveScoreEntry(raw)
+    if (entry === null) dropped += 1
+    else entries.push(entry)
+  }
+  return { value: entries, dropped }
 }

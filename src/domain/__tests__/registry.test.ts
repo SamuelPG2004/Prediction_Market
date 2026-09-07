@@ -23,6 +23,7 @@ function fakeSource(venue: string): MarketSource {
       canRankPopular: false,
       canCombo: false,
       canCashout: false,
+      canLiveScores: false,
     },
     listMarkets: unsupported,
     getMarket: unsupported,

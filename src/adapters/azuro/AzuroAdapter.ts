@@ -40,6 +40,7 @@ import {
   type ComboSelection,
   type DecimalString,
   type League,
+  type LiveScore,
   type Market,
   type MarketCategory,
   type MarketFilter,
@@ -56,8 +57,11 @@ import {
 } from '../../domain/types.ts'
 import type { AzuroConfig } from './config.ts'
 import type { AzuroGateway, AzuroWalletBridge } from './gateway.ts'
+import type { AzuroLiveScoreClient } from './liveScoreSocket.ts'
 import {
+  isLiveScoreEligibleGameId,
   mapConditionToMarket,
+  mapLiveScore,
   mapOrderToPosition,
   parseNativeId,
 } from './mappers.ts'
@@ -72,6 +76,7 @@ import {
   parseCreateBetResponse,
   parseGames,
   parseGamesPage,
+  parseLiveScoreEntries,
   parseNavigation,
   parseSearchGames,
   type RawGame,
@@ -178,6 +183,8 @@ export interface AzuroAdapterDeps {
   gateway: AzuroGateway
   /** Sin wallet el adaptador sigue sirviendo catálogo y cotizaciones. */
   wallet?: AzuroWalletBridge
+  /** Cliente del socket de marcadores en vivo. Sin él, `canLiveScores: false`. */
+  liveScores?: AzuroLiveScoreClient
   /** Inyectable en tests. Por defecto, el reloj real. */
   now?: () => number
 }
@@ -191,12 +198,14 @@ export class AzuroAdapter implements MarketSource {
   private readonly config: AzuroConfig
   private readonly gateway: AzuroGateway
   private readonly wallet: AzuroWalletBridge | null
+  private readonly liveScores: AzuroLiveScoreClient | null
   private readonly now: () => number
 
   constructor(deps: AzuroAdapterDeps) {
     this.config = deps.config
     this.gateway = deps.gateway
     this.wallet = deps.wallet ?? null
+    this.liveScores = deps.liveScores ?? null
     this.now = deps.now ?? Date.now
     this.chainId = deps.config.chainId
     this.capabilities = {
@@ -215,7 +224,34 @@ export class AzuroAdapter implements MarketSource {
       // no sirve las rutas /cashout/* (2026-09-01): hasta entonces las
       // ofertas llegan como null y la UI no enseña nada.
       canCashout: deps.config.cashoutAddress !== null,
+      canLiveScores: deps.liveScores !== undefined,
     }
+  }
+
+  /**
+   * Marcadores en vivo vía el socket de estadísticas de Azuro. Los groupIds
+   * son gameIds (así construye `mapConditionToMarket` el `group.id`). El
+   * cliente entrega mensajes completos; aquí se validan, se filtran a los
+   * juegos pedidos y se mapean. Una entrada sin marcador utilizable no llama
+   * al callback: la ausencia no es un error.
+   */
+  subscribeLiveScores(
+    groupIds: string[],
+    cb: (score: LiveScore) => void,
+  ): () => void {
+    if (this.liveScores === null) return () => {}
+    const wanted = new Set(groupIds.filter(isLiveScoreEligibleGameId))
+    if (wanted.size === 0) return () => {}
+
+    return this.liveScores.subscribe([...wanted], (message) => {
+      const parsed = parseLiveScoreEntries(message)
+      if (parsed === null) return
+      for (const entry of parsed.value) {
+        if (!wanted.has(entry.gameId)) continue
+        const score = mapLiveScore(entry, new Date(this.now()))
+        if (score !== null) cb(score)
+      }
+    })
   }
 
   // --- Errores ---------------------------------------------------------------

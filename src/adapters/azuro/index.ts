@@ -26,6 +26,13 @@ export {
   type AzuroGateway,
   type AzuroWalletBridge,
 } from './gateway.ts'
+export {
+  createAzuroLiveScoreClient,
+  createAzuroLiveScoreClientForChain,
+  type AzuroLiveScoreClient,
+  type LiveScoreSocketFactory,
+  type LiveScoreSocketLike,
+} from './liveScoreSocket.ts'
 
 /**
  * Fabrica el adaptador con la configuración del entorno Vite y la pasarela

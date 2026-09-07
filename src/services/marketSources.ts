@@ -23,6 +23,7 @@ import type { VenueId } from '../domain/types'
 import {
   AzuroAdapter,
   createAzuroGateway,
+  createAzuroLiveScoreClientForChain,
   createViemWalletBridge,
   loadAzuroConfigFromEnv,
   type AzuroWalletBridge,
@@ -119,6 +120,9 @@ const azuro = new AzuroAdapter({
   config: azuroConfig,
   gateway: createAzuroGateway(azuroConfig.chainId),
   wallet: lazyAzuroBridge(azuroConfig.chainId),
+  // Marcadores en vivo. El socket es perezoso: se abre con el primer
+  // suscriptor y se cierra con el último, así que construirlo aquí no conecta.
+  liveScores: createAzuroLiveScoreClientForChain(azuroConfig.chainId),
 })
 
 const limitless = new LimitlessAdapter({

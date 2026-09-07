@@ -148,6 +148,48 @@ export interface MarketGroup {
   totalVolumeUsd?: number
 }
 
+/**
+ * Momento del juego de un marcador en vivo, estructurado para que la UI lo
+ * etiquete sin conocer el venue ni el idioma en que este publica.
+ */
+export type LiveScorePhase =
+  /** Deportes de reloj corrido (fútbol): minuto de juego, si se conoce. */
+  | { kind: 'match'; minute: number | null }
+  /** Deportes por sets (tenis, voleibol): set en juego. */
+  | { kind: 'set'; number: number }
+  /** Deportes por cuartos (baloncesto): cuarto y reloj "MM:SS" si lo hay. */
+  | { kind: 'quarter'; number: number; clock: string | null }
+
+/**
+ * Marcador en vivo de un evento, normalizado al dominio. Llega por
+ * `MarketSource.subscribeLiveScores` y se asocia al evento por
+ * `Market.group.id`.
+ *
+ * DINERO REAL: un marcador equivocado junto a un botón de apostar induce
+ * apuestas erróneas. Por eso el estado degrada a 'suspended' ante cualquier
+ * duda (cobertura perdida, estado desconocido) y la UI debe OCULTAR el
+ * marcador en ese estado, nunca enseñar uno congelado.
+ */
+export interface LiveScore {
+  /** Id del grupo (`Market.group.id`) al que pertenece. */
+  groupId: string
+  /**
+   * 'live': el marcador se está actualizando. 'finished': resultado final.
+   * 'suspended': el venue perdió la cobertura o el estado es desconocido —
+   * el marcador puede estar desactualizado y no debe mostrarse.
+   */
+  status: 'live' | 'finished' | 'suspended'
+  /** Marcador principal: goles, sets ganados o puntos, según el deporte. */
+  home: number
+  guest: number
+  /** Momento del juego, o `null` si el venue no lo publica. */
+  phase: LiveScorePhase | null
+  /** Parciales por set/cuarto en orden de juego, si el deporte los tiene. */
+  periodScores?: { home: number; guest: number }[]
+  /** Cuándo llegó la última actualización (para detectar marcadores rancios). */
+  updatedAt: Date
+}
+
 export interface Market {
   /** `${venue}:${nativeId}`. Único en toda la app. */
   id: string
@@ -507,6 +549,8 @@ export interface VenueCapabilities {
   canCombo: boolean
   /** Cerrar posiciones abiertas antes de resolverse (cash out). */
   canCashout: boolean
+  /** Marcadores en vivo por evento (`subscribeLiveScores`). */
+  canLiveScores: boolean
 }
 
 /**
@@ -618,6 +662,19 @@ export interface MarketSource {
 
   /** Suscripción en vivo. Devuelve la función de baja. */
   subscribe?(marketIds: string[], cb: (m: Market) => void): () => void
+
+  /**
+   * Marcadores en vivo de los eventos indicados (`Market.group.id`), en push.
+   * Devuelve la función de baja; darse de baja detiene las entregas y libera
+   * la conexión cuando nadie más escucha. Solo venues con `canLiveScores`
+   * (mismo criterio que `subscribe?`: el método existe cuando la capacidad es
+   * verdadera). Un grupo sin cobertura simplemente no entrega marcadores: la
+   * ausencia no es un error.
+   */
+  subscribeLiveScores?(
+    groupIds: string[],
+    cb: (score: LiveScore) => void,
+  ): () => void
 }
 
 // ---------------------------------------------------------------------------
