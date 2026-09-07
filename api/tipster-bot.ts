@@ -27,11 +27,14 @@
  *  - TIPSTER_BOT_TTL_MIN   opcional; minutos de caché (por defecto 15).
  */
 import { getMarketName, getSelectionName } from '@azuro-org/dictionaries'
+// OJO extensión .js: el proyecto es "type": "module" y el runtime ESM de
+// Vercel exige extensión en los imports relativos (sin ella la función casca
+// al invocarse con FUNCTION_INVOCATION_FAILED, verificado 2026-09-06).
 import {
   MARCADOR_PENDIENTE,
   REGLAS_EXTRA,
   TRANSCRIPCIONES,
-} from './_tipster/transcripciones'
+} from './_tipster/transcripciones.js'
 
 const AZURO_API = 'https://api.onchainfeed.org/api/v1/public'
 const AZURO_ENVIRONMENT = 'PolygonUSDT'
