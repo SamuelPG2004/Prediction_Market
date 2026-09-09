@@ -14,7 +14,18 @@
  *    partido, no minuto a minuto, y el tier gratuito aguanta poco tráfico.
  */
 
-const TSDB_API = 'https://www.thesportsdb.com/api/v1/json/123'
+/**
+ * Clave de TheSportsDB: la de demostración "123" funciona sin registro pero
+ * `eventslast` solo devuelve EL ÚLTIMO partido (verificado 2026-09-08); con
+ * clave propia (THESPORTSDB_KEY en Vercel, hay tier de pago barato) devuelve
+ * los últimos 5 y la racha gana chicha.
+ */
+function tsdbApi(): string {
+  const key = process.env.THESPORTSDB_KEY
+  return `https://www.thesportsdb.com/api/v1/json/${
+    typeof key === 'string' && key.trim() !== '' ? key.trim() : '123'
+  }`
+}
 /** Últimos partidos que se resumen por equipo. */
 const MAX_PARTIDOS = 5
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000
@@ -158,12 +169,12 @@ export async function formaDeEquipo(nombre: string): Promise<FormaEquipo | null>
   try {
     for (const variante of variantesDeBusqueda(nombre)) {
       const busqueda = await fetchJson(
-        `${TSDB_API}/searchteams.php?t=${encodeURIComponent(variante)}`,
+        `${tsdbApi()}/searchteams.php?t=${encodeURIComponent(variante)}`,
       )
       const equipo = parsearBusquedaEquipos(busqueda, variante)
       if (equipo === null) continue
 
-      const eventos = await fetchJson(`${TSDB_API}/eventslast.php?id=${equipo.id}`)
+      const eventos = await fetchJson(`${tsdbApi()}/eventslast.php?id=${equipo.id}`)
       const ultimos = parsearUltimosEventos(eventos, equipo.id)
       if (ultimos.length === 0) continue
 

@@ -32,10 +32,12 @@ POST /api/tipster-chat          (el chat de pronósticos)
      buscó en la dApp (cualquiera del catálogo, no solo los populares).
   2. Pasa el control de cupo (abajo) y trae de Azuro ese partido con
      sus mercados y cuotas.
-  3. Si es fútbol, raspa la forma reciente de ambos equipos (últimos 5
-     partidos con marcadores) de TheSportsDB, datos públicos sin clave
+  3. Si es fútbol, raspa la forma reciente de ambos equipos (partidos
+     jugados con marcadores) de TheSportsDB, datos públicos
      (api/_tipster/futbol.ts; caché 6 h por equipo). Sofascore devuelve
      403 a IPs de datacenter y Flashscore exige JS: por eso esta fuente.
+     OJO: la clave de demostración "123" solo devuelve el ÚLTIMO partido;
+     con THESPORTSDB_KEY propia en Vercel devuelve los últimos 5.
   4. Gemini responde { respuesta, picks } con el método del tipster; los
      picks se validan contra el catálogo igual que en la pasada normal.
 ```
