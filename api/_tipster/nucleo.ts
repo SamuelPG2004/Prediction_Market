@@ -276,6 +276,10 @@ export const PICKS_SCHEMA_FRAGMENT = {
 /**
  * Llama a Gemini con esquema JSON forzado y devuelve el JSON ya parseado.
  * Lanza con detalle acotado si la API falla o no responde JSON.
+ *
+ * El tier gratuito devuelve 503 "high demand" transitorios con frecuencia
+ * (verificado 2026-09-07): un único reintento con pausa corta resuelve la
+ * mayoría sin comerse el presupuesto de la función.
  */
 export async function llamarGemini(opts: {
   apiKey: string
@@ -286,23 +290,33 @@ export async function llamarGemini(opts: {
   temperature?: number
   maxOutputTokens?: number
 }): Promise<unknown> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${opts.model}:generateContent`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': opts.apiKey },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: opts.systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: opts.userText }] }],
-        generationConfig: {
-          temperature: opts.temperature ?? 0.2,
-          maxOutputTokens: opts.maxOutputTokens ?? 4096,
-          responseMimeType: 'application/json',
-          responseSchema: opts.schema,
-        },
-      }),
-    },
-  )
+  let response: Response
+  for (let intento = 0; ; intento++) {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${opts.model}:generateContent`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': opts.apiKey },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: opts.systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: opts.userText }] }],
+          generationConfig: {
+            temperature: opts.temperature ?? 0.2,
+            // Techo holgado: los modelos con razonamiento gastan parte del
+            // presupuesto "pensando" y un techo justo corta el JSON a medias.
+            maxOutputTokens: opts.maxOutputTokens ?? 8192,
+            responseMimeType: 'application/json',
+            responseSchema: opts.schema,
+          },
+        }),
+      },
+    )
+    if (response.status === 503 && intento === 0) {
+      await new Promise((r) => setTimeout(r, 2000))
+      continue
+    }
+    break
+  }
   if (!response.ok) {
     const detail = await response.text().catch(() => '')
     throw new Error(`Gemini ${response.status}: ${detail.slice(0, 300)}`)

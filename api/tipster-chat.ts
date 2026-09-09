@@ -149,7 +149,6 @@ export default async function handler(
       userText,
       schema: RESPONSE_SCHEMA,
       temperature: 0.4,
-      maxOutputTokens: 2048,
     })
     const respuesta = isRecord(parsed) && typeof parsed.respuesta === 'string'
       ? parsed.respuesta.trim()
