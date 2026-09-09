@@ -21,10 +21,10 @@ export default defineConfig(() => {
       // HMR se desactiva en AI Studio via DISABLE_HMR.
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
-      proxy: limitlessProxy,
+      proxy: apiProxy,
     },
     preview: {
-      proxy: limitlessProxy,
+      proxy: apiProxy,
     },
   };
 });
@@ -41,5 +41,24 @@ const limitlessProxy = {
     target: 'https://api.limitless.exchange',
     changeOrigin: true,
     rewrite: (path: string) => path.replace(/^\/api\/limitless/, ''),
+  },
+};
+
+/**
+ * Los endpoints serverless propios (bot tipster y su chat) solo existen en
+ * Vercel: en dev se reenvían al despliegue de producción para que la sección
+ * del bot también funcione en local. Las claves (Gemini) viven allí, así que
+ * en local no hace falta configurar nada — a cambio, el chat en dev consume
+ * el mismo cupo diario que producción.
+ */
+const apiProxy = {
+  ...limitlessProxy,
+  '/api/tipster-bot': {
+    target: 'https://prediction-market-phi-rust.vercel.app',
+    changeOrigin: true,
+  },
+  '/api/tipster-chat': {
+    target: 'https://prediction-market-phi-rust.vercel.app',
+    changeOrigin: true,
   },
 };

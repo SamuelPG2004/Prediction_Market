@@ -4,7 +4,9 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/gas-station.ts": { "maxDuration": 60 }
+    "api/gas-station.ts": { "maxDuration": 60 },
+    "api/tipster-bot.ts": { "maxDuration": 60 },
+    "api/tipster-chat.ts": { "maxDuration": 60 }
   },
   "rewrites": [
     {

@@ -1,30 +1,66 @@
 # Bot tipster (IA sobre el catálogo de Azuro)
 
-Un endpoint serverless que le pide a Gemini que evalúe los partidos actuales
-de Azuro **con el método de un tipster concreto** (sus transcripciones de
-video, inyectadas en el system prompt) y devuelve picks listos para la dApp.
-El frontend los pinta en la sección "Picks del tipster" de la portada.
+Dos endpoints serverless que le piden a Gemini que evalúe partidos de Azuro
+**con el método de un tipster concreto** (sus transcripciones de video,
+inyectadas en el system prompt) y devuelven picks listos para la dApp.
+El frontend los pinta en la sección "Picks del tipster" de la portada, con
+tres modos: picks automáticos, "yo elijo los partidos" y un chat para
+preguntar por CUALQUIER partido del sportsbook.
+
+El código compartido (catálogo de Azuro, system prompt, llamada a Gemini,
+validación de picks) vive en `api/_tipster/nucleo.ts`.
 
 ## Cómo funciona, en una pasada
 
 ```
-GET /api/tipster-bot
+GET /api/tipster-bot            (los picks de la sección)
   1. Lee el perfil del tipster (api/_tipster/transcripciones.ts).
   2. Trae de Azuro los 15 prematch más apostados + hasta 10 mercados
      activos por partido, con sus cuotas (REST del Backend API).
+     Con ?gameIds=a,b,c evalúa SOLO esos (modo "yo elijo").
   3. Se lo pasa a Gemini con el perfil como system prompt y un esquema
      JSON forzado: la IA extrae las reglas del tipster y elige (o NO
      elige: la lista vacía es respuesta válida).
   4. Valida cada pick contra el catálogo real: ids inexistentes fuera,
      y la cuota mostrada es SIEMPRE la de Azuro, nunca la del modelo.
-  5. Cachea el resultado (TTL 15 min) y responde.
+  5. Cachea el resultado (TTL 15 min) y responde. Si una pasada falla
+     (cuota de Gemini, Azuro caído), sirve la última buena aunque haya
+     caducado: mejor picks viejos que una sección que desaparece.
+
+POST /api/tipster-chat          (el chat de pronósticos)
+  1. Recibe { gameId, pregunta? } — un único partido, el que el usuario
+     buscó en la dApp (cualquiera del catálogo, no solo los populares).
+  2. Pasa el control de cupo (abajo) y trae de Azuro ese partido con
+     sus mercados y cuotas.
+  3. Si es fútbol, raspa la forma reciente de ambos equipos (últimos 5
+     partidos con marcadores) de TheSportsDB, datos públicos sin clave
+     (api/_tipster/futbol.ts; caché 6 h por equipo). Sofascore devuelve
+     403 a IPs de datacenter y Flashscore exige JS: por eso esta fuente.
+  4. Gemini responde { respuesta, picks } con el método del tipster; los
+     picks se validan contra el catálogo igual que en la pasada normal.
 ```
 
-El frontend (`src/components/TipsterPicks.tsx`) llama al endpoint al cargar:
-si responde, pinta las tarjetas; si responde 503 (sin configurar) o no existe
-(dev local), la sección desaparece entera. "Ver mercado" abre el panel de
-apuesta con el resultado preseleccionado — **el bot nunca apuesta**: firmar
-es siempre un acto humano.
+El frontend (`src/components/TipsterPicks.tsx`) llama a `/api/tipster-bot` al
+cargar: si responde, pinta la sección; si responde 503 (sin configurar)
+desaparece entera. Un fallo transitorio se reintenta una vez a los 6 s. En
+dev local los `/api/tipster-*` se reenvían por proxy de Vite al despliegue de
+producción (ver `vite.config.ts`), así que la sección también existe en local
+sin configurar nada. "Ver mercado" abre el panel de apuesta con el resultado
+preseleccionado — **el bot nunca apuesta**: firmar es siempre un acto humano.
+
+## Cupo del chat (tier gratuito de Gemini)
+
+El chat gasta una llamada de Gemini por pregunta, así que
+`api/_tipster/limites.ts` corta ANTES de llamar:
+
+- **10 consultas por hora por IP** y **120 al día en total** (todas las IPs),
+  dejando margen a la pasada automática (≤96/día con su caché de 15 min)
+  dentro de las ~250/día del tier gratuito de flash.
+- Respuestas idénticas (mismo partido y misma pregunta) se cachean 10 min y
+  no gastan cupo.
+- 429 con `motivo` y `reintentarEnSegundos`; la UI lo muestra tal cual.
+- Es un limitador en memoria por instancia: aproximado a propósito. Si algún
+  día hay abuso real, el paso siguiente es un KV externo, no afinar esto.
 
 ## Encenderlo (dos pasos)
 
@@ -69,9 +105,14 @@ del tipster), `TIPSTER_BOT_MODEL` (por defecto `gemini-3.6-flash`),
   `confianza` es una opinión, no una probabilidad.
 - Úsalo como filtro explicable, no como bot rentable. Antes de apostarle
   dinero: guarda las respuestas unas semanas y mide el ROI en papel.
-- Tier gratuito de Gemini: con la caché de 15 min son ≤96 llamadas/día,
-  de sobra; transcripciones enormes (>150k caracteres) pueden rozar el
-  límite de tokens/minuto.
+- Tier gratuito de Gemini: con la caché de 15 min la pasada automática son
+  ≤96 llamadas/día, y el chat va acotado por su propio cupo (arriba);
+  transcripciones enormes (>150k caracteres) pueden rozar el límite de
+  tokens/minuto.
+- La forma raspada solo trae resultados y marcadores (no lesiones ni
+  alineaciones), y el nombre de Azuro no siempre casa con el de la fuente:
+  cuando no casa, el prompt le dice al modelo que NO hay datos y que no los
+  invente.
 
 ## Operación
 

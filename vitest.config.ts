@@ -14,6 +14,8 @@ export default defineConfig({
   cacheDir: path.join(os.tmpdir(), 'vitest-aether-markets'),
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    // api/ va aparte del tsconfig, pero sus módulos puros (parsers del bot,
+    // limitador) sí se prueban aquí.
+    include: ['src/**/*.test.ts', 'api/**/*.test.ts'],
   },
 });
