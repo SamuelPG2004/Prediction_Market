@@ -68,8 +68,13 @@ El chat gasta una llamada de Gemini por pregunta, así que
 - **10 consultas por hora por IP** y **120 al día en total** (todas las IPs),
   dejando margen a la pasada automática (≤96/día con su caché de 15 min)
   dentro de las ~250/día del tier gratuito de flash.
-- Respuestas idénticas (mismo partido y misma pregunta) se cachean 10 min y
-  no gastan cupo.
+- El pronóstico GENERAL de un partido (sin pregunta) se cachea **1 hora** y
+  lo comparten todos los usuarios que abran ese partido; las preguntas
+  libres se cachean 10 min. Además el frontend sondea con
+  `{ soloCache: true }` al abrir el chat: si el pronóstico ya está calculado
+  aparece solo, gratis — la sonda jamás llama a la IA. (La caché vive en la
+  instancia de la función: un redeploy o una instancia fría empiezan vacías;
+  si algún día se quiere caché firme, el paso es un KV externo.)
 - 429 con `motivo` y `reintentarEnSegundos`; la UI lo muestra tal cual.
 - Es un limitador en memoria por instancia: aproximado a propósito. Si algún
   día hay abuso real, el paso siguiente es un KV externo, no afinar esto.

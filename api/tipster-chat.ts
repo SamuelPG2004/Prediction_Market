@@ -10,6 +10,12 @@
  *   → 429 { motivo, reintentarEnSegundos }  si se agotó el cupo (tier
  *          gratuito de Gemini; ver api/_tipster/limites.ts)
  *
+ * POST /api/tipster-chat  { gameId, soloCache: true }
+ *   → 200 con el pronóstico ya calculado de ese partido, o { enCache: false }
+ *   NUNCA llama a Gemini ni gasta cupo: es la sonda que usa el panel de
+ *   apuesta para enseñar el consejo gratis si otro usuario (o este) ya lo
+ *   pidió hace poco.
+ *
  * Mismas redes de seguridad que /api/tipster-bot: el bot nunca apuesta, los
  * picks se validan contra el catálogo real y la cuota mostrada es la de
  * Azuro. La respuesta de texto es opinión de una IA, no consejo financiero.
@@ -48,10 +54,17 @@ const RESPONSE_SCHEMA = {
   required: ['respuesta', 'picks'],
 } as const
 
-/** Caché corta por (partido, pregunta): amortigua dobles clics y recargas. */
+/**
+ * Caché por (partido, pregunta). El pronóstico GENERAL (sin pregunta) dura
+ * 1 h: es lo que comparten todos los que abren el mismo partido, y una cuota
+ * algo rancia se tolera porque el pick preseleccionado muestra la cuota real
+ * del panel al usarlo. Las preguntas libres duran 10 min (amortiguan dobles
+ * clics sin fosilizar una conversación).
+ */
 const cache = new Map<string, { at: number; payload: unknown }>()
-const CACHE_TTL_MS = 10 * 60_000
-const CACHE_MAX_ENTRIES = 30
+const CACHE_TTL_PREGUNTA_MS = 10 * 60_000
+const CACHE_TTL_GENERAL_MS = 60 * 60_000
+const CACHE_MAX_ENTRIES = 60
 
 function ipDe(req: VercelRequest): string {
   const raw = req.headers?.['x-forwarded-for']
@@ -89,9 +102,17 @@ export default async function handler(
 
   // Caché antes que límite: responder lo ya calculado no gasta cupo de nadie.
   const cacheKey = `${gameId}|${pregunta ?? ''}`
+  const ttlMs = pregunta === null ? CACHE_TTL_GENERAL_MS : CACHE_TTL_PREGUNTA_MS
   const cached = cache.get(cacheKey)
-  if (cached !== undefined && Date.now() - cached.at < CACHE_TTL_MS) {
+  if (cached !== undefined && Date.now() - cached.at < ttlMs) {
     sendJson(res, 200, cached.payload)
+    return
+  }
+
+  // Sonda del panel: solo mira la caché, jamás genera. Sin acierto responde
+  // { enCache: false } y el frontend deja el botón de pedirlo a mano.
+  if (body.soloCache === true) {
+    sendJson(res, 200, { enCache: false })
     return
   }
 

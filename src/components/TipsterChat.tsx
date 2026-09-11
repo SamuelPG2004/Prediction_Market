@@ -152,11 +152,53 @@ export const TipsterChat: React.FC<{
   const [restantes, setRestantes] = useState<{ hora: number; dia: number } | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
 
-  // Cambiar de partido = conversación nueva (el consejo no viaja entre partidos).
+  // Cambiar de partido = conversación nueva (el consejo no viaja entre
+  // partidos). Además se sondea la caché del servidor: si el pronóstico
+  // general de este partido ya se calculó hace poco (por este usuario o por
+  // cualquier otro), aparece solo — la sonda jamás llama a la IA ni gasta
+  // cupo (soloCache; ver api/tipster-chat.ts).
   useEffect(() => {
     setCharla([]);
     setPregunta('');
     setRestantes(null);
+    let alive = true;
+    const probe = async () => {
+      try {
+        const res = await fetch('/api/tipster-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gameId, soloCache: true }),
+        });
+        if (!res.ok) return;
+        const body: unknown = await res.json().catch(() => null);
+        if (!alive || !isRecord(body) || typeof body.respuesta !== 'string') return;
+        const picks: TipsterPick[] = [];
+        if (Array.isArray(body.picks)) {
+          for (const p of body.picks) {
+            const pick = parsePick(p);
+            if (pick !== null) picks.push(pick);
+          }
+        }
+        // Solo si el usuario aún no empezó a hablar: la caché no pisa nada.
+        setCharla((prev) =>
+          prev.length === 0
+            ? [
+                {
+                  de: 'bot',
+                  texto: body.respuesta as string,
+                  ...(picks.length > 0 ? { picks } : {}),
+                },
+              ]
+            : prev,
+        );
+      } catch {
+        // Sin sonda no pasa nada: queda el botón de pedirlo a mano.
+      }
+    };
+    void probe();
+    return () => {
+      alive = false;
+    };
   }, [gameId]);
 
   // El chat se desplaza solo al último mensaje.
