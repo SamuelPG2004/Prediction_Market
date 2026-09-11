@@ -278,8 +278,10 @@ export const PICKS_SCHEMA_FRAGMENT = {
  * Lanza con detalle acotado si la API falla o no responde JSON.
  *
  * El tier gratuito devuelve 503 "high demand" transitorios con frecuencia
- * (verificado 2026-09-07): un único reintento con pausa corta resuelve la
- * mayoría sin comerse el presupuesto de la función.
+ * (verificado 2026-09-07, y visto en producción 2026-09-10 tumbando una
+ * consulta del panel): hasta dos reintentos con pausa creciente. Salen
+ * baratos — un 503 responde en <1 s, así que solo la pasada buena consume
+ * tiempo de verdad del presupuesto de 60 s de la función.
  */
 export async function llamarGemini(opts: {
   apiKey: string
@@ -311,8 +313,8 @@ export async function llamarGemini(opts: {
         }),
       },
     )
-    if (response.status === 503 && intento === 0) {
-      await new Promise((r) => setTimeout(r, 2000))
+    if (response.status === 503 && intento < 2) {
+      await new Promise((r) => setTimeout(r, 1500 * (intento + 1)))
       continue
     }
     break

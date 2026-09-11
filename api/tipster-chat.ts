@@ -40,7 +40,7 @@ import {
   type VercelResponse,
 } from './_tipster/nucleo.js'
 import { formaDeEquipo, formaParaPrompt, type FormaEquipo } from './_tipster/futbol.js'
-import { consumirTurno } from './_tipster/limites.js'
+import { consumirTurno, devolverTurno } from './_tipster/limites.js'
 
 /** La pregunta del usuario se acota: esto es un chat, no un ensayo. */
 const MAX_PREGUNTA = 300
@@ -116,7 +116,8 @@ export default async function handler(
     return
   }
 
-  const turno = consumirTurno(ipDe(req))
+  const ip = ipDe(req)
+  const turno = consumirTurno(ip)
   if (!turno.ok) {
     sendJson(res, 429, {
       motivo: turno.motivo,
@@ -129,6 +130,8 @@ export default async function handler(
     const catalog = await buildCatalog(await fetchGamesByIds([gameId]))
     const game = catalog[0]
     if (game === undefined) {
+      // Sin partido no hubo llamada a la IA: el turno se devuelve.
+      devolverTurno(ip)
       sendJson(res, 404, {
         error: 'Ese partido ya no tiene mercados activos en Azuro (¿empezó o se cerró?).',
       })
@@ -197,6 +200,9 @@ export default async function handler(
     }
     sendJson(res, 200, payload)
   } catch (error) {
+    // La pasada falló: el usuario no recibió nada, así que su turno se
+    // devuelve (que reintentar un fallo no cueste cupo).
+    devolverTurno(ip)
     sendJson(res, 502, {
       error: 'El tipster no pudo responder.',
       detalle: error instanceof Error ? error.message : String(error),

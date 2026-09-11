@@ -217,15 +217,24 @@ export const TipsterChat: React.FC<{
       { de: 'usuario', texto: texto !== '' ? texto : 'Dame tu pronóstico del partido.' },
     ]);
     try {
-      const res = await fetch('/api/tipster-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gameId,
-          ...(texto !== '' ? { pregunta: texto } : {}),
-        }),
-      });
-      const body: unknown = await res.json().catch(() => null);
+      // Un fallo transitorio (Gemini saturado) se reintenta UNA vez a los
+      // 4 s antes de rendirse; el servidor devuelve el turno de cupo de las
+      // pasadas fallidas, así que el reintento no cobra doble.
+      let res: Response;
+      let body: unknown;
+      for (let intento = 0; ; intento++) {
+        res = await fetch('/api/tipster-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gameId,
+            ...(texto !== '' ? { pregunta: texto } : {}),
+          }),
+        });
+        body = await res.json().catch(() => null);
+        if (res.ok || res.status === 429 || intento >= 1) break;
+        await new Promise((r) => setTimeout(r, 4000));
+      }
       if (res.status === 429) {
         const motivo =
           isRecord(body) && typeof body.motivo === 'string'

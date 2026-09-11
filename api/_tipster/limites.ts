@@ -64,6 +64,20 @@ export function consumirTurno(ip: string, ahora = Date.now()): ResultadoLimite {
   }
 }
 
+/**
+ * Devuelve el turno más reciente de una IP: se llama cuando la pasada FALLÓ
+ * (Gemini caído, Azuro caído) para no cobrarle al usuario una consulta que
+ * no recibió. Solo deshace la última marca, nunca baja de cero.
+ */
+export function devolverTurno(ip: string): void {
+  const marcas = porIp.get(ip)
+  if (marcas !== undefined && marcas.length > 0) {
+    marcas.pop()
+    if (marcas.length === 0) porIp.delete(ip)
+  }
+  if (dia.total > 0) dia.total -= 1
+}
+
 /** Solo para tests: vuelve al estado inicial. */
 export function resetLimites(): void {
   porIp.clear()

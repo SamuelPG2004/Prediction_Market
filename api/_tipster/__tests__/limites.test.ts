@@ -3,6 +3,7 @@ import {
   LIMITE_GLOBAL_DIA,
   LIMITE_IP_HORA,
   consumirTurno,
+  devolverTurno,
   resetLimites,
 } from '../limites.ts'
 
@@ -55,6 +56,27 @@ describe('consumirTurno', () => {
   })
 
   it('informa de los turnos restantes al aceptar', () => {
+    const r = consumirTurno('1.2.3.4', T0)
+    expect(r).toEqual({
+      ok: true,
+      restantesHora: LIMITE_IP_HORA - 1,
+      restantesDia: LIMITE_GLOBAL_DIA - 1,
+    })
+  })
+
+  it('devolverTurno deshace el último consumo (una pasada fallida no cobra)', () => {
+    // Agota la hora de una IP…
+    for (let i = 0; i < LIMITE_IP_HORA; i++) consumirTurno('1.1.1.1', T0)
+    expect(consumirTurno('1.1.1.1', T0 + 1).ok).toBe(false)
+    // …devuelve un turno y vuelve a caber exactamente uno.
+    devolverTurno('1.1.1.1')
+    const r = consumirTurno('1.1.1.1', T0 + 2)
+    expect(r.ok).toBe(true)
+    expect(consumirTurno('1.1.1.1', T0 + 3).ok).toBe(false)
+  })
+
+  it('devolverTurno sin consumos previos no rompe ni deja el día en negativo', () => {
+    devolverTurno('fantasma')
     const r = consumirTurno('1.2.3.4', T0)
     expect(r).toEqual({
       ok: true,
