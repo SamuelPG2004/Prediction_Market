@@ -3,6 +3,7 @@ import {
   X,
   Loader2,
   AlertTriangle,
+  Bot,
   ChevronDown,
   ExternalLink,
   CheckCircle2,
@@ -38,6 +39,7 @@ import { isValidAmount, outcomeOddsText } from '../utils/betting';
 import { formatCurrency, formatLiveScorePhase } from '../utils/formatters';
 import { translateOutcomeLabel } from '../utils/marketLabels';
 import { toggleSelection, useBetSlip } from '../hooks/useBetSlip';
+import { TipsterChat, type TipsterPick } from './TipsterChat';
 
 interface TradePanelProps {
   /** Evento al que pertenece el mercado, para dar contexto y cambiar de opción. */
@@ -321,6 +323,8 @@ export const TradePanel: React.FC<TradePanelProps> = ({
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     () => new Set(),
   );
+  /** Chat del tipster: plegado por defecto (cada consulta gasta cupo de IA). */
+  const [tipsterOpen, setTipsterOpen] = useState(false);
   /**
    * Resultado clicado en una celda del selector, pendiente de aplicarse
    * cuando `market` cambie (el efecto de cambio de mercado lo consume).
@@ -339,6 +343,23 @@ export const TradePanel: React.FC<TradePanelProps> = ({
     () => groupMarketsForDisplay(event.markets),
     [event.markets],
   );
+
+  // Partido consultable por el tipster: evento del sportsbook (Azuro) con id
+  // de juego nativo. En los demás venues/categorías el chat no existe.
+  const tipsterGameId = useMemo(() => {
+    const id = event.markets[0]?.group?.id ?? '';
+    return market.venue === 'azuro' && /^\d+$/.test(id) ? id : null;
+  }, [event.markets, market.venue]);
+
+  /**
+   * Pick del tipster: preselecciona ese mercado y resultado AQUÍ mismo (el
+   * pick siempre es de este evento). Si el mercado ya no está entre los
+   * cargados (cerró entre medias), no se hace nada.
+   */
+  const applyTipsterPick = (pick: TipsterPick) => {
+    const m = event.markets.find((candidate) => candidate.id === pick.marketId);
+    if (m !== undefined) pickSelection(m, pick.outcomeId);
+  };
 
   // Marcador en vivo del evento abierto (push por el socket del venue). Un
   // marcador `suspended` no se pinta: quien está a punto de apostar no puede
@@ -557,6 +578,44 @@ export const TradePanel: React.FC<TradePanelProps> = ({
                 />
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Consejo del tipster (IA) para ESTE partido: plegado por defecto
+            (cada consulta gasta cupo del tier gratuito); los picks que
+            proponga preseleccionan mercado y resultado aquí mismo. */}
+        {tipsterGameId !== null && (
+          <div className="px-4 sm:px-5 py-3 border-b border-neutral-800 bg-gradient-to-br from-violet-500/[0.06] to-transparent">
+            <button
+              onClick={() => setTipsterOpen((o) => !o)}
+              className="w-full flex items-center justify-between gap-2 text-left"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-violet-500/15 border border-violet-500/30 shrink-0">
+                  <Bot className="w-3.5 h-3.5 text-violet-300" />
+                </span>
+                <span className="text-[11px] font-bold text-violet-300">
+                  Consejo del tipster (IA)
+                </span>
+                <span className="text-[9px] text-neutral-600 truncate">
+                  experimental · no es consejo financiero
+                </span>
+              </span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-neutral-600 transition-transform shrink-0 ${
+                  tipsterOpen ? '' : '-rotate-90'
+                }`}
+              />
+            </button>
+            {tipsterOpen && (
+              <div className="mt-2.5">
+                <TipsterChat
+                  gameId={tipsterGameId}
+                  onPick={applyTipsterPick}
+                  pickLabel="Usar esta selección"
+                />
+              </div>
+            )}
           </div>
         )}
 
