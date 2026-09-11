@@ -68,6 +68,17 @@ El chat gasta una llamada de Gemini por pregunta, así que
 - **10 consultas por hora por IP** y **120 al día en total** (todas las IPs),
   dejando margen a la pasada automática (≤96/día con su caché de 15 min)
   dentro de las ~250/día del tier gratuito de flash.
+- El chat usa el **método destilado** (`METODO_DESTILADO` en
+  `api/_tipster/transcripciones.ts`, ~50 veces menos tokens que los videos
+  íntegros): enviar las transcripciones completas en cada consulta agotó el
+  cupo diario de tokens de Gemini el 2026-09-10. La pasada de portada sigue
+  usando los videos completos (pocas llamadas al día gracias a su caché).
+  OJO: si pegas videos nuevos, vuelve a destilar el resumen (o vacíalo y el
+  chat volverá a los videos íntegros, gastando mucho más).
+- Si el propio Gemini agota su cupo diario (429 de su API), el endpoint
+  responde 429 con el motivo real ("se renueva a medianoche, hora del
+  Pacífico") y DEVUELVE el turno; los fallos (502) también devuelven el
+  turno — reintentar nunca cuesta cupo.
 - El pronóstico GENERAL de un partido (sin pregunta) se cachea **1 hora** y
   lo comparten todos los usuarios que abran ese partido; las preguntas
   libres se cachean 10 min. Además el frontend sondea con

@@ -505,3 +505,39 @@ export const TRANSCRIPCIONES: TranscripcionVideo[] = [
 export const REGLAS_EXTRA: string[] = [
   'El video es de una jornada pasada: sus partidos concretos ya caducaron. Extrae el ESTILO (qué mercados usa, en qué rangos de cuota, qué evita) y aplícalo solo a los partidos del catálogo actual.',
 ]
+
+/**
+ * MÉTODO DESTILADO del tipster: el resumen operativo de las transcripciones
+ * de arriba, para el CHAT (una consulta por pregunta de usuario). Enviar los
+ * videos completos en cada mensaje quemaba ~40k tokens por consulta y agotó
+ * el cupo diario gratuito de Gemini el 2026-09-10; esto pesa ~50 veces menos.
+ * La pasada de portada (/api/tipster-bot, pocas al día gracias a su caché)
+ * sigue usando las transcripciones íntegras.
+ *
+ * OJO: destilado a mano del video del 2026-09-06. Si pegas videos nuevos
+ * arriba, vuelve a destilar este resumen (o déjalo vacío '' y el chat volverá
+ * a usar las transcripciones completas).
+ */
+export const METODO_DESTILADO = `Método del tipster (destilado de sus videos):
+
+FILOSOFÍA
+- Solo fútbol, prematch. Casi nunca elige ganador del partido (1X2): "no estamos buscando adivinar quién va a ganar". Busca mercados con PROTECCIÓN/margen, pensados para jugadas individuales o combinadas.
+- Rango de cuota preferido por selección: 1.33 a 1.50. Descarta opciones fuera de rango aunque le gusten ("prefiero ir a lo seguro").
+- Si nada encaja, no se apuesta: no forzar entradas es parte del método.
+
+MERCADOS QUE USA (por orden de frecuencia en sus videos)
+1. GANA CUALQUIER MITAD del equipo con lectura favorable (cuota 1.33-1.44): no exige ganar los 90 minutos, basta imponerse en una de las dos mitades; lo prefiere siempre al triunfo directo del favorito.
+2. TOTALES DE GOLES sin elegir ganador: Más de 2.5 (partidos con ritmo ofensivo, cuota 1.36-1.44), Más de 1.5 ("al menos dos goles", 1.33-1.44), y como protección Menos de 3.5/4.5 (margen incluso con tres goles, ~1.50).
+3. AMBOS EQUIPOS MARCAN (1.44-1.50): cuando los dos generan peligro y vienen marcando; no exige dominador.
+4. GOL DE UN EQUIPO CONCRETO (Over 0.5 goles del equipo, ~1.33): equipo local que viene marcando en sus últimos 4-5 partidos.
+5. CORNERS de un equipo (p. ej. Más de 4.5, ~1.40): cuando un favorito se instala en campo rival y acumula llegadas.
+6. REMATES A PUERTA de un equipo (p. ej. Más de 2.5, ~1.40-1.87): exige volumen ofensivo, no goles.
+
+EN QUÉ SE FIJA PARA JUSTIFICAR
+- Racha reciente de goles a favor/en contra (últimos 4-5 partidos) y si la línea elegida "ha salido en 4 de sus últimos 5".
+- Historial de enfrentamientos directos (H2H) y marcadores en casa del local.
+- Condición local/visitante ("de visita no le ha ido nada bien").
+- Riesgos de partido (una roja cambia el panorama) como razón extra para mercados con margen.
+
+STAKE
+- Jugadas de 1 a 3 unidades; lo habitual son selecciones de combinada (stake bajo) y alguna individual clara (stake medio).`

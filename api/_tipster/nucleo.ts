@@ -12,6 +12,7 @@ import { getMarketName, getSelectionName } from '@azuro-org/dictionaries'
 // al invocarse con FUNCTION_INVOCATION_FAILED, verificado 2026-09-06).
 import {
   MARCADOR_PENDIENTE,
+  METODO_DESTILADO,
   REGLAS_EXTRA,
   TRANSCRIPCIONES,
 } from './transcripciones.js'
@@ -212,34 +213,63 @@ export async function buildCatalog(rawGames: unknown[]): Promise<CatalogGame[]> 
 
 // --- Perfil del tipster (system prompt) ---------------------------------------
 
-/** Perfil del tipster para el system prompt, o `null` si falta pegar las transcripciones. */
-export function buildSystemPrompt(): string | null {
+/**
+ * Perfil del tipster para el system prompt, o `null` si falta pegar las
+ * transcripciones.
+ *
+ * `compacto: true` usa el método destilado (transcripciones.ts,
+ * METODO_DESTILADO) en vez de los videos íntegros: ~50 veces menos tokens
+ * por consulta — imprescindible en el chat, que hace una llamada por
+ * pregunta (los videos completos agotaron el cupo diario gratuito de Gemini
+ * el 2026-09-10). Si el destilado está vacío, cae a los videos completos.
+ */
+export function buildSystemPrompt(compacto = false): string | null {
   const listas = TRANSCRIPCIONES.filter(
     (t) => t.transcripcion.trim() !== '' && !t.transcripcion.includes(MARCADOR_PENDIENTE),
   )
   if (listas.length === 0) return null
 
-  const transcripciones = listas
-    .map((t, i) => `### Video ${i + 1}: "${t.titulo}"\n${t.transcripcion.trim()}`)
-    .join('\n\n')
   const extra = REGLAS_EXTRA.length > 0
     ? `\n\nReglas adicionales del operador (tienen prioridad sobre los videos):\n${REGLAS_EXTRA.map((r) => `- ${r}`).join('\n')}`
     : ''
+
+  if (compacto && METODO_DESTILADO.trim() !== '') {
+    return [
+      'Eres un analista de apuestas deportivas que aplica ESTRICTAMENTE el método de un tipster concreto, resumido más abajo.',
+      '',
+      cabeceraReglasDuras(),
+      '',
+      '## Método del tipster',
+      METODO_DESTILADO.trim(),
+      extra,
+    ].join('\n')
+  }
+
+  const transcripciones = listas
+    .map((t, i) => `### Video ${i + 1}: "${t.titulo}"\n${t.transcripcion.trim()}`)
+    .join('\n\n')
 
   return [
     'Eres un analista de apuestas deportivas que aplica ESTRICTAMENTE el método de un tipster concreto.',
     'Su método completo está en las transcripciones de sus videos, más abajo. Primero extrae de ellas sus reglas operativas (qué mercados mira, qué condiciones exige, qué evita, cómo dimensiona el stake) y luego evalúa SOLO con esas reglas los partidos que se te dan.',
     '',
+    cabeceraReglasDuras(),
+    '',
+    '## Transcripciones del tipster',
+    transcripciones,
+    extra,
+  ].join('\n')
+}
+
+/** Reglas anti-alucinación comunes a ambos perfiles (íntegro y compacto). */
+function cabeceraReglasDuras(): string {
+  return [
     'Reglas duras tuyas, por encima de todo:',
     '- Solo puedes elegir entre los partidos, mercados y resultados del catálogo que recibes, citando sus gameId, conditionId y outcomeId EXACTOS. Jamás inventes ids ni mercados.',
     '- Si ningún candidato cumple las reglas del tipster, devuelve la lista de picks VACÍA. No fuerces picks: no elegir también es aplicar el método.',
     '- El catálogo solo trae equipos, ligas y cuotas (y, si se aportan, datos de forma reciente). Si una regla del tipster necesita datos que no tienes (lesiones, alineaciones), NO des por cumplida esa regla: o descarta el pick o baja la confianza y dilo en la razón.',
     '- Máximo 5 picks por pasada. stakeUnits entre 1 y 3 (según la escala del tipster). confianza entre 0 y 1.',
     '- En "regla" cita textualmente qué regla del tipster sustenta el pick; en "razon", por qué este partido la cumple, en 1-3 frases y en español.',
-    '',
-    '## Transcripciones del tipster',
-    transcripciones,
-    extra,
   ].join('\n')
 }
 

@@ -82,7 +82,9 @@ export default async function handler(
   }
 
   const apiKey = readEnv('GEMINI_API_KEY')
-  const systemPrompt = buildSystemPrompt()
+  // Perfil COMPACTO (método destilado): el chat hace una llamada por
+  // pregunta y los videos íntegros quemaban ~40k tokens por consulta.
+  const systemPrompt = buildSystemPrompt(true)
   if (apiKey === undefined || systemPrompt === null) {
     sendJson(res, 503, { enabled: false, motivo: 'El bot tipster no está configurado.' })
     return
@@ -203,9 +205,21 @@ export default async function handler(
     // La pasada falló: el usuario no recibió nada, así que su turno se
     // devuelve (que reintentar un fallo no cueste cupo).
     devolverTurno(ip)
+    const detalle = error instanceof Error ? error.message : String(error)
+    // Cupo DIARIO del propio Gemini agotado (429 de su API): decirlo tal
+    // cual, con la forma de un 429 nuestro, para que la UI muestre el motivo
+    // real en vez del "prueba en unos segundos" genérico.
+    if (detalle.startsWith('Gemini 429')) {
+      sendJson(res, 429, {
+        motivo:
+          'La IA agotó su cupo gratuito de hoy. Se renueva a medianoche (hora del Pacífico); inténtalo entonces.',
+        reintentarEnSegundos: 3600,
+      })
+      return
+    }
     sendJson(res, 502, {
       error: 'El tipster no pudo responder.',
-      detalle: error instanceof Error ? error.message : String(error),
+      detalle,
     })
   }
 }
