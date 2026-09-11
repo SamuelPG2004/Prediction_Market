@@ -50,6 +50,16 @@ producción (ver `vite.config.ts`), así que la sección también existe en loca
 sin configurar nada. "Ver mercado" abre el panel de apuesta con el resultado
 preseleccionado — **el bot nunca apuesta**: firmar es siempre un acto humano.
 
+El chat vive en un componente compartido (`src/components/TipsterChat.tsx`,
+con la tarjeta de pick y su parser) montado en dos sitios:
+
+- El modo "Preguntar" de la sección de portada (buscando cualquier partido).
+- Una sección plegable "Consejo del tipster (IA)" dentro del panel de apuesta
+  (`TradePanel`) de cada evento del sportsbook: el usuario pregunta por EL
+  partido abierto y los picks preseleccionan mercado y resultado ahí mismo
+  ("Usar esta selección"). Plegada por defecto porque cada consulta gasta
+  cupo; solo en eventos de Azuro con id de juego nativo.
+
 ## Cupo del chat (tier gratuito de Gemini)
 
 El chat gasta una llamada de Gemini por pregunta, así que
