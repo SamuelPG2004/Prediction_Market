@@ -84,7 +84,7 @@ const META_TX_TYPES = {
   ],
 } as const
 
-interface GasStationInfo {
+export interface GasStationInfo {
   station: Address
   tollAmount: bigint
 }
@@ -102,7 +102,7 @@ export interface SignedMetaTx {
  * En dev (`npm run dev`) no existe el endpoint y Vite responde el index.html:
  * el parseo JSON falla y se devuelve `null` — desactivada, sin error.
  */
-async function fetchGasStationInfo(): Promise<GasStationInfo | null> {
+export async function fetchGasStationInfo(): Promise<GasStationInfo | null> {
   let data: unknown
   try {
     const res = await fetch(GAS_STATION_ENDPOINT, {

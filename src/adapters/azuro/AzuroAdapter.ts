@@ -58,6 +58,10 @@ import {
 import type { AzuroConfig } from './config.ts'
 import type { AzuroGateway, AzuroWalletBridge } from './gateway.ts'
 import type { AzuroLiveScoreClient } from './liveScoreSocket.ts'
+import type {
+  IntencionFirma,
+  PlanDeFirmas,
+} from '../../services/signatureGuard.ts'
 import {
   isLiveScoreEligibleGameId,
   mapConditionToMarket,
@@ -90,6 +94,17 @@ const GAMES_PER_PAGE = 10
 const MIN_SEARCH_LENGTH = 3
 /** Validez de la orden firmada si la UI no fija `deadlineMs`. */
 const DEFAULT_BET_DEADLINE_MS = 5 * 60 * 1000
+
+/**
+ * `primaryType` de la firma EIP-712 de una apuesta, para poder anunciarla en
+ * el plan de firmas antes de construirla. Sale de `getBetTypedData` del
+ * toolkit y hay un test que lo comprueba: si Azuro lo cambiase, el plan
+ * dejaría de casar y la apuesta pediría su confirmación aparte (una ventana
+ * de más, nunca una firma de menos).
+ */
+const BET_PRIMARY_TYPE = 'ClientBetData'
+/** Ídem para la combinada (`getComboBetTypedData`). */
+const COMBO_BET_PRIMARY_TYPE = 'ClientComboBetData'
 
 /** Contenido de `Quote.venueData` para Azuro. Solo este adaptador lo lee. */
 interface AzuroQuoteData {
@@ -891,75 +906,105 @@ export class AzuroAdapter implements MarketSource {
       return this.fail('not_quotable', 'El importe de la apuesta debe ser mayor que cero.')
     }
 
-    // Allowance como en placeBet: gasolinera primero, si no on-chain ilimitado.
+    // ¿Hará falta aprobar? Se lee ANTES de firmar, para poder anunciarlo en
+    // el plan de firmas (igual que en placeBet).
+    const wallet = this.wallet
+    const from = opts.from
+    let necesitaApprove: boolean
     try {
-      const required = amount + BigInt(fee.relayerFeeAmount)
-      const current = await this.wallet.readAllowance(
+      const current = await wallet.readAllowance(
         tokenAddress,
-        opts.from,
+        from,
         this.config.relayerAddress,
       )
-      if (current < required) {
-        const gasless = await this.wallet.approveGasless(
-          tokenAddress,
-          opts.from,
-          this.config.relayerAddress,
-        )
-        if (!gasless) {
-          await this.wallet.approve(
+      necesitaApprove = current < amount + BigInt(fee.relayerFeeAmount)
+    } catch (cause) {
+      return this.walletFail(
+        'No se pudo leer la autorización del token de apuesta.',
+        cause,
+      )
+    }
+
+    const plan = await this.planDeFirmas({
+      titulo: `Apostar ${quote.stake} ${this.config.betToken.symbol} en combinada`,
+      necesitaApprove,
+      primaryType: COMBO_BET_PRIMARY_TYPE,
+    })
+
+    const preparada = await this.conPlan(plan, async (): Promise<
+      Result<{
+        signature: Hex
+        nowMs: number
+        minOdds: bigint
+        clientData: Parameters<typeof getComboBetTypedData>[0]['clientData']
+        bets: { conditionId: string; outcomeId: string }[]
+      }>
+    > => {
+      // Allowance como en placeBet: gasolinera primero, si no on-chain ilimitado.
+      if (necesitaApprove) {
+        try {
+          const gasless = await wallet.approveGasless(
             tokenAddress,
+            from,
             this.config.relayerAddress,
-            maxUint256,
+          )
+          if (!gasless) {
+            await wallet.approve(tokenAddress, this.config.relayerAddress, maxUint256)
+          }
+        } catch (cause) {
+          return this.walletFail(
+            'No se pudo aprobar el gasto del token de apuesta.',
+            cause,
           )
         }
       }
-    } catch (cause) {
-      return this.walletFail('No se pudo aprobar el gasto del token de apuesta.', cause)
-    }
 
-    // La cuota mínima aceptada se aplica sobre la cuota COMBINADA: el
-    // slippage tolera el movimiento del producto, no de cada pata.
-    const totalOddsNumber = Number(totalOdds)
-    if (!Number.isFinite(totalOddsNumber) || totalOddsNumber <= 1) {
-      return this.fail('not_quotable', 'La cotización ya no es válida. Vuelve a cotizar.')
-    }
-    const minOdds = parseUnits(
-      calcMinOdds({ odds: totalOddsNumber, slippage: opts.slippageTolerance * 100 }),
-      ODDS_DECIMALS,
-    )
-
-    const nowMs = this.now()
-    const clientData = {
-      attention: '',
-      affiliate,
-      core: this.config.coreAddress,
-      expiresAt: Math.floor((nowMs + (opts.deadlineMs ?? DEFAULT_BET_DEADLINE_MS)) / 1000),
-      chainId: this.config.chainId,
-      relayerFeeAmount: fee.relayerFeeAmount,
-      isFeeSponsored: false,
-      isBetSponsored: false,
-      isSponsoredBetReturnable: false,
-    }
-    const bets = legs.map((leg) => ({
-      conditionId: leg.conditionId,
-      outcomeId: leg.outcomeId,
-    }))
-
-    let signature: Hex
-    try {
-      signature = await this.wallet.signComboBetTypedData(
-        getComboBetTypedData({
-          account: opts.from as Address,
-          clientData,
-          bets,
-          amount: String(amount),
-          minOdds: String(minOdds),
-          nonce: String(nowMs),
-        }),
+      // La cuota mínima aceptada se aplica sobre la cuota COMBINADA: el
+      // slippage tolera el movimiento del producto, no de cada pata.
+      const totalOddsNumber = Number(totalOdds)
+      if (!Number.isFinite(totalOddsNumber) || totalOddsNumber <= 1) {
+        return this.fail('not_quotable', 'La cotización ya no es válida. Vuelve a cotizar.')
+      }
+      const minOdds = parseUnits(
+        calcMinOdds({ odds: totalOddsNumber, slippage: opts.slippageTolerance * 100 }),
+        ODDS_DECIMALS,
       )
-    } catch (cause) {
-      return this.walletFail('No se pudo firmar la combinada.', cause)
-    }
+
+      const nowMs = this.now()
+      const clientData = {
+        attention: '',
+        affiliate,
+        core: this.config.coreAddress,
+        expiresAt: Math.floor((nowMs + (opts.deadlineMs ?? DEFAULT_BET_DEADLINE_MS)) / 1000),
+        chainId: this.config.chainId,
+        relayerFeeAmount: fee.relayerFeeAmount,
+        isFeeSponsored: false,
+        isBetSponsored: false,
+        isSponsoredBetReturnable: false,
+      }
+      const bets = legs.map((leg) => ({
+        conditionId: leg.conditionId,
+        outcomeId: leg.outcomeId,
+      }))
+
+      try {
+        const signature = await wallet.signComboBetTypedData(
+          getComboBetTypedData({
+            account: from,
+            clientData,
+            bets,
+            amount: String(amount),
+            minOdds: String(minOdds),
+            nonce: String(nowMs),
+          }),
+        )
+        return { ok: true, data: { signature, nowMs, minOdds, clientData, bets } }
+      } catch (cause) {
+        return this.walletFail('No se pudo firmar la combinada.', cause)
+      }
+    })
+    if (!preparada.ok) return preparada
+    const { signature, nowMs, minOdds, clientData, bets } = preparada.data
 
     let rawResponse: unknown
     try {
@@ -1056,76 +1101,113 @@ export class AzuroAdapter implements MarketSource {
     }
     const relayerFee = BigInt(fee.relayerFeeAmount)
 
-    // 3. Allowance hacia el relayer (cubre apuesta + tarifa). Primero sin gas
-    //    vía gasolinera; si no está, approve on-chain ILIMITADO: una única
-    //    transacción de gas en la vida de la wallet, no una por apuesta (el
-    //    relayer consume la allowance en cada orden).
+    // 3. ¿Hará falta aprobar? Se lee ANTES de firmar nada, porque el plan de
+    //    firmas tiene que anunciar el approve (y su peaje) por adelantado.
+    const wallet = this.wallet
+    // El estrechamiento de `isAddress(opts.from)` no sobrevive al cierre de
+    // abajo; se fija aquí una vez.
+    const from = opts.from
+    let necesitaApprove: boolean
     try {
-      const required = amount + relayerFee
-      const current = await this.wallet.readAllowance(
+      const current = await wallet.readAllowance(
         tokenAddress,
-        opts.from,
+        from,
         this.config.relayerAddress,
       )
-      if (current < required) {
-        const gasless = await this.wallet.approveGasless(
-          tokenAddress,
-          opts.from,
-          this.config.relayerAddress,
-        )
-        if (!gasless) {
-          await this.wallet.approve(
+      necesitaApprove = current < amount + relayerFee
+    } catch (cause) {
+      return this.walletFail(
+        'No se pudo leer la autorización del token de apuesta.',
+        cause,
+      )
+    }
+
+    // 4. Plan de firmas: TODO lo que esta apuesta va a pedir firmar, declarado
+    //    antes de firmar nada, para que el usuario lo autorice de una vez en
+    //    lugar de encadenar tres diálogos. Lo que no esté aquí seguirá
+    //    pidiendo su propia confirmación.
+    const plan = await this.planDeFirmas({
+      titulo: `Apostar ${quote.stake} ${this.config.betToken.symbol}`,
+      necesitaApprove,
+      primaryType: BET_PRIMARY_TYPE,
+    })
+
+    // Todo lo que firma va dentro del plan; el envío al relayer, fuera.
+    const preparada = await this.conPlan(plan, async (): Promise<
+      Result<{
+        signature: Hex
+        nowMs: number
+        clientData: Parameters<typeof getBetTypedData>[0]['clientData']
+        bet: Parameters<typeof getBetTypedData>[0]['bet']
+      }>
+    > => {
+      // 4a. Allowance hacia el relayer (cubre apuesta + tarifa). Primero sin
+      //     gas vía gasolinera; si no está, approve on-chain ILIMITADO: una
+      //     única transacción de gas en la vida de la wallet, no una por
+      //     apuesta (el relayer consume la allowance en cada orden).
+      if (necesitaApprove) {
+        try {
+          const gasless = await wallet.approveGasless(
             tokenAddress,
+            from,
             this.config.relayerAddress,
-            maxUint256,
+          )
+          if (!gasless) {
+            await wallet.approve(tokenAddress, this.config.relayerAddress, maxUint256)
+          }
+        } catch (cause) {
+          return this.walletFail(
+            'No se pudo aprobar el gasto del token de apuesta.',
+            cause,
           )
         }
       }
-    } catch (cause) {
-      return this.walletFail('No se pudo aprobar el gasto del token de apuesta.', cause)
-    }
 
-    // 4. Cuota mínima aceptada = cuota cotizada menos el slippage tolerado,
-    //    escalada al formato del contrato (12 decimales).
-    const oddsNumber = Number(odds)
-    if (!Number.isFinite(oddsNumber) || oddsNumber <= 1) {
-      return this.fail('not_quotable', 'La cotización ya no es válida. Vuelve a cotizar.')
-    }
-    const minOdds = parseUnits(
-      calcMinOdds({ odds: oddsNumber, slippage: opts.slippageTolerance * 100 }),
-      ODDS_DECIMALS,
-    )
-
-    const nowMs = this.now()
-    const clientData = {
-      attention: '',
-      affiliate,
-      core: this.config.coreAddress,
-      expiresAt: Math.floor((nowMs + (opts.deadlineMs ?? DEFAULT_BET_DEADLINE_MS)) / 1000),
-      chainId: this.config.chainId,
-      relayerFeeAmount: fee.relayerFeeAmount,
-      isFeeSponsored: false,
-      isBetSponsored: false,
-      isSponsoredBetReturnable: false,
-    }
-    const bet = {
-      conditionId,
-      outcomeId,
-      minOdds: String(minOdds),
-      amount: String(amount),
-      nonce: String(nowMs),
-    }
-
-    // 5. Firma EIP-712 y envío de la orden al relayer.
-    let signature: Hex
-    try {
-      signature = await this.wallet.signBetTypedData(
-        getBetTypedData({ account: opts.from as Address, clientData, bet }),
+      // 4b. Cuota mínima aceptada = cuota cotizada menos el slippage tolerado,
+      //     escalada al formato del contrato (12 decimales).
+      const oddsNumber = Number(odds)
+      if (!Number.isFinite(oddsNumber) || oddsNumber <= 1) {
+        return this.fail('not_quotable', 'La cotización ya no es válida. Vuelve a cotizar.')
+      }
+      const minOdds = parseUnits(
+        calcMinOdds({ odds: oddsNumber, slippage: opts.slippageTolerance * 100 }),
+        ODDS_DECIMALS,
       )
-    } catch (cause) {
-      return this.walletFail('No se pudo firmar la apuesta.', cause)
-    }
 
+      const nowMs = this.now()
+      const clientData = {
+        attention: '',
+        affiliate,
+        core: this.config.coreAddress,
+        expiresAt: Math.floor((nowMs + (opts.deadlineMs ?? DEFAULT_BET_DEADLINE_MS)) / 1000),
+        chainId: this.config.chainId,
+        relayerFeeAmount: fee.relayerFeeAmount,
+        isFeeSponsored: false,
+        isBetSponsored: false,
+        isSponsoredBetReturnable: false,
+      }
+      const bet = {
+        conditionId,
+        outcomeId,
+        minOdds: String(minOdds),
+        amount: String(amount),
+        nonce: String(nowMs),
+      }
+
+      // 4c. Firma EIP-712 de la apuesta.
+      try {
+        const signature = await wallet.signBetTypedData(
+          getBetTypedData({ account: from, clientData, bet }),
+        )
+        return { ok: true, data: { signature, nowMs, clientData, bet } }
+      } catch (cause) {
+        return this.walletFail('No se pudo firmar la apuesta.', cause)
+      }
+    })
+    if (!preparada.ok) return preparada
+    const { signature, nowMs, clientData, bet } = preparada.data
+
+    // 5. Envío de la orden firmada al relayer.
     let rawResponse: unknown
     try {
       rawResponse = await this.gateway.submitBet({
@@ -1413,6 +1495,77 @@ export class AzuroAdapter implements MarketSource {
   }
 
   /** Distingue el rechazo del usuario del resto de fallos de wallet. */
+  /**
+   * Declara las firmas que una apuesta va a pedir, para que el usuario las
+   * autorice de una vez. El orden es el real: primero el peaje de la
+   * gasolinera (si la hay y hace falta aprobar), luego el permiso al relayer,
+   * y por último la apuesta.
+   *
+   * Si la gasolinera no responde se omite el paso del peaje: ese approve irá
+   * on-chain, que no firma ninguna transferencia. Un paso de menos no abre
+   * ningún agujero — lo que no esté declarado pide su propia confirmación.
+   */
+  private async planDeFirmas(params: {
+    titulo: string
+    necesitaApprove: boolean
+    /** `primaryType` de la orden que se firmará (simple o combinada). */
+    primaryType: string
+  }): Promise<PlanDeFirmas> {
+    const pasos: IntencionFirma[] = []
+    const token = this.config.betToken.address
+
+    if (params.necesitaApprove) {
+      const info = await this.wallet?.gasStationInfo?.().catch(() => null)
+      if (info !== null && info !== undefined && info.tollAmount > 0n) {
+        pasos.push({
+          tipo: 'transferencia',
+          token,
+          a: info.station,
+          cantidad: info.tollAmount,
+        })
+      }
+      pasos.push({
+        tipo: 'permiso',
+        token,
+        a: this.config.relayerAddress,
+        cantidad: maxUint256,
+      })
+    }
+    pasos.push({
+      tipo: 'orden',
+      contrato: this.config.coreAddress,
+      primaryType: params.primaryType,
+    })
+
+    return {
+      titulo: params.titulo,
+      resumen:
+        pasos.length === 1
+          ? 'Firmas la orden de apuesta. El relayer la ejecuta y la tarifa se cobra en el mismo token.'
+          : 'Primera apuesta con esta wallet: además de la orden hay que autorizar el gasto del token. Míralo y lo firmas todo de una vez.',
+      pasos,
+    }
+  }
+
+  /**
+   * Ejecuta `accion` con el plan ya autorizado, si el puente sabe hacerlo.
+   * Sin soporte (tests, puentes sin UI) se ejecuta igual y cada firma pedirá
+   * su confirmación: peor UX, nunca menos seguridad.
+   */
+  private async conPlan<T>(
+    plan: PlanDeFirmas,
+    accion: () => Promise<Result<T>>,
+  ): Promise<Result<T>> {
+    const wallet = this.wallet
+    if (wallet === null || wallet.conPlanDeFirmas === undefined) return accion()
+    try {
+      return await wallet.conPlanDeFirmas(plan, accion)
+    } catch (cause) {
+      // Rechazar el plan es rechazar la operación entera.
+      return this.walletFail('No se autorizaron las firmas de la apuesta.', cause)
+    }
+  }
+
   private walletFail<T>(message: string, cause: unknown): Result<T> {
     const rejected =
       typeof cause === 'object' &&

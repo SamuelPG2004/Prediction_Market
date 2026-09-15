@@ -44,7 +44,11 @@ import {
   type WalletClient,
 } from 'viem'
 import type { AzuroChainId } from './config.ts'
-import { tryGaslessApprove } from './gasStation.ts'
+import { fetchGasStationInfo, tryGaslessApprove } from './gasStation.ts'
+import {
+  puertaDeFirma,
+  type PlanDeFirmas,
+} from '../../services/signatureGuard.ts'
 
 export interface ListGamesParams {
   sportSlug?: string
@@ -117,6 +121,18 @@ export interface AzuroWalletBridge {
    * hecho; `false` si no está disponible — el adaptador cae a `approve`.
    */
   approveGasless(token: Address, owner: Address, spender: Address): Promise<boolean>
+  /**
+   * Peaje y dirección de la gasolinera, o `null` si no está disponible. Sirve
+   * para ANUNCIAR el peaje antes de firmar nada (no lo cobra).
+   */
+  gasStationInfo?(): Promise<{ station: Address; tollAmount: bigint } | null>
+  /**
+   * Agrupa en UNA confirmación del usuario todas las firmas de la operación.
+   * Opcional a propósito: sin implementación (tests, o un puente futuro) la
+   * acción se ejecuta igual y cada firma pide su confirmación por separado —
+   * peor UX, nunca menos seguridad.
+   */
+  conPlanDeFirmas?<T>(plan: PlanDeFirmas, accion: () => Promise<T>): Promise<T>
   /** Firma EIP-712 de la apuesta. */
   signBetTypedData(typedData: BetTypedData): Promise<Hex>
   /** Firma EIP-712 de una combinada. */
@@ -247,6 +263,12 @@ export function createViemWalletBridge(
     },
     async approveGasless(token, owner, spender) {
       return tryGaslessApprove({ publicClient, walletClient, token, owner, spender })
+    },
+    async gasStationInfo() {
+      return fetchGasStationInfo()
+    },
+    async conPlanDeFirmas(plan, accion) {
+      return puertaDeFirma.conPlan(plan, accion)
     },
     async signBetTypedData(typedData) {
       return walletClient.signTypedData(typedData)

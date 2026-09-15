@@ -47,6 +47,13 @@ export interface DetalleFirma {
 
 export type RiesgoFirma = 'normal' | 'alto'
 
+/** Una operación dentro de un plan, ya descrita para enseñarla. */
+export interface PasoDeFirma {
+  titulo: string
+  detalles: DetalleFirma[]
+  riesgo: RiesgoFirma
+}
+
 /** Lo que la UI necesita para que un humano decida con criterio. */
 export interface PeticionDeFirma {
   id: number
@@ -62,6 +69,55 @@ export interface PeticionDeFirma {
    * una delegación EIP-7702, un approve ilimitado): el diálogo lo avisa.
    */
   riesgo: RiesgoFirma
+  /**
+   * Presente solo en las peticiones de PLAN: las operaciones que se van a
+   * firmar si se autoriza. Una firma suelta no lo trae.
+   */
+  pasos?: PasoDeFirma[]
+}
+
+// --- Planes: varias firmas, una sola confirmación -----------------------------
+
+/**
+ * Lo que una operación declara que va a firmar, en el mismo vocabulario en el
+ * que la puerta sabe traducir el calldata. Se declara ANTES de firmar nada.
+ */
+export type IntencionFirma =
+  | { tipo: 'transferencia'; token: Address; a: Address; cantidad: bigint }
+  | { tipo: 'permiso'; token: Address; a: Address; cantidad: bigint }
+  | { tipo: 'orden'; contrato: Address; primaryType: string }
+
+export interface PlanDeFirmas {
+  /** "Apostar 5 USDT a Arsenal". */
+  titulo: string
+  resumen: string
+  pasos: IntencionFirma[]
+}
+
+/**
+ * Identidad de una operación: lo que se compara para decidir si una firma que
+ * llega es una de las que el usuario autorizó en el plan.
+ *
+ * Es SEMÁNTICA (qué se autoriza), no literal (qué bytes se firman): la misma
+ * transferencia da la misma huella tanto si acaba yendo on-chain como si va
+ * como meta-transacción por la gasolinera, que es exactamente lo que el
+ * usuario leyó y aprobó. Lo que NO puede pasar es que una operación distinta
+ * cuele: otra cantidad, otro destinatario u otro token dan otra huella y se
+ * llevan su propio diálogo.
+ */
+function huellaDeIntencion(intencion: IntencionFirma): string {
+  switch (intencion.tipo) {
+    case 'transferencia':
+    case 'permiso':
+      return [
+        intencion.tipo,
+        intencion.token.toLowerCase(),
+        intencion.a.toLowerCase(),
+        intencion.cantidad.toString(),
+      ].join('|')
+    case 'orden':
+      return ['orden', intencion.contrato.toLowerCase(), intencion.primaryType].join('|')
+  }
 }
 
 // --- Direcciones conocidas ----------------------------------------------------
@@ -144,6 +200,68 @@ interface LlamadaDescrita {
   resumen: string
   detalles: DetalleFirma[]
   riesgo: RiesgoFirma
+  /** Qué autoriza, para poder casarlo con un plan ya aprobado. */
+  intencion?: IntencionFirma
+}
+
+/**
+ * Descripción de una transferencia. La comparten el diálogo de una firma
+ * suelta y el de un plan, para que el usuario lea EXACTAMENTE el mismo texto
+ * al autorizar el plan y —si algo no casara— al confirmar la firma.
+ */
+function describirTransferencia(
+  token: Address,
+  a: Address,
+  cantidad: bigint,
+): LlamadaDescrita {
+  return {
+    titulo: 'Enviar tokens',
+    resumen: `Sacas ${importeDeToken(token, cantidad)} de tu wallet.`,
+    detalles: [
+      { etiqueta: 'Envías', valor: importeDeToken(token, cantidad), destacado: true },
+      { etiqueta: 'A', valor: etiquetaDe(a), destacado: true },
+      { etiqueta: 'Token', valor: etiquetaDe(token) },
+    ],
+    riesgo: 'normal',
+    intencion: { tipo: 'transferencia', token, a, cantidad },
+  }
+}
+
+/** Descripción de un approve. Igual que arriba: texto compartido. */
+function describirPermiso(token: Address, a: Address, cantidad: bigint): LlamadaDescrita {
+  const ilimitado = cantidad === maxUint256
+  return {
+    titulo: 'Autorizar gasto',
+    resumen: ilimitado
+      ? 'Autorizas a gastar TODO tu saldo de este token, ahora y en el futuro, sin volver a preguntarte.'
+      : `Autorizas a gastar hasta ${importeDeToken(token, cantidad)} de tu saldo.`,
+    detalles: [
+      { etiqueta: 'Autorizas a', valor: etiquetaDe(a), destacado: true },
+      { etiqueta: 'Hasta', valor: importeDeToken(token, cantidad), destacado: true },
+      { etiqueta: 'Token', valor: etiquetaDe(token) },
+    ],
+    riesgo: ilimitado ? 'alto' : 'normal',
+    intencion: { tipo: 'permiso', token, a, cantidad },
+  }
+}
+
+/** Una intención declarada en un plan, descrita como se enseñará. */
+function describirIntencion(intencion: IntencionFirma): PasoDeFirma {
+  const descrita =
+    intencion.tipo === 'transferencia'
+      ? describirTransferencia(intencion.token, intencion.a, intencion.cantidad)
+      : intencion.tipo === 'permiso'
+        ? describirPermiso(intencion.token, intencion.a, intencion.cantidad)
+        : {
+            titulo: 'Firmar la orden',
+            detalles: [{ etiqueta: 'Contrato', valor: etiquetaDe(intencion.contrato) }],
+            riesgo: 'normal' as RiesgoFirma,
+          }
+  return {
+    titulo: descrita.titulo,
+    detalles: descrita.detalles,
+    riesgo: descrita.riesgo,
+  }
 }
 
 /**
@@ -159,32 +277,11 @@ function describirLlamada(contrato: string, data: Hex | undefined): LlamadaDescr
     const { functionName, args } = decodeFunctionData({ abi: erc20Abi, data })
     if (functionName === 'transfer') {
       const [destino, cantidad] = args as [Address, bigint]
-      return {
-        titulo: 'Enviar tokens',
-        resumen: `Sacas ${importeDeToken(contrato, cantidad)} de tu wallet.`,
-        detalles: [
-          { etiqueta: 'Envías', valor: importeDeToken(contrato, cantidad), destacado: true },
-          { etiqueta: 'A', valor: etiquetaDe(destino), destacado: true },
-          { etiqueta: 'Token', valor: etiquetaDe(contrato) },
-        ],
-        riesgo: 'normal',
-      }
+      return describirTransferencia(contrato as Address, destino, cantidad)
     }
     if (functionName === 'approve') {
       const [gastador, cantidad] = args as [Address, bigint]
-      const ilimitado = cantidad === maxUint256
-      return {
-        titulo: 'Autorizar gasto',
-        resumen: ilimitado
-          ? 'Autorizas a gastar TODO tu saldo de este token, ahora y en el futuro, sin volver a preguntarte.'
-          : `Autorizas a gastar hasta ${importeDeToken(contrato, cantidad)} de tu saldo.`,
-        detalles: [
-          { etiqueta: 'Autorizas a', valor: etiquetaDe(gastador), destacado: true },
-          { etiqueta: 'Hasta', valor: importeDeToken(contrato, cantidad), destacado: true },
-          { etiqueta: 'Token', valor: etiquetaDe(contrato) },
-        ],
-        riesgo: ilimitado ? 'alto' : 'normal',
-      }
+      return describirPermiso(contrato as Address, gastador, cantidad)
     }
   } catch {
     // No era ERC-20; se prueba el siguiente ABI.
@@ -220,6 +317,12 @@ function describirLlamada(contrato: string, data: Hex | undefined): LlamadaDescr
   }
 }
 
+/**
+ * Lo que se le pide a la cola: la descripción para el diálogo más, si la app
+ * ha podido deducirla, la intención (para casarla con un plan aprobado).
+ */
+type Descripcion = Omit<PeticionDeFirma, 'id'> & { intencion?: IntencionFirma }
+
 interface TransaccionFirmable {
   to?: string | null
   value?: bigint
@@ -227,7 +330,7 @@ interface TransaccionFirmable {
   chainId?: number
 }
 
-function describirTransaccion(tx: TransaccionFirmable): Omit<PeticionDeFirma, 'id'> {
+function describirTransaccion(tx: TransaccionFirmable): Descripcion {
   const detallesRed: DetalleFirma[] =
     tx.chainId === undefined ? [] : [{ etiqueta: 'Red', valor: chainLabel(tx.chainId) }]
   const destino = typeof tx.to === 'string' ? tx.to : null
@@ -241,6 +344,7 @@ function describirTransaccion(tx: TransaccionFirmable): Omit<PeticionDeFirma, 'i
       detalles: [...llamada.detalles, ...detallesRed],
       crudo,
       riesgo: llamada.riesgo,
+      ...(llamada.intencion === undefined ? {} : { intencion: llamada.intencion }),
     }
   }
 
@@ -265,7 +369,7 @@ interface TypedDataFirmable {
   message?: Record<string, unknown>
 }
 
-function describirTypedData(params: TypedDataFirmable): Omit<PeticionDeFirma, 'id'> {
+function describirTypedData(params: TypedDataFirmable): Descripcion {
   const dominio = params.domain ?? {}
   const contrato = dominio.verifyingContract
   const crudo = aJson({
@@ -291,6 +395,9 @@ function describirTypedData(params: TypedDataFirmable): Omit<PeticionDeFirma, 'i
         detalles: [...llamada.detalles, ...detallesDominio],
         crudo,
         riesgo: llamada.riesgo,
+        // Misma intención que si fuera on-chain: lo que el usuario autoriza
+        // es mover ese importe, no el sobre por el que viaja.
+        ...(llamada.intencion === undefined ? {} : { intencion: llamada.intencion }),
       }
     }
   }
@@ -309,6 +416,15 @@ function describirTypedData(params: TypedDataFirmable): Omit<PeticionDeFirma, 'i
     detalles: [...campos, ...detallesDominio],
     crudo,
     riesgo: 'normal',
+    ...(contrato === undefined
+      ? {}
+      : {
+          intencion: {
+            tipo: 'orden' as const,
+            contrato: contrato as Address,
+            primaryType: params.primaryType,
+          },
+        }),
   }
 }
 
@@ -331,6 +447,18 @@ class PuertaDeFirma {
   private cola: EnCola[] = []
   private readonly oyentes = new Set<() => void>()
   private siguienteId = 1
+  /**
+   * Plan aprobado en curso: las huellas de las operaciones que el usuario
+   * autorizó de una vez y que aún no han llegado. Cada una se gasta UNA vez.
+   */
+  private planAbierto: string[] | null = null
+  /**
+   * Sube con cada cancelación general (bloqueo de la bóveda). Sirve para que
+   * un plan aprobado no llegue a abrirse si el bloqueo ocurrió mientras el
+   * usuario decidía: sin esto quedaba una rendija de una microtarea en la que
+   * el plan se instalaba DESPUÉS de haberse cancelado todo.
+   */
+  private epoca = 0
 
   subscribe = (oyente: () => void): (() => void) => {
     this.oyentes.add(oyente)
@@ -348,7 +476,19 @@ class PuertaDeFirma {
    * lanza `UserRejectedRequestError` si se rechaza, si se bloquea la bóveda o
    * si nadie responde en `FIRMA_TIMEOUT_MS`.
    */
-  solicitar(descripcion: Omit<PeticionDeFirma, 'id'>): Promise<void> {
+  solicitar(descripcion: Descripcion): Promise<void> {
+    // ¿Es una de las operaciones que el usuario ya autorizó en el plan? Se
+    // gasta esa entrada y se firma sin volver a preguntar. Cualquier otra
+    // cosa —aunque llegue en mitad del plan— cae al diálogo de siempre: el
+    // plan autoriza operaciones concretas, no un rato de barra libre.
+    if (this.planAbierto !== null && descripcion.intencion !== undefined) {
+      const huella = huellaDeIntencion(descripcion.intencion)
+      const indice = this.planAbierto.indexOf(huella)
+      if (indice !== -1) {
+        this.planAbierto.splice(indice, 1)
+        return Promise.resolve()
+      }
+    }
     return new Promise<void>((resolve, reject) => {
       const id = this.siguienteId++
       const temporizador = setTimeout(() => {
@@ -379,8 +519,56 @@ class PuertaDeFirma {
     this.avisar()
   }
 
+  /**
+   * Agrupa en UNA confirmación las firmas de una operación con varios pasos
+   * (la primera apuesta: peaje + permiso + apuesta). El usuario ve la lista
+   * completa y decide una sola vez; después, cada firma que coincida con un
+   * paso declarado pasa sin diálogo.
+   *
+   * Lo que esto NO es: un "confiar durante N segundos". Solo pasan las
+   * operaciones EXACTAS que se enseñaron, una vez cada una. Si un paso llega
+   * distinto (otro importe, otro destinatario) o llega algo que no estaba en
+   * la lista, se pide su confirmación aparte. Y si `accion` falla o el plan
+   * se rechaza, no queda ningún permiso abierto.
+   *
+   * Si ya hay un plan en curso (dos operaciones a la vez), esta no abre otro:
+   * se ejecuta pidiendo confirmación firma a firma. Peor UX, nunca peor
+   * seguridad.
+   */
+  async conPlan<T>(plan: PlanDeFirmas, accion: () => Promise<T>): Promise<T> {
+    if (this.planAbierto !== null || plan.pasos.length === 0) return accion()
+
+    const epoca = this.epoca
+    await this.solicitar({
+      titulo: plan.titulo,
+      resumen: plan.resumen,
+      detalles: [],
+      crudo: aJson(plan.pasos),
+      riesgo: plan.pasos.some((p) => describirIntencion(p).riesgo === 'alto')
+        ? 'alto'
+        : 'normal',
+      pasos: plan.pasos.map(describirIntencion),
+    })
+
+    // Se canceló todo mientras el usuario decidía: el plan no llega a abrirse.
+    if (this.epoca !== epoca) {
+      throw rechazoDelUsuario('La wallet se bloqueó antes de firmar')
+    }
+
+    this.planAbierto = plan.pasos.map(huellaDeIntencion)
+    try {
+      return await accion()
+    } finally {
+      this.planAbierto = null
+    }
+  }
+
   /** Tira toda la cola: la bóveda se bloqueó o el usuario desconectó. */
   rechazarTodas(motivo: string): void {
+    // Un plan aprobado no sobrevive a un bloqueo de la bóveda, ni siquiera
+    // uno que estuviera a medio abrirse (de ahí la época).
+    this.planAbierto = null
+    this.epoca += 1
     const pendientes = this.cola
     this.cola = []
     for (const entrada of pendientes) {
@@ -419,7 +607,7 @@ export function conPuertaDeFirma(
   cuenta: PrivateKeyAccount,
   puerta: Pick<PuertaDeFirma, 'solicitar'> = puertaDeFirma,
 ): PrivateKeyAccount {
-  const pedir = async (descripcion: Omit<PeticionDeFirma, 'id'>): Promise<void> => {
+  const pedir = async (descripcion: Descripcion): Promise<void> => {
     await puerta.solicitar(descripcion)
   }
 

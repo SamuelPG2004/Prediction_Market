@@ -4,9 +4,11 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { maxUint256, type Address, type Hex } from 'viem'
+import { getBetTypedData, getComboBetTypedData } from '@azuro-org/toolkit'
 import { toDecimal, type Quote } from '../../../domain/types.ts'
 import { AzuroAdapter } from '../AzuroAdapter.ts'
 import { makeAzuroConfig, type AzuroConfig } from '../config.ts'
+import type { PlanDeFirmas } from '../../../services/signatureGuard.ts'
 import type {
   AzuroGateway,
   AzuroWalletBridge,
@@ -28,6 +30,8 @@ import searchFixture from './fixtures/games-search.json'
 
 const AFFILIATE = '0x1111111111111111111111111111111111111111' as Address
 const BETTOR = '0x2222222222222222222222222222222222222222'
+/** Config por defecto de los tests, para poder comprobar direcciones. */
+const CONFIG = makeAzuroConfig(137, AFFILIATE)
 
 // Anclas de los fixtures (ver fixtures/README.md).
 const PREMATCH_GAME_ID = '1006000000000030696510'
@@ -150,6 +154,17 @@ class FakeWallet implements AzuroWalletBridge {
     if (!this.gaslessAvailable) return false
     this.allowance = maxUint256
     return true
+  }
+  /** Peaje anunciado por la gasolinera; `null` = no disponible. */
+  gasStation: { station: Address; tollAmount: bigint } | null = null
+  async gasStationInfo() {
+    return this.gasStation
+  }
+  /** Planes de firma declarados; el doble los ejecuta sin preguntar nada. */
+  planes: PlanDeFirmas[] = []
+  async conPlanDeFirmas<T>(plan: PlanDeFirmas, accion: () => Promise<T>): Promise<T> {
+    this.planes.push(plan)
+    return accion()
   }
   async signBetTypedData(typedData: BetTypedData): Promise<Hex> {
     if (this.signError !== null) throw this.signError
@@ -520,6 +535,115 @@ describe('getQuote', () => {
     gateway.responses.getConditionsState = 'basura'
     const malformada = await adapter.getQuote(ACTIVE_MARKET_ID, '405', toDecimal('10'))
     expect(!malformada.ok && malformada.error.kind).toBe('invalid_response')
+  })
+})
+
+describe('placeBet: plan de firmas', () => {
+  const GASOLINERA = '0x12511B1E7A22FFFD2fbccBd6C86b5aB689464883' as Address
+
+  /**
+   * Lo que este bloque protege: el plan se DECLARA antes de firmar, así que
+   * puede desajustarse de lo que realmente pasa después. Si eso ocurriera, el
+   * usuario vería una ventana por firma en vez de una (molesto, no inseguro),
+   * y estos tests lo detectan antes que él.
+   */
+  it('primera apuesta con gasolinera: anuncia peaje, permiso y orden', async () => {
+    const wallet = new FakeWallet()
+    wallet.gaslessAvailable = true
+    wallet.gasStation = { station: GASOLINERA, tollAmount: 100_000n }
+    const { adapter } = makeAdapter({ wallet })
+    const quote = await quoteForActiveMarket(adapter)
+
+    const result = await adapter.placeBet(quote, {
+      from: BETTOR,
+      slippageTolerance: 0.05,
+    })
+    expect(result.ok).toBe(true)
+
+    expect(wallet.planes).toHaveLength(1)
+    const plan = wallet.planes[0]!
+    expect(plan.pasos).toEqual([
+      {
+        tipo: 'transferencia',
+        token: CONFIG.betToken.address,
+        a: GASOLINERA,
+        cantidad: 100_000n,
+      },
+      {
+        tipo: 'permiso',
+        token: CONFIG.betToken.address,
+        a: CONFIG.relayerAddress,
+        cantidad: maxUint256,
+      },
+      { tipo: 'orden', contrato: CONFIG.coreAddress, primaryType: 'ClientBetData' },
+    ])
+    // Y lo anunciado es lo que de verdad ocurre: el primaryType declarado
+    // tiene que ser el que produce el toolkit, o el plan no casaría.
+    expect(wallet.signedTypedData?.primaryType).toBe(plan.pasos[2]!.tipo === 'orden'
+      ? plan.pasos[2]!.primaryType
+      : null)
+  })
+
+  it('con allowance ya dada, el plan es solo la orden', async () => {
+    const wallet = new FakeWallet()
+    wallet.allowance = maxUint256
+    wallet.gasStation = { station: GASOLINERA, tollAmount: 100_000n }
+    const { adapter } = makeAdapter({ wallet })
+    const quote = await quoteForActiveMarket(adapter)
+
+    await adapter.placeBet(quote, { from: BETTOR, slippageTolerance: 0.05 })
+
+    expect(wallet.planes[0]?.pasos).toHaveLength(1)
+    expect(wallet.planes[0]?.pasos[0]?.tipo).toBe('orden')
+    // Sin approve no hay peaje que cobrar.
+    expect(wallet.gaslessCalls).toHaveLength(0)
+  })
+
+  it('sin gasolinera no se anuncia peaje (el approve irá on-chain)', async () => {
+    const wallet = new FakeWallet()
+    wallet.gasStation = null
+    const { adapter } = makeAdapter({ wallet })
+    const quote = await quoteForActiveMarket(adapter)
+
+    await adapter.placeBet(quote, { from: BETTOR, slippageTolerance: 0.05 })
+
+    expect(wallet.planes[0]?.pasos.map((p) => p.tipo)).toEqual(['permiso', 'orden'])
+  })
+
+  it('los primaryType declarados son los que produce el toolkit', () => {
+    // El plan los anuncia por constante (hay que declararlos ANTES de
+    // construir la firma). Si Azuro los renombrase, aquí se ve: el efecto
+    // sería una ventana de más, nunca una firma sin confirmar.
+    const cliente = '0x1111111111111111111111111111111111111111' as Address
+    const clientData = {
+      attention: '',
+      affiliate: AFFILIATE,
+      core: CONFIG.coreAddress,
+      expiresAt: 1,
+      chainId: 137 as const,
+      relayerFeeAmount: '1',
+      isFeeSponsored: false,
+      isBetSponsored: false,
+      isSponsoredBetReturnable: false,
+    }
+    const simple = getBetTypedData({
+      account: cliente,
+      clientData,
+      bet: { conditionId: '1', outcomeId: '2', minOdds: '3', amount: '4', nonce: '5' },
+    })
+    const combinada = getComboBetTypedData({
+      account: cliente,
+      clientData,
+      bets: [{ conditionId: '1', outcomeId: '2' }],
+      minOdds: '3',
+      amount: '4',
+      nonce: '5',
+    })
+    expect(simple.primaryType).toBe('ClientBetData')
+    expect(combinada.primaryType).toBe('ClientComboBetData')
+    // Y el dominio que el plan anuncia como contrato es el core.
+    expect(simple.domain?.verifyingContract).toBe(CONFIG.coreAddress)
+    expect(combinada.domain?.verifyingContract).toBe(CONFIG.coreAddress)
   })
 })
 

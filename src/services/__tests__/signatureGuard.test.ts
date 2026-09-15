@@ -13,6 +13,7 @@ import {
   puertaDeFirma,
   registrarDireccionesConocidas,
   FIRMA_TIMEOUT_MS,
+  type IntencionFirma,
 } from '../signatureGuard.ts'
 
 /** Clave de juguete, nunca usada fuera de estos tests. */
@@ -23,12 +24,16 @@ const DESCONOCIDO = '0x00000000000000000000000000000000deadbeef' as Address
 
 const cruda = privateKeyToAccount(CLAVE)
 
-/** Espera a que la cola tenga una petición (la firma es asíncrona). */
+/**
+ * Espera a que la cola tenga una petición. Se cede con `setTimeout` y no con
+ * `Promise.resolve`: entre la llamada y el encolado hay varios `await` y
+ * trabajo de viem, que no avanza solo con microtareas.
+ */
 async function esperarPeticion() {
   for (let i = 0; i < 50; i++) {
     const actual = puertaDeFirma.actual()
     if (actual !== null) return actual
-    await Promise.resolve()
+    await new Promise((r) => setTimeout(r, 1))
   }
   throw new Error('no llegó ninguna petición a la cola')
 }
@@ -145,6 +150,235 @@ describe('aprobar y rechazar', () => {
 
     await vi.advanceTimersByTimeAsync(FIRMA_TIMEOUT_MS + 1000)
     expect(await resultado).toMatchObject({ name: 'UserRejectedRequestError' })
+    expect(puertaDeFirma.actual()).toBeNull()
+  })
+})
+
+describe('planes: varias firmas, una confirmación', () => {
+  const PEAJE: IntencionFirma = {
+    tipo: 'transferencia',
+    token: USDT,
+    a: DESCONOCIDO,
+    cantidad: 100_000n,
+  }
+  const PERMISO: IntencionFirma = {
+    tipo: 'permiso',
+    token: USDT,
+    a: RELAYER,
+    cantidad: maxUint256,
+  }
+  const plan = { titulo: 'Apostar 5 USDT', resumen: 'Tres firmas', pasos: [PEAJE, PERMISO] }
+
+  /** El calldata real que corresponde a cada intención. */
+  const datosPeaje = encodeFunctionData({
+    abi: erc20Abi,
+    functionName: 'transfer',
+    args: [DESCONOCIDO, 100_000n],
+  })
+  const datosPermiso = encodeFunctionData({
+    abi: erc20Abi,
+    functionName: 'approve',
+    args: [RELAYER, maxUint256],
+  })
+
+  /**
+   * Transacción completa: aquí las firmas SÍ se ejecutan (el plan las deja
+   * pasar), así que viem necesita poder serializarla de verdad.
+   */
+  const tx = (data: `0x${string}`) =>
+    ({
+      to: USDT,
+      chainId: 137,
+      data,
+      type: 'eip1559' as const,
+      nonce: 0,
+      gas: 100_000n,
+      maxFeePerGas: 50_000_000_000n,
+      maxPriorityFeePerGas: 30_000_000_000n,
+      value: 0n,
+    })
+
+  it('una sola confirmación enseña los pasos y deja pasar las firmas que casan', async () => {
+    const guardada = conPuertaDeFirma(cruda)
+    let firmas = 0
+
+    const corriendo = puertaDeFirma.conPlan(plan, async () => {
+      await guardada.signTransaction(tx(datosPeaje))
+      firmas++
+      await guardada.signTransaction(tx(datosPermiso))
+      firmas++
+      return 'listo'
+    })
+
+    // Primero se pide autorizar el PLAN, no una firma suelta.
+    const peticion = await esperarPeticion()
+    expect(peticion.pasos).toHaveLength(2)
+    expect(peticion.pasos?.[0]?.titulo).toBe('Enviar tokens')
+    expect(peticion.pasos?.[1]?.titulo).toBe('Autorizar gasto')
+    // Un approve ilimitado dentro contagia el aviso de alto riesgo al plan.
+    expect(peticion.riesgo).toBe('alto')
+    expect(firmas).toBe(0)
+
+    puertaDeFirma.aprobar(peticion.id)
+    expect(await corriendo).toBe('listo')
+    // Las dos firmas salieron sin más diálogos.
+    expect(firmas).toBe(2)
+    expect(puertaDeFirma.actual()).toBeNull()
+  })
+
+  it('rechazar el plan impide que la operación llegue siquiera a empezar', async () => {
+    const guardada = conPuertaDeFirma(cruda)
+    let empezo = false
+    const corriendo = puertaDeFirma
+      .conPlan(plan, async () => {
+        empezo = true
+        return guardada.signTransaction(tx(datosPeaje))
+      })
+      .catch((e: unknown) => e)
+
+    const peticion = await esperarPeticion()
+    puertaDeFirma.rechazar(peticion.id)
+
+    expect(await corriendo).toMatchObject({ name: 'UserRejectedRequestError' })
+    expect(empezo).toBe(false)
+  })
+
+  it('una firma que NO estaba en el plan pide su propia confirmación', async () => {
+    // El caso que justifica todo el diseño: aprobar un plan no es abrir la
+    // puerta un rato. Aquí se cuela una transferencia a otra dirección.
+    const guardada = conPuertaDeFirma(cruda)
+    let coladaFirmada = false
+
+    const corriendo = puertaDeFirma.conPlan(plan, async () => {
+      await guardada.signTransaction(tx(datosPeaje))
+      await guardada
+        .signTransaction({
+          to: USDT,
+          chainId: 137,
+          data: encodeFunctionData({
+            abi: erc20Abi,
+            functionName: 'transfer',
+            args: [RELAYER, 999_000_000n],
+          }),
+        })
+        .then(() => {
+          coladaFirmada = true
+        })
+      return 'no debería llegar aquí sin permiso'
+    })
+
+    puertaDeFirma.aprobar((await esperarPeticion()).id)
+
+    // La colada se para en su propio diálogo, con su importe a la vista.
+    const intrusa = await esperarPeticion()
+    expect(intrusa.pasos).toBeUndefined()
+    expect(coladaFirmada).toBe(false)
+    const valores = Object.fromEntries(intrusa.detalles.map((d) => [d.etiqueta, d.valor]))
+    expect(valores['Envías']).toBe('999 USDT')
+
+    puertaDeFirma.rechazar(intrusa.id)
+    await expect(corriendo).rejects.toMatchObject({ name: 'UserRejectedRequestError' })
+  })
+
+  it('cada paso se gasta una sola vez: repetirlo vuelve a preguntar', async () => {
+    const guardada = conPuertaDeFirma(cruda)
+    const corriendo = puertaDeFirma.conPlan(
+      { ...plan, pasos: [PEAJE] },
+      async () => {
+        await guardada.signTransaction(tx(datosPeaje))
+        // El mismo cobro por segunda vez ya no está autorizado.
+        return guardada
+          .signTransaction(tx(datosPeaje))
+          .then(() => 'firmó dos veces')
+      },
+    )
+    puertaDeFirma.aprobar((await esperarPeticion()).id)
+
+    const segunda = await esperarPeticion()
+    expect(segunda.pasos).toBeUndefined()
+    puertaDeFirma.rechazar(segunda.id)
+    await expect(corriendo).rejects.toMatchObject({ name: 'UserRejectedRequestError' })
+  })
+
+  it('el permiso no sobrevive a la operación', async () => {
+    const guardada = conPuertaDeFirma(cruda)
+    const corriendo = puertaDeFirma.conPlan({ ...plan, pasos: [PEAJE] }, async () => 'ok')
+    puertaDeFirma.aprobar((await esperarPeticion()).id)
+    expect(await corriendo).toBe('ok')
+
+    // Fuera del plan, la misma operación vuelve a pedir confirmación.
+    const suelta = guardada
+      .signTransaction(tx(datosPeaje))
+      .catch((e: unknown) => e)
+    const peticion = await esperarPeticion()
+    expect(peticion.pasos).toBeUndefined()
+    puertaDeFirma.rechazar(peticion.id)
+    await suelta
+  })
+
+  it('el permiso tampoco sobrevive a un fallo de la operación', async () => {
+    const corriendo = puertaDeFirma
+      .conPlan({ ...plan, pasos: [PEAJE] }, async () => {
+        throw new Error('falló la pasada')
+      })
+      .catch((e: unknown) => e)
+    puertaDeFirma.aprobar((await esperarPeticion()).id)
+    await corriendo
+
+    const guardada = conPuertaDeFirma(cruda)
+    const suelta = guardada
+      .signTransaction(tx(datosPeaje))
+      .catch((e: unknown) => e)
+    puertaDeFirma.rechazar((await esperarPeticion()).id)
+    await suelta
+  })
+
+  it('bloquear la bóveda entre la aprobación y el plan lo cancela', async () => {
+    // La rendija: el usuario aprueba el plan y la bóveda se bloquea antes de
+    // que el plan llegue a instalarse. Sin la comprobación de época, el plan
+    // se abría DESPUÉS del bloqueo y la firma pasaba sola.
+    let empezo = false
+    const corriendo = puertaDeFirma
+      .conPlan({ ...plan, pasos: [PEAJE] }, async () => {
+        empezo = true
+        return 'no debería ejecutarse'
+      })
+      .catch((e: unknown) => e)
+
+    puertaDeFirma.aprobar((await esperarPeticion()).id)
+    puertaDeFirma.rechazarTodas('La wallet se bloqueó antes de firmar')
+
+    expect(await corriendo).toMatchObject({ name: 'UserRejectedRequestError' })
+    expect(empezo).toBe(false)
+  })
+
+  it('bloquear la bóveda durante la operación invalida los pasos que quedaban', async () => {
+    const guardada = conPuertaDeFirma(cruda)
+    let dentro: (() => void) | null = null
+    const espera = new Promise<void>((r) => {
+      dentro = r
+    })
+    const corriendo = puertaDeFirma.conPlan({ ...plan, pasos: [PEAJE] }, async () => {
+      await espera
+      return guardada.signTransaction(tx(datosPeaje)).catch((e: unknown) => e)
+    })
+    // Se deja abrir el plan antes de bloquear.
+    puertaDeFirma.aprobar((await esperarPeticion()).id)
+    await new Promise((r) => setTimeout(r, 1))
+
+    puertaDeFirma.rechazarTodas('La wallet se bloqueó antes de firmar')
+    dentro!()
+
+    // El paso ya no vale: la firma pide confirmación en vez de pasar sola.
+    const peticion = await esperarPeticion()
+    puertaDeFirma.rechazar(peticion.id)
+    expect(await corriendo).toMatchObject({ name: 'UserRejectedRequestError' })
+  })
+
+  it('un plan sin pasos no molesta con un diálogo vacío', async () => {
+    expect(
+      await puertaDeFirma.conPlan({ titulo: 'x', resumen: 'y', pasos: [] }, async () => 42),
+    ).toBe(42)
     expect(puertaDeFirma.actual()).toBeNull()
   })
 })
