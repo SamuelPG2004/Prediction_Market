@@ -11,12 +11,19 @@
  * iteraciones), todo vía WebCrypto. La clave privada nunca toca el disco en
  * claro; al bloquear (o recargar la página) desaparece de memoria y hay que
  * volver a introducir la contraseña.
+ *
+ * La cuenta desbloqueada SALE SIEMPRE envuelta por la puerta de firma
+ * (services/signatureGuard.ts): sin esa envoltura, quien consiguiera el
+ * WalletClient firmaría en silencio. La cuenta cruda no cruza esta clase; la
+ * única salida de material firmante es `revealPrivateKey`, que pide la
+ * contraseña.
  */
 import {
   generatePrivateKey,
   privateKeyToAccount,
   type PrivateKeyAccount,
 } from 'viem/accounts'
+import { conPuertaDeFirma, puertaDeFirma } from './signatureGuard'
 
 /** Subconjunto de localStorage, inyectable para poder testear en Node. */
 export interface KeyValueStore {
@@ -169,18 +176,28 @@ export class LocalWalletVault {
   private readonly store: KeyValueStore
   private readonly iterations: number
   private readonly autoLockMs: number
-  /** Cuenta desbloqueada, SOLO en memoria; `null` mientras está bloqueada. */
+  /** Envoltura de confirmación; inyectable para los tests. */
+  private readonly guard: (account: PrivateKeyAccount) => PrivateKeyAccount
+  /**
+   * Cuenta desbloqueada, SOLO en memoria y YA envuelta por la puerta de
+   * firma; `null` mientras está bloqueada.
+   */
   private unlocked: PrivateKeyAccount | null = null
   private lockTimer: ReturnType<typeof setTimeout> | null = null
   private readonly lockListeners = new Set<() => void>()
 
   constructor(
     store: KeyValueStore = defaultStore(),
-    options?: { iterations?: number; autoLockMs?: number },
+    options?: {
+      iterations?: number
+      autoLockMs?: number
+      guard?: (account: PrivateKeyAccount) => PrivateKeyAccount
+    },
   ) {
     this.store = store
     this.iterations = options?.iterations ?? PBKDF2_ITERATIONS
     this.autoLockMs = options?.autoLockMs ?? AUTO_LOCK_MS
+    this.guard = options?.guard ?? ((account) => conPuertaDeFirma(account))
   }
 
   /**
@@ -260,7 +277,7 @@ export class LocalWalletVault {
     }
     const vault = await encryptPrivateKey(privateKey, password, this.iterations)
     this.store.setItem(STORAGE_KEY, JSON.stringify(vault))
-    this.unlocked = privateKeyToAccount(privateKey)
+    this.unlocked = this.guard(privateKeyToAccount(privateKey))
     this.scheduleAutoLock()
     return this.unlocked.address
   }
@@ -270,7 +287,7 @@ export class LocalWalletVault {
     const vault = parseStoredVault(this.store.getItem(STORAGE_KEY))
     if (vault === null) throw new Error('No hay ninguna wallet guardada')
     const privateKey = await decryptPrivateKey(vault, password)
-    this.unlocked = privateKeyToAccount(privateKey)
+    this.unlocked = this.guard(privateKeyToAccount(privateKey))
     this.scheduleAutoLock()
     return this.unlocked.address
   }
@@ -282,6 +299,11 @@ export class LocalWalletVault {
     }
     if (this.unlocked === null) return
     this.unlocked = null
+    // Una firma esperando confirmación con la bóveda ya bloqueada no podría
+    // completarse (la cuenta ya no existe): se tira la cola para que el
+    // diálogo desaparezca y quien esperaba reciba el rechazo en vez de
+    // colgarse hasta el timeout.
+    puertaDeFirma.rechazarTodas('La wallet se bloqueó antes de firmar')
     for (const listener of this.lockListeners) listener()
   }
 

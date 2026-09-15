@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WagmiProvider } from 'wagmi'
 import { wagmiConfig } from '../config/wagmi'
 import { localWalletVault } from '../services/localWallet'
+import { SignatureConfirmModal } from '../components/SignatureConfirmModal'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,7 +37,16 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
 
   return (
     <WagmiProvider config={wagmiConfig}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        {children}
+        {/*
+          Diálogo de confirmación de firma de la wallet local. Se monta aquí,
+          fuera de cualquier vista, porque una firma puede pedirla cualquier
+          parte de la app (apuesta, retiro, bridge) y debe poder interrumpir
+          lo que sea.
+        */}
+        <SignatureConfirmModal />
+      </QueryClientProvider>
     </WagmiProvider>
   )
 }

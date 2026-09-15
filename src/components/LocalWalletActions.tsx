@@ -56,6 +56,14 @@ const NATIVE_ASSETS: WithdrawAsset[] = [
 
 function humanWithdrawError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
+  // Rechazo en el diálogo de confirmación de firma (o en la wallet externa):
+  // no es un fallo, es una decisión del usuario.
+  if (
+    (error instanceof Error && error.name === 'UserRejectedRequestError') ||
+    /user rejected|rechazado la firma/i.test(message)
+  ) {
+    return 'Has rechazado la firma: no se ha enviado nada.';
+  }
   if (/insufficient funds|exceeds the balance|gas required/i.test(message)) {
     return 'Fondos insuficientes: revisa el importe y que haya gas nativo (POL en Polygon, ETH en Base) para pagar la transacción.';
   }

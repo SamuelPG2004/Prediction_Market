@@ -36,6 +36,7 @@ import {
   type LimitlessWalletBridge,
 } from '../adapters/limitless'
 import { wagmiConfig } from '../config/wagmi'
+import { registrarDireccionesConocidas } from './signatureGuard'
 
 /** Token con el que se apuesta en cada venue, para mostrar saldos en la UI. */
 export interface VenueTokenInfo {
@@ -130,6 +131,43 @@ const limitless = new LimitlessAdapter({
   gateway: createLimitlessGateway(limitlessConfig),
   wallet: lazyLimitlessBridge(limitlessConfig.chainId),
 })
+
+/**
+ * Nombres de las direcciones con las que opera la app, para el diálogo de
+ * confirmación de firma: que diga "el relayer de Azuro" en vez de un
+ * hexadecimal que nadie puede verificar de un vistazo. Salen de la config de
+ * cada venue (que a su vez las saca del toolkit), así que no hay nada
+ * hardcodeado y un tercer venue solo tendría que añadir su línea aquí.
+ *
+ * Este es el sitio: `signatureGuard` es neutral y no conoce venues, y este
+ * archivo ya es el único que puede importar adaptadores concretos.
+ */
+registrarDireccionesConocidas([
+  [
+    azuroConfig.betToken.address,
+    {
+      etiqueta: `${azuroConfig.betToken.symbol} de ${azuro.displayName}`,
+      token: {
+        symbol: azuroConfig.betToken.symbol,
+        decimals: azuroConfig.betToken.decimals,
+      },
+    },
+  ],
+  [azuroConfig.relayerAddress, { etiqueta: 'relayer de Azuro' }],
+  [azuroConfig.coreAddress, { etiqueta: 'contrato core de Azuro' }],
+  [azuroConfig.lpAddress, { etiqueta: 'pozo de liquidez de Azuro' }],
+  [azuroConfig.azuroBetAddress, { etiqueta: 'NFT de tus apuestas (Azuro)' }],
+  ...(azuroConfig.cashoutAddress === null
+    ? []
+    : ([[azuroConfig.cashoutAddress, { etiqueta: 'cash out de Azuro' }]] as const)),
+  [
+    BASE_USDC.address,
+    {
+      etiqueta: `${BASE_USDC.symbol} de ${limitless.displayName}`,
+      token: { symbol: BASE_USDC.symbol, decimals: BASE_USDC.decimals },
+    },
+  ],
+])
 
 /** El registry de la app. La UI no conoce nada más concreto que esto. */
 export const marketSources: MarketSourceRegistry = createRegistry([
