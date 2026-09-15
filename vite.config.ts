@@ -3,8 +3,10 @@ import react from '@vitejs/plugin-react';
 import os from 'os';
 import path from 'path';
 import {defineConfig} from 'vite';
+import vercelConfig from './vercel.json';
 
-export default defineConfig(() => {
+export default defineConfig(({command, isPreview}) => {
+  const dev = command === 'serve' && isPreview !== true;
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
@@ -22,9 +24,11 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
       proxy: apiProxy,
+      headers: securityHeaders(dev),
     },
     preview: {
       proxy: apiProxy,
+      headers: securityHeaders(),
     },
   };
 });
@@ -62,3 +66,34 @@ const apiProxy = {
     changeOrigin: true,
   },
 };
+
+/**
+ * Cabeceras de seguridad con `vercel.json` como ÚNICA fuente de verdad: lo que
+ * sirve el deploy es exactamente lo que se sirve aquí, así que una violación
+ * del CSP aparece en la consola durante `npm run preview` en vez de descubrirse
+ * en producción. El CSP se toca en vercel.json y en ningún otro sitio.
+ *
+ * En dev hacen falta dos concesiones que Vercel no necesita: el preámbulo de
+ * React Refresh es un <script> inline y el HMR abre un WebSocket a localhost.
+ * Por eso la comprobación de verdad del CSP es
+ * `npm run build && npm run preview`, no `npm run dev`.
+ *
+ * MANTENIMIENTO: el único punto del CSP que no controlamos es `connect-src`
+ * del widget de LI.FI, que saca su lista de RPCs de li.quest EN RUNTIME (no
+ * está en el bundle) y puede cambiar sin avisar. Al subir @lifi/widget, abrir
+ * el modal de bridge en `npm run preview` y mirar la consola: un
+ * "Refused to connect" ahí significa host nuevo que añadir a vercel.json.
+ */
+function securityHeaders(dev = false): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const rule = vercelConfig.headers.find((h) => h.source === '/(.*)');
+  for (const {key, value} of rule?.headers ?? []) headers[key] = value;
+
+  const csp = headers['Content-Security-Policy'];
+  if (dev && csp !== undefined) {
+    headers['Content-Security-Policy'] = csp
+      .replace("script-src 'self'", "script-src 'self' 'unsafe-inline'")
+      .replace("connect-src 'self'", "connect-src 'self' ws: http://localhost:*");
+  }
+  return headers;
+}

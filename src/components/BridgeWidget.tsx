@@ -13,7 +13,12 @@
 import { useMemo } from 'react'
 import { LiFiWidget, type WidgetConfig } from '@lifi/widget'
 import { EthereumProvider } from '@lifi/widget-provider-ethereum'
-import { BSC_CHAIN_ID } from '../config/chains'
+import {
+  BASE_CHAIN_ID,
+  BSC_CHAIN_ID,
+  POLYGON_CHAIN_ID,
+  rpcUrlsFor,
+} from '../config/chains'
 
 export interface BridgeDestination {
   /** Cadena de destino (la del venue). */
@@ -42,6 +47,19 @@ export default function BridgeWidget({
       toToken: destination.tokenAddress,
       chains: {
         to: { allow: allowedDestinationChainIds },
+      },
+      // RPCs: los MISMOS que el resto de la app (config/chains.ts) en vez de
+      // la lista interna del widget. Dos motivos: la lista interna cambia
+      // entre versiones y mete hosts que el CSP de vercel.json no conoce
+      // (se vio a bsc-dataseed.binance.org bloqueado y el saldo de BNB sin
+      // cargar), y así el endpoint propio de VITE_*_RPC_URL también vale
+      // aquí. Si se añade una cadena al bridge, va a chains.ts y al CSP.
+      sdkConfig: {
+        rpcUrls: {
+          [BSC_CHAIN_ID]: rpcUrlsFor(BSC_CHAIN_ID),
+          [POLYGON_CHAIN_ID]: rpcUrlsFor(POLYGON_CHAIN_ID),
+          [BASE_CHAIN_ID]: rpcUrlsFor(BASE_CHAIN_ID),
+        },
       },
       appearance: 'dark',
       languages: { default: 'es' },

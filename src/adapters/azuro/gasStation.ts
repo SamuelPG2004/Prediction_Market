@@ -20,7 +20,9 @@
  * campo chainId).
  *
  * Cualquier fallo devuelve `false` y el llamante cae al approve on-chain
- * clásico: la gasolinera es una mejora, nunca un bloqueo.
+ * clásico: la gasolinera es una mejora, nunca un bloqueo. Eso incluye un
+ * peaje por encima de `MAX_TOLL`: el importe lo dicta el servidor y aquí se
+ * firma sin diálogo de wallet, así que el cliente pone su propio techo.
  */
 import {
   encodeFunctionData,
@@ -40,6 +42,21 @@ const GAS_STATION_ENDPOINT = '/api/gas-station'
 
 /** Única cadena con gasolinera: Polygon (meta-tx del USDT puenteado). */
 const SUPPORTED_CHAIN_ID = 137
+
+/**
+ * Techo del peaje que este cliente acepta firmar, en unidades del token
+ * (USDT de Polygon, 6 decimales): 0,50 USDT, cinco veces la tarifa de hoy.
+ *
+ * El peaje lo dice el SERVIDOR y el usuario lo firma sin ver un diálogo de
+ * wallet (la bóveda local firma en silencio), así que sin este tope una
+ * variable mal puesta en Vercel —o un despliegue comprometido— bastaría para
+ * que la firma se llevase el saldo entero. Pasado el tope no hay error: se
+ * devuelve `false` y el llamante cae al approve on-chain de siempre.
+ *
+ * Si algún día sube la tarifa de verdad, este número sube CON ella y a la vez
+ * que `GAS_STATION_TOLL_USDT`; nunca se quita.
+ */
+const MAX_TOLL = 500_000n
 
 /** Funciones del UChildERC20 que no están en el ABI ERC-20 estándar. */
 const META_TX_ABI = [
@@ -110,6 +127,12 @@ async function fetchGasStationInfo(): Promise<GasStationInfo | null> {
     return null
   }
   if (toll < 0n) return null
+  if (toll > MAX_TOLL) {
+    console.warn(
+      `Gasolinera desactivada: el peaje anunciado (${toll}) supera el techo del cliente (${MAX_TOLL}).`,
+    )
+    return null
+  }
   return { station, tollAmount: toll }
 }
 
