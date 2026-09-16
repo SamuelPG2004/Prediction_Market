@@ -35,7 +35,11 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Marca */}
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2.5 cursor-pointer group">
+          <a
+            href="#market-content"
+            aria-label="Aether Markets, ir al catálogo"
+            className="flex items-center gap-2.5 cursor-pointer group rounded-xl"
+          >
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-[1.5px] shadow-lg shadow-emerald-500/10">
               <div className="w-full h-full bg-[#0b0d12] rounded-[10px] flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-emerald-400 group-hover:rotate-12 transition-transform duration-300" />
@@ -54,7 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Prediction Markets
               </p>
             </div>
-          </div>
+          </a>
 
           {/* El aviso de dinero real vive en la píldora REAL del logo, la
               cabecera de cuenta y el pie: una cuarta señal aquí era ruido. */}
@@ -70,6 +74,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               redeemableCount > 0
                 ? `${redeemableCount} ${redeemableCount === 1 ? 'premio cobrable' : 'premios cobrables'}`
                 : undefined
+            }
+            aria-label={
+              redeemableCount > 0
+                ? `Mis posiciones, ${redeemableCount} ${redeemableCount === 1 ? 'premio cobrable' : 'premios cobrables'}`
+                : 'Mis posiciones'
             }
           >
             <Layers className="w-3.5 h-3.5 text-neutral-400" />
@@ -90,16 +99,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Wallet */}
           {wallet.isConnected && wallet.address !== null ? (
-            <div
-              onClick={onConnectWalletClick}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#141822] hover:bg-[#1a202d] border border-neutral-700/80 cursor-pointer transition-all shadow-sm group text-xs font-mono text-neutral-200"
-            >
-              <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-              <span>{shortenAddress(wallet.address)}</span>
+            <div className="flex items-center rounded-xl bg-[#141822] hover:bg-[#1a202d] border border-neutral-700/80 transition-all shadow-sm text-xs font-mono text-neutral-200 overflow-hidden">
               <button
+                type="button"
+                onClick={onConnectWalletClick}
+                className="flex items-center gap-1.5 pl-2.5 pr-1 py-2"
+                aria-label={`Wallet conectada ${shortenAddress(wallet.address)}. Abrir cuenta`}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                <span>{shortenAddress(wallet.address)}</span>
+              </button>
+              <button
+                type="button"
                 onClick={handleCopyAddress}
-                className="p-1 hover:text-emerald-400 transition-colors ml-0.5"
+                className="p-2 hover:text-emerald-400 hover:bg-neutral-800/70 transition-colors"
                 title="Copiar dirección"
+                aria-label={copied ? 'Dirección copiada' : 'Copiar dirección'}
               >
                 {copied ? (
                   <Check className="w-3 h-3 text-emerald-400" />

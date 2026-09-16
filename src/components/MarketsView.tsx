@@ -367,6 +367,24 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     [filteredEvents],
   );
 
+  const clearDiscoveryFilters = useCallback(() => {
+    setQuery('');
+    setDebouncedQuery('');
+    setLeagueFilter(null);
+    setSelectedLeague(null);
+    setBrowseAll(false);
+    setLiveOnly(false);
+    setSubcategory(undefined);
+  }, []);
+
+  const hasDiscoveryFilters =
+    query.trim() !== '' ||
+    leagueFilter !== null ||
+    selectedLeague !== null ||
+    browseAll ||
+    liveOnly ||
+    subcategory !== undefined;
+
   return (
     <div className="flex flex-col gap-5">
       {/* Cabecera de cuenta */}
@@ -446,12 +464,18 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
       )}
 
       {/* Pestañas de categoría */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+      <div
+        role="tablist"
+        aria-label="Categorías de mercados"
+        className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1"
+      >
         {TABS.map((t, i) => {
           const active = i === tabIndex;
           return (
             <button
               key={t.label}
+              role="tab"
+              aria-selected={active}
               onClick={() => setTabIndex(i)}
               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                 active
@@ -471,6 +495,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
           {/* En vivo: filtro de estado, pide a los venues su listado en juego. */}
           <button
             onClick={() => setLiveOnly((v) => !v)}
+            aria-pressed={liveOnly}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 border ${
               liveOnly
                 ? 'bg-rose-500/15 text-rose-300 border-rose-500/40'
@@ -538,10 +563,14 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
         )}
 
       {/* Búsqueda */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" role="search">
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+          <label htmlFor="market-search" className="sr-only">
+            Buscar mercados, equipos o ligas
+          </label>
           <input
+            id="market-search"
             type="text"
             value={query}
             onChange={(e) => {
@@ -554,8 +583,23 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
               if (e.key === 'Escape') setSuggestionsOpen(false);
             }}
             placeholder={`Buscar en ${tab.label.toLowerCase()}… (mínimo 3 letras)`}
-            className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#0f121a] border border-neutral-800 focus:border-emerald-500/50 focus:outline-none text-sm text-neutral-100 placeholder:text-neutral-600"
+            className={`w-full pl-10 ${query !== '' ? 'pr-10' : 'pr-3'} py-2.5 rounded-xl bg-[#0f121a] border border-neutral-800 focus:border-emerald-500/50 focus:outline-none text-sm text-neutral-100 placeholder:text-neutral-600`}
           />
+          {query !== '' && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setQuery('');
+                setDebouncedQuery('');
+              }}
+              aria-label="Limpiar búsqueda"
+              title="Limpiar búsqueda"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
 
           {/* Sugerencias instantáneas sobre lo ya descargado. mousedown con
               preventDefault: el clic no roba el foco al input, así el blur no
@@ -622,6 +666,8 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
             <button
               onClick={() => changeViewMode('grid')}
               title="Tarjetas"
+              aria-label="Vista de tarjetas"
+              aria-pressed={viewMode === 'grid'}
               className={`p-2.5 transition-colors ${
                 viewMode === 'grid'
                   ? 'bg-neutral-800 text-neutral-100'
@@ -633,6 +679,8 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
             <button
               onClick={() => changeViewMode('list')}
               title="Lista compacta, agrupada por día y liga"
+              aria-label="Vista de lista compacta"
+              aria-pressed={viewMode === 'list'}
               className={`p-2.5 transition-colors ${
                 viewMode === 'list'
                   ? 'bg-neutral-800 text-neutral-100'
@@ -648,6 +696,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
           disabled={isLoading}
           className="p-2.5 rounded-xl bg-[#0f121a] border border-neutral-800 hover:border-neutral-700 text-neutral-400 hover:text-neutral-200 transition-all disabled:opacity-50 shrink-0"
           title="Recargar"
+          aria-label="Recargar mercados"
         >
           <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
         </button>
@@ -724,6 +773,14 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
               <p className="text-xs text-neutral-500 max-w-xs text-center">
                 Buscando en el catálogo…
               </p>
+              {hasDiscoveryFilters && (
+                <button
+                  onClick={clearDiscoveryFilters}
+                  className="mt-1 px-4 py-2 rounded-xl bg-neutral-100 text-neutral-900 text-xs font-bold hover:bg-white transition-colors"
+                >
+                  Limpiar filtros
+                </button>
+              )}
             </div>
           ) : visible.length === 0 ? (
             <div className="py-20 flex flex-col items-center gap-3 rounded-2xl bg-[#0d1017] border border-dashed border-neutral-800">
@@ -742,6 +799,14 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
                         ? 'No hay eventos en juego ahora mismo.'
                         : 'Esta categoría no tiene mercados operables ahora mismo.'}
               </p>
+              {hasDiscoveryFilters && (
+                <button
+                  onClick={clearDiscoveryFilters}
+                  className="mt-1 px-4 py-2 rounded-xl bg-neutral-100 text-neutral-900 text-xs font-bold hover:bg-white transition-colors"
+                >
+                  Limpiar filtros
+                </button>
+              )}
             </div>
           ) : tab.category === 'sports' && viewMode === 'list' ? (
             /* Lista compacta: filas agrupadas por día y, dentro, por liga. */

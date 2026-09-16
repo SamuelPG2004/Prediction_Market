@@ -28,6 +28,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#090b0f] text-neutral-100 flex flex-col selection:bg-emerald-500/30 selection:text-emerald-300">
+      <a
+        href="#market-content"
+        className="skip-link"
+      >
+        Ir a los mercados
+      </a>
       <ClientOnly
         fallback={
           <div className="h-16 border-b border-neutral-800/60 bg-[#0d0f14]/90 flex items-center justify-center">
@@ -41,7 +47,11 @@ export default function App() {
         />
       </ClientOnly>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+      <main
+        id="market-content"
+        tabIndex={-1}
+        className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col gap-6"
+      >
         <ClientOnly>
           <MarketsView
             onConnectWallet={() => setIsWalletModalOpen(true)}
