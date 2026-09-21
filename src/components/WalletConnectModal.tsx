@@ -10,11 +10,13 @@ import {
   ArrowLeftRight,
   Loader2,
   Eye,
+  Mail,
 } from 'lucide-react';
 import { useWallet } from '../services/web3Service';
 import { useVenueBalances } from '../hooks/useVenueBalances';
 import { chainLabel, explorerAddressUrl } from '../config/chains';
 import { LOCAL_WALLET_CONNECTOR_ID } from '../config/localWalletConnector';
+import { PRIVY_WALLET_CONNECTOR_ID } from '../config/privyWalletConnector';
 import { gasDestinationKey } from './BridgeModal';
 import { formatCurrency, shortenAddress } from '../utils/formatters';
 import { LocalWalletActions } from './LocalWalletActions';
@@ -45,7 +47,9 @@ interface ConnectorLike {
  * (LocalWalletSetup) con el flujo de crear/desbloquear.
  */
 function dedupeConnectors<T extends ConnectorLike>(connectors: readonly T[]): T[] {
-  const external = connectors.filter((c) => c.id !== LOCAL_WALLET_CONNECTOR_ID);
+  const external = connectors.filter(
+    (c) => c.id !== LOCAL_WALLET_CONNECTOR_ID && c.id !== PRIVY_WALLET_CONNECTOR_ID,
+  );
   const hasInjectedProvider =
     typeof window !== 'undefined' &&
     (window as unknown as { ethereum?: unknown }).ethereum !== undefined;
@@ -104,6 +108,8 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
     isConnecting,
     connectError,
     disconnect,
+    embeddedAuth,
+    connectEmbedded,
   } = useWallet();
   const { balances, isLoading: balancesLoading } = useVenueBalances();
 
@@ -129,7 +135,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
     const uid = connector.uid;
     setPendingUid(uid);
     connect(
-      { connector },
+      { connector } as never,
       {
         // Solo limpia si el intento que terminó es el último lanzado; un
         // intento colgado que muera tarde no debe pisar un reintento nuevo.
@@ -295,6 +301,21 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                 Puedes explorar los mercados sin conectar nada. Conectar añade
                 tu dirección y permite cotizar y apostar con fondos reales.
               </p>
+
+              {embeddedAuth.enabled && (
+                <section className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4">
+                  <div className="flex items-start gap-3">
+                    <Mail className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+                    <div>
+                      <h4 className="text-sm font-bold text-neutral-100">Continuar sin extensión</h4>
+                      <p className="mt-1 text-xs leading-5 text-neutral-400">Usa tu email, Google o X. Se crea una wallet embebida compatible con las firmas de los mercados.</p>
+                      <button type="button" onClick={connectEmbedded} disabled={!embeddedAuth.ready} className="mt-3 rounded-lg bg-emerald-400 px-3 py-2 text-xs font-bold text-black disabled:opacity-50">
+                        {embeddedAuth.ready ? 'Continuar con email o social' : 'Preparando acceso…'}
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              )}
 
               <LocalWalletSetup
                 onConnect={handleConnectLocal}

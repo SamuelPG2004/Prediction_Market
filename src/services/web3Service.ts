@@ -13,6 +13,8 @@ import {
   useDisconnect,
   useSwitchChain,
 } from 'wagmi'
+import { useEmbeddedAuth } from '../providers/PrivyAuthProvider'
+import { PRIVY_WALLET_CONNECTOR_ID } from '../config/privyWalletConnector'
 
 export function useWallet() {
   const { address, isConnected, status, connector } = useAccount()
@@ -20,6 +22,7 @@ export function useWallet() {
   const { disconnect } = useDisconnect()
   const { switchChain } = useSwitchChain()
   const chainId = useChainId()
+  const embeddedAuth = useEmbeddedAuth()
 
   return {
     address: address ?? null,
@@ -33,6 +36,9 @@ export function useWallet() {
     isConnecting: isPending,
     connectError,
     disconnect,
+    embeddedAuth,
+    connectEmbedded: () => embeddedAuth.login(),
+    isEmbeddedWallet: connector?.id === PRIVY_WALLET_CONNECTOR_ID,
     switchTo: (target: number) => switchChain({ chainId: target as 137 | 8453 }),
   }
 }

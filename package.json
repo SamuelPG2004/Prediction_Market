@@ -17,6 +17,7 @@
     "@azuro-org/toolkit": "^6.1.1",
     "@lifi/widget": "^4.5.0",
     "@lifi/widget-provider-ethereum": "^4.1.3",
+    "@privy-io/react-auth": "3.44.0",
     "@tanstack/react-query": "^5.102.2",
     "@wagmi/connectors": "^8.1.0",
     "@walletconnect/ethereum-provider": "^2.23.10",

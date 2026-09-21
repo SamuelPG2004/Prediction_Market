@@ -4,6 +4,7 @@ import { WagmiProvider } from 'wagmi'
 import { wagmiConfig } from '../config/wagmi'
 import { localWalletVault } from '../services/localWallet'
 import { SignatureConfirmModal } from '../components/SignatureConfirmModal'
+import { PrivyAuthProvider } from './PrivyAuthProvider'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +38,7 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
 
   return (
     <WagmiProvider config={wagmiConfig}>
+      <PrivyAuthProvider>
       <QueryClientProvider client={queryClient}>
         {children}
         {/*
@@ -47,6 +49,7 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         */}
         <SignatureConfirmModal />
       </QueryClientProvider>
+      </PrivyAuthProvider>
     </WagmiProvider>
   )
 }

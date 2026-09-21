@@ -3,6 +3,7 @@ import { base, bsc, polygon } from 'wagmi/chains'
 import { walletConnect } from '@wagmi/connectors'
 import { rpcUrlsFor } from './chains'
 import { localWalletConnector } from './localWalletConnector'
+import { privyWalletConnector } from './privyWalletConnector'
 
 /**
  * wagmi multi-chain: Polygon (Azuro) + Base (Limitless) + BNB Chain, que NO
@@ -51,6 +52,7 @@ const walletConnectProjectId = readViteEnv('VITE_WALLETCONNECT_PROJECT_ID')
 export const wagmiConfig = createConfig({
   chains: [polygon, base, bsc],
   connectors: [
+    privyWalletConnector(),
     localWalletConnector(),
     injected(),
     ...(walletConnectProjectId !== undefined
