@@ -4,6 +4,9 @@
   "version": "1.0.0",
   "description": "Mercados de predicción reales sobre Azuro (Polygon) y Limitless (Base), con arquitectura de puertos y adaptadores.",
   "type": "module",
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  },
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
