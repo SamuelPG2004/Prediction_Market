@@ -10,6 +10,9 @@ export default defineConfig(({command, isPreview}) => {
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
+      // react-aria publica rutas .mjs que reexportan archivos ausentes; su
+      // condición legacy-module apunta a los .js completos del mismo paquete.
+      conditions: ['module', 'browser', 'development|production', 'import', 'legacy-module'],
       alias: {
         '@': path.resolve(__dirname, './src'),
       },
