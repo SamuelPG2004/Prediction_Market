@@ -37,19 +37,19 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <WagmiProvider config={wagmiConfig}>
-      <PrivyAuthProvider>
-      <QueryClientProvider client={queryClient}>
-        {children}
-        {/*
-          Diálogo de confirmación de firma de la wallet local. Se monta aquí,
-          fuera de cualquier vista, porque una firma puede pedirla cualquier
-          parte de la app (apuesta, retiro, bridge) y debe poder interrumpir
-          lo que sea.
-        */}
-        <SignatureConfirmModal />
-      </QueryClientProvider>
-      </PrivyAuthProvider>
-    </WagmiProvider>
+    <QueryClientProvider client={queryClient}>
+      <WagmiProvider config={wagmiConfig}>
+        <PrivyAuthProvider>
+          {children}
+          {/*
+            Diálogo de confirmación de firma de la wallet local. Se monta aquí,
+            fuera de cualquier vista, porque una firma puede pedirla cualquier
+            parte de la app (apuesta, retiro, bridge) y debe poder interrumpir
+            lo que sea.
+          */}
+          <SignatureConfirmModal />
+        </PrivyAuthProvider>
+      </WagmiProvider>
+    </QueryClientProvider>
   )
 }
