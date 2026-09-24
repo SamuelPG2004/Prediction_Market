@@ -511,11 +511,11 @@ export const EventListRow: React.FC<{
       >
         {isMatchup ? (
           event.participants!.map((p) => (
-            <span
-              key={p.name}
-              className="text-[12.5px] font-semibold text-neutral-100 leading-tight truncate"
-            >
-              {p.name}
+            <span key={p.name} className="flex min-w-0 items-center gap-2">
+              <ParticipantListCrest participant={p} />
+              <span className="truncate text-[12.5px] font-semibold leading-tight text-neutral-100">
+                {p.name}
+              </span>
             </span>
           ))
         ) : (
@@ -558,6 +558,38 @@ export const EventListRow: React.FC<{
         {event.markets.length} →
       </button>
     </div>
+  );
+};
+
+/** Escudo compacto para la pizarra; carga diferida para no bloquear el listado. */
+const ParticipantListCrest: React.FC<{
+  participant: { name: string; imageUrl?: string };
+}> = ({ participant }) => {
+  const [failed, setFailed] = useState(false);
+  const imageUrl = participant.imageUrl?.trim();
+
+  if (imageUrl === undefined || imageUrl === '' || failed) {
+    return (
+      <span
+        aria-hidden="true"
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-neutral-700/80 bg-neutral-800 text-[9px] font-extrabold text-neutral-400"
+      >
+        {participant.name.charAt(0).toUpperCase()}
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      width={20}
+      height={20}
+      onError={() => setFailed(true)}
+      className="h-5 w-5 shrink-0 rounded-md border border-white/[0.08] bg-[#111820] object-contain p-0.5"
+    />
   );
 };
 
