@@ -155,37 +155,39 @@ export function useDomainEvents(options: {
     setDegradedVenues([])
     setFeeds([])
 
-    Promise.all(
-      marketSources.sources.map(async (source) => {
-        const result = await fetchFirstPage(source)
-        return { source, result }
-      }),
-    )
+    const pending = marketSources.sources.map(async (source) => {
+      const result = await fetchFirstPage(source)
+      if (!alive) return
+
+      if (result.ok) {
+        setFeeds((current) => [
+          ...current.filter((feed) => feed.venue !== source.venue),
+          {
+            venue: source.venue,
+            markets: result.data.markets,
+            cursor: result.data.nextCursor,
+          },
+        ])
+        setLastSyncAt(Date.now())
+      } else {
+        setDegradedVenues((current) =>
+          current.includes(source.displayName)
+            ? current
+            : [...current, source.displayName],
+        )
+        setError((current) => current ?? result.error.message)
+      }
+      return { source, result }
+    })
+
+    void Promise.all(pending)
       .then((results) => {
         if (!alive) return
-        const nextFeeds: SourceFeed[] = []
-        const failed: string[] = []
-        let firstError: string | null = null
-
-        for (const { source, result } of results) {
-          if (result.ok) {
-            nextFeeds.push({
-              venue: source.venue,
-              markets: result.data.markets,
-              cursor: result.data.nextCursor,
-            })
-          } else {
-            failed.push(source.displayName)
-            firstError ??= result.error.message
-          }
-        }
-
-        setFeeds(nextFeeds)
-        setLastSyncAt(Date.now())
-        if (nextFeeds.length === 0) {
-          setError(firstError ?? 'Ninguna fuente de mercados respondió.')
+        const successful = results.filter((item) => item?.result.ok)
+        if (successful.length === 0) {
+          setError((current) => current ?? 'Ninguna fuente de mercados respondió.')
         } else {
-          setDegradedVenues(failed)
+          setError(null)
         }
       })
       .finally(() => {

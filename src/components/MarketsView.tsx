@@ -746,7 +746,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
           onPickLeague={setSelectedLeague}
           onBrowseAll={() => setBrowseAll(true)}
         />
-      ) : isLoading ? (
+      ) : isLoading && events.length === 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
           {Array.from({ length: 6 }, (_, i) => (
             <SkeletonCard key={i} />

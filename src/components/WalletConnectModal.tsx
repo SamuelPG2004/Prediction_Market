@@ -170,7 +170,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
       {/* max-h + scroll interno: con la wallet local conectada (depósito,
           retiro, respaldo) el contenido supera la pantalla y la cabecera
           debe quedarse fija mientras el cuerpo desplaza. */}
-      <div className="relative w-full max-w-sm max-h-[88vh] flex flex-col rounded-2xl bg-[#0f121a] border border-neutral-800 shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-150">
+      <div className="relative w-full max-w-md max-h-[88vh] flex flex-col rounded-2xl bg-[#0d1017] border border-neutral-800/90 shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-150">
         {/* Cabecera */}
         <div className="shrink-0 p-5 border-b border-neutral-800 flex items-center justify-between bg-[#131620]">
           <div className="flex items-center gap-2.5">
@@ -195,7 +195,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
           </button>
         </div>
 
-        <div className="p-5 flex flex-col gap-4 overflow-y-auto">
+        <div className="p-5 sm:p-6 flex flex-col gap-4 overflow-y-auto">
           {isConnected && address !== null ? (
             <>
               {/* Dirección */}
@@ -297,18 +297,20 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
             </>
           ) : (
             <>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                Puedes explorar los mercados sin conectar nada. Conectar añade
-                tu dirección y permite cotizar y apostar con fondos reales.
-              </p>
+              <section className="rounded-xl border border-neutral-800 bg-[#11151e] p-4">
+                <p className="text-sm font-semibold text-neutral-100">Acceso a tu wallet</p>
+                <p className="mt-1 text-xs text-neutral-400 leading-relaxed">
+                  Explora sin conectar. La wallet permite consultar tu dirección y saldos; cada apuesta requiere tu firma.
+                </p>
+              </section>
 
               {embeddedAuth.enabled && (
                 <section className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4">
                   <div className="flex items-start gap-3">
                     <Mail className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
                     <div>
-                      <h4 className="text-sm font-bold text-neutral-100">Continuar sin extensión</h4>
-                      <p className="mt-1 text-xs leading-5 text-neutral-400">Usa tu email, Google o X. Se crea una wallet embebida compatible con las firmas de los mercados.</p>
+                      <h4 className="text-sm font-bold text-neutral-100">Email o cuenta social</h4>
+                      <p className="mt-1 text-xs leading-5 text-neutral-400">Crea una wallet integrada compatible con los mercados.</p>
                       <button type="button" onClick={connectEmbedded} disabled={!embeddedAuth.ready} className="mt-3 rounded-lg bg-emerald-400 px-3 py-2 text-xs font-bold text-black disabled:opacity-50">
                         {embeddedAuth.ready ? 'Continuar con email o social' : 'Preparando acceso…'}
                       </button>
@@ -330,7 +332,12 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                 <div className="flex-1 h-px bg-neutral-800" />
               </div>
 
-              <div className="flex flex-col gap-2">
+              <section className="rounded-xl border border-neutral-800 bg-[#11151e] p-4">
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold text-neutral-200">Wallets disponibles</h4>
+                  <p className="mt-1 text-[11px] text-neutral-500">Selecciona una extensión instalada en este navegador.</p>
+                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {connectorList.map((connector) => {
                   const isThisPending =
                     isConnecting && pendingUid === connector.uid;
@@ -341,7 +348,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                       // Un intento colgado (pista visible) reabre el botón
                       // para poder reintentar sin recargar la página.
                       disabled={isThisPending && !showSlowHint}
-                      className="flex items-center justify-between px-4 py-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/30 text-sm font-semibold text-neutral-200 transition-all active:scale-98 disabled:opacity-50"
+                      className="min-h-12 flex items-center justify-between gap-2 px-3 py-3 rounded-lg bg-[#0b0e14] hover:bg-neutral-800/80 border border-neutral-800 hover:border-emerald-500/30 text-sm font-semibold text-neutral-200 transition-colors disabled:opacity-50"
                     >
                       <span>{connector.name}</span>
                       {isThisPending ? (
@@ -377,6 +384,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                   </div>
                 )}
               </div>
+              </section>
 
               {connectError && (
                 <div className="flex items-start gap-2 rounded-xl bg-rose-500/10 border border-rose-500/25 p-3 text-[11px] text-rose-300">
