@@ -17,14 +17,14 @@ export interface PrivyProviderLike {
   removeListener(event: string, listener: (...args: unknown[]) => void): unknown
 }
 
-let active: { address: Address; provider: PrivyProviderLike; chainId: number } | null = null
+let active: { address: Address; provider: PrivyProviderLike; chainId: number; embedded: boolean } | null = null
 type ConnectorEvent =
   | { event: 'connect'; data: { accounts: readonly Address[]; chainId: number } }
   | { event: 'change'; data: { accounts?: readonly Address[]; chainId?: number } }
   | { event: 'disconnect'; data: undefined }
 let notify: ((event: ConnectorEvent) => void) | null = null
 
-export function setPrivyEmbeddedWallet(wallet: typeof active): void {
+export function setPrivyWallet(wallet: typeof active): void {
   const before = active
   active = wallet
   if (wallet === null) {
@@ -34,6 +34,10 @@ export function setPrivyEmbeddedWallet(wallet: typeof active): void {
   notify?.(before === null
     ? { event: 'connect', data: { accounts: [wallet.address], chainId: wallet.chainId } }
     : { event: 'change', data: { accounts: [wallet.address], chainId: wallet.chainId } })
+}
+
+export function isPrivyEmbeddedWalletActive(): boolean {
+  return active?.embedded ?? false
 }
 
 export function privyWalletConnector() {

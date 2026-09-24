@@ -62,7 +62,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
       disconnect()
       onClose()
     }
-    if (isEmbeddedWallet) {
+    if (embeddedAuth.authenticated) {
       void embeddedAuth.logout().catch(() => undefined).finally(finish)
       return
     }
@@ -71,6 +71,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
 
   const walletReady = isConnected && address !== null
   const preparingWallet = embeddedAuth.authenticated && !walletReady
+  const walletSetupFailed = embeddedAuth.walletCreationStatus === 'error' || embeddedAuth.walletCreationStatus === 'timeout'
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
@@ -213,13 +214,50 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                 Cerrar sesión
               </button>
             </>
+          ) : walletSetupFailed ? (
+            <div role="alert" className="flex flex-col items-center gap-3 rounded-xl border border-rose-500/25 bg-rose-500/[0.06] px-5 py-6 text-center">
+              <AlertTriangle className="h-6 w-6 text-rose-300" />
+              <div>
+                <p className="text-sm font-semibold text-neutral-100">
+                  {embeddedAuth.walletCreationStatus === 'timeout' ? 'La creación está tardando más de lo esperado' : 'No se pudo preparar tu wallet'}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-neutral-400">
+                  {embeddedAuth.walletCreationError ?? 'Vuelve a intentarlo o cierra sesión para empezar de nuevo.'}
+                </p>
+              </div>
+              {embeddedAuth.walletCreationStatus === 'error' && (
+                <button
+                  type="button"
+                  onClick={embeddedAuth.retryWalletCreation}
+                  className="rounded-lg bg-emerald-400 px-4 py-2 text-xs font-bold text-[#07110d] transition-colors hover:bg-emerald-300"
+                >
+                  Reintentar
+                </button>
+              )}
+              {embeddedAuth.authenticated && (
+                <button
+                  type="button"
+                  onClick={signOut}
+                  className="rounded-lg border border-neutral-700 px-4 py-2 text-xs font-semibold text-neutral-300 transition-colors hover:bg-neutral-800"
+                >
+                  Cerrar sesión
+                </button>
+              )}
+            </div>
           ) : preparingWallet || isConnecting ? (
             <div role="status" className="flex flex-col items-center gap-3 rounded-xl border border-neutral-800 bg-[#11151e] px-5 py-8 text-center">
               <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
               <div>
-                <p className="text-sm font-semibold text-neutral-100">Preparando tu wallet</p>
-                <p className="mt-1 text-xs text-neutral-400">Esto puede tardar unos segundos.</p>
+                <p className="text-sm font-semibold text-neutral-100">Creando tu wallet</p>
+                <p className="mt-1 text-xs text-neutral-400">Privy está preparando tu dirección. Puedes cerrar este panel mientras termina.</p>
               </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg border border-neutral-700 px-4 py-2 text-xs font-semibold text-neutral-300 transition-colors hover:bg-neutral-800"
+              >
+                Seguir explorando
+              </button>
             </div>
           ) : (
             <>
