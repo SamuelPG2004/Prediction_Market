@@ -135,7 +135,9 @@ export const BetSlip: React.FC<{ onConnectWallet: () => void }> = ({
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-5 right-5 z-40 flex items-center gap-2 px-4 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold shadow-2xl shadow-emerald-500/20 transition-all active:scale-95"
+          type="button"
+          aria-expanded={false}
+          className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-xl border border-emerald-300/30 bg-emerald-400 px-4 py-3 text-xs font-extrabold text-[#07110e] shadow-[0_12px_38px_-12px_rgba(16,185,129,0.65)] transition-all hover:bg-emerald-300 active:scale-95"
         >
           <ReceiptText className="w-4 h-4" />
           <span>Boleto</span>
@@ -147,8 +149,8 @@ export const BetSlip: React.FC<{ onConnectWallet: () => void }> = ({
 
       {/* Cajón */}
       {isOpen && (
-        <div className="fixed bottom-0 right-0 top-0 z-40 w-full sm:w-[380px] sm:bottom-4 sm:right-4 sm:top-auto sm:max-h-[85vh] flex flex-col rounded-none sm:rounded-2xl bg-[#0b0d13] border border-neutral-800 shadow-2xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-neutral-800 bg-[#101420] flex items-center justify-between gap-2 shrink-0">
+        <div className="fixed inset-x-0 bottom-0 z-50 flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-neutral-700/80 bg-[#0b0d13] shadow-[0_-18px_70px_-30px_rgba(0,0,0,0.9)] sm:inset-auto sm:bottom-5 sm:right-5 sm:max-h-[85vh] sm:w-[390px] sm:rounded-2xl sm:shadow-2xl">
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-neutral-800 bg-[#10151d] px-4 py-3.5">
             <div className="flex items-center gap-2">
               <ReceiptText className="w-4 h-4 text-emerald-400" />
               <h3 className="text-sm font-bold text-neutral-100">
@@ -160,14 +162,18 @@ export const BetSlip: React.FC<{ onConnectWallet: () => void }> = ({
             </div>
             <div className="flex items-center gap-1">
               <button
+                type="button"
                 onClick={clearSelections}
+                aria-label="Vaciar el boleto"
                 title="Vaciar el boleto"
                 className="p-2.5 sm:p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-500 hover:text-neutral-200 transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
+                aria-label="Minimizar el boleto"
                 title="Minimizar"
                 className="p-2.5 sm:p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
               >
@@ -207,7 +213,7 @@ export const BetSlip: React.FC<{ onConnectWallet: () => void }> = ({
             />
           ) : (
             <>
-              <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
+              <div className="min-h-0 flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
                 {selections.map((selection) => (
                   <SlipItem
                     key={selection.market.id}

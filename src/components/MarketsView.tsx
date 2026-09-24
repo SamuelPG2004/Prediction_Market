@@ -23,7 +23,7 @@ import {
 } from '../utils/eventGrouping';
 import { buildSearchIndex, querySearchIndex } from '../utils/searchIndex';
 import { BetSlip } from './BetSlip';
-import { EventCard, EventListRow } from './EventCard';
+import { EventCard, EventListRow, orderedStarOutcomes } from './EventCard';
 import { CountryFlag, LeagueBrowser } from './LeagueBrowser';
 import { FEATURED_COUNT, FeaturedMatches } from './FeaturedMatches';
 import { LIVE_COUNT, LiveMatches } from './LiveMatches';
@@ -33,10 +33,12 @@ import { useLiveScores } from '../hooks/useLiveScores';
 import { LowGasBanner } from './LowGasBanner';
 import { TipsterPicks } from './TipsterPicks';
 import { TradePanel } from './TradePanel';
+import { SportsHero } from './SportsHero';
 import { toggleSelection } from '../hooks/useBetSlip';
 import { countryDisplay } from '../utils/countries';
 import { formatCurrency } from '../utils/formatters';
 import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
+import { translateOutcomeLabel } from '../utils/marketLabels';
 
 /** Tarjetas pintadas por tanda. Renderizar cientos de golpe satura el navegador. */
 const PAGE_SIZE = 24;
@@ -102,9 +104,9 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
   // localStorage puede no estar (modo privado): en ese caso, tarjetas.
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
     try {
-      return localStorage.getItem('aether:sportsView') === 'list'
-        ? 'list'
-        : 'grid';
+      return localStorage.getItem('aether:sportsView') === 'grid'
+        ? 'grid'
+        : 'list';
     } catch {
       return 'grid';
     }
@@ -203,6 +205,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
 
   // Sus marcadores, en push por el socket del venue (solo los visibles).
   const liveScores = useLiveScores(liveEvents);
+  const sportsFeatureEvent = liveEvents[0] ?? featuredEvents[0] ?? null;
 
   /**
    * "Ver todos" de la sección En vivo: salta a Deportes con el filtro en vivo
@@ -266,13 +269,21 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     [events, leagueFilter],
   );
 
-  // Destacados solo donde aportan: portada y Deportes, sin búsqueda ni filtro
-  // de deporte o de en-vivo activos (ahí el usuario ya está buscando otra cosa).
+  // La portada conserva sus carruseles. Deportes usa una sola tarjeta principal
+  // y solo cuando el usuario está en el landing sin filtros activos.
   const showFeatured =
-    (tab.category === undefined || tab.category === 'sports') &&
+    tab.category === undefined &&
     debouncedQuery.trim() === '' &&
     subcategory === undefined &&
     leagueFilter === null &&
+    !liveOnly;
+  const showSportsLanding =
+    tab.category === 'sports' &&
+    debouncedQuery.trim() === '' &&
+    subcategory === undefined &&
+    leagueFilter === null &&
+    selectedLeague === null &&
+    !browseAll &&
     !liveOnly;
 
   useEffect(() => {
@@ -390,7 +401,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     subcategory !== undefined;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className={`flex flex-col ${tab.category === 'sports' ? 'gap-4' : 'gap-5'}`}>
       {/* Cabecera de cuenta */}
       <div className="rounded-2xl bg-[#0d1017] border border-neutral-800/80 overflow-hidden">
         <div className="px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -438,7 +449,8 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
       {/* Gas nativo bajo: aviso accionable antes de que una operación falle */}
       <LowGasBanner onGetGas={onGetGas} />
 
-      {/* En juego ahora mismo, con cuotas moviéndose; y lo más apostado */}
+      {/* La portada mantiene sus bloques destacados. En Deportes se sustituyen
+          los carruseles por un único partido principal debajo de sus filtros. */}
       {showFeatured && (
         <LiveMatches
           events={liveEvents}
@@ -455,9 +467,6 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
           onSelectMarket={selectMarket}
         />
       )}
-      {/* Picks del bot tipster (IA). Solo existe si /api/tipster-bot responde;
-          abre el panel con el resultado preseleccionado, nunca apuesta. Los
-          destacados hacen de candidatos del modo "yo elijo los partidos". */}
       {showFeatured && (
         <TipsterPicks
           candidateEvents={featuredEvents}
@@ -471,7 +480,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
       <div
         role="tablist"
         aria-label="Categorías de mercados"
-        className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1"
+        className="flex items-center gap-5 overflow-x-auto border-b border-neutral-800/80 -mx-1 px-1"
       >
         {TABS.map((t, i) => {
           const active = i === tabIndex;
@@ -481,10 +490,10 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
               role="tab"
               aria-selected={active}
               onClick={() => setTabIndex(i)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+              className={`flex shrink-0 items-center gap-1.5 border-b-2 px-1 py-3 text-[11px] font-extrabold uppercase tracking-[0.1em] whitespace-nowrap transition-colors ${
                 active
-                  ? 'bg-neutral-100 text-neutral-900 shadow-lg'
-                  : 'bg-[#0f121a] text-neutral-400 border border-neutral-800 hover:text-neutral-200 hover:border-neutral-700'
+                  ? 'border-emerald-400 text-neutral-100'
+                  : 'border-transparent text-neutral-500 hover:text-neutral-200'
               }`}
             >
               <span>{t.label}</span>
@@ -495,15 +504,15 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
 
       {/* Chips de subcategoría (deportes dentro de Deportes, etc.) */}
       {subcategories.length > 0 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 -mt-2">
+        <div className="-mt-2 flex items-center gap-1.5 overflow-x-auto rounded-2xl border border-neutral-800/80 bg-[#0c1017] p-2">
           {/* En vivo: filtro de estado, pide a los venues su listado en juego. */}
           <button
             onClick={() => setLiveOnly((v) => !v)}
             aria-pressed={liveOnly}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 border ${
+            className={`flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-[11px] font-bold whitespace-nowrap transition-all ${
               liveOnly
-                ? 'bg-rose-500/15 text-rose-300 border-rose-500/40'
-                : 'bg-[#0f121a] text-neutral-500 border-neutral-800/80 hover:text-rose-300 hover:border-rose-500/40'
+                ? 'border-rose-500/40 bg-rose-500/15 text-rose-300'
+                : 'border-neutral-800 bg-[#10151c] text-neutral-400 hover:border-rose-500/40 hover:text-rose-300'
             }`}
             title="Solo eventos en juego ahora mismo"
           >
@@ -522,6 +531,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
               label={subcategoryLabel(s.id, s.label)}
               icon={subcategoryIcon(s.id)}
               count={s.activeCount}
+              countTitle="Partidos prematch activos reportados por la fuente"
               active={subcategory === s.id}
               onClick={() =>
                 setSubcategory((current) => (current === s.id ? undefined : s.id))
@@ -529,6 +539,20 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
             />
           ))}
         </div>
+      )}
+
+      {showSportsLanding && (
+        <SportsHero
+          event={sportsFeatureEvent}
+          isLoading={sportsFeatureEvent === null && (isLiveLoading || isFeaturedLoading)}
+          liveScore={
+            sportsFeatureEvent?.isLive
+              ? liveScores.get(sportsFeatureEvent.id)
+              : undefined
+          }
+          onSelectMarket={selectMarket}
+          onViewAll={viewAllLive}
+        />
       )}
 
       {/* Miga del navegador de ligas: vuelta a países y qué se está viendo. */}
@@ -815,70 +839,146 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
           ) : tab.category === 'sports' && viewMode === 'list' ? (
             /* Lista compacta: filas agrupadas por día y, dentro, por liga. */
             <div className="flex flex-col gap-4">
-              {groupEventsForList(visible).map((day) => (
-                <section key={day.key} className="flex flex-col gap-2">
-                  <h3
-                    className={`text-[11px] font-bold uppercase tracking-wider ${
-                      day.key === 'live' ? 'text-rose-400' : 'text-neutral-300'
-                    }`}
-                  >
-                    {day.label}
-                  </h3>
-                  {day.leagues.map((lg) => {
-                    const sub = lg.events[0]?.markets[0]?.subcategory;
-                    const icon = sub !== undefined ? subcategoryIcon(sub) : null;
-                    /* Columnas de la pizarra (1 · X · 2), deducidas del
-                       mercado estrella del primer evento del grupo. La fila
-                       espeja el layout de EventListRow (hora w-11 · título
-                       flex-1 · cuotas w-32/w-48 · contador w-10) para que
-                       las etiquetas caigan sobre sus columnas. */
-                    const sampleStar =
-                      lg.events[0] !== undefined
-                        ? findStarMarket(lg.events[0].markets)
-                        : null;
-                    const cols =
-                      sampleStar !== null
-                        ? Math.min(sampleStar.outcomes.length, 3)
-                        : 0;
-                    return (
-                      <div key={lg.league} className="flex flex-col gap-1">
-                        <div className="flex items-center gap-3 px-3">
-                          <span className="w-11 shrink-0" />
-                          <p className="flex-1 min-w-0 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wide text-neutral-500">
-                            {icon !== null && <span>{icon}</span>}
-                            <span className="truncate">{lg.league}</span>
-                            <span className="text-neutral-700">
-                              {lg.events.length}
-                            </span>
-                          </p>
-                          {/* En móvil las cuotas van a ancho completo bajo el
-                              título y la etiqueta viaja dentro de cada botón,
-                              así que esta cabecera solo alinea en ≥sm. */}
-                          {cols >= 2 && (
-                            <div
-                              className={`shrink-0 hidden sm:grid gap-1.5 text-center text-[9px] font-mono font-bold text-neutral-600 ${
-                                cols === 2 ? 'grid-cols-2 w-32' : 'grid-cols-3 w-48'
-                              }`}
-                            >
-                              <span>1</span>
-                              {cols === 3 && <span>X</span>}
-                              <span>2</span>
+              {groupEventsForList(visible).map((day) => {
+                const dayEventCount = day.leagues.reduce(
+                  (total, league) => total + league.events.length,
+                  0,
+                );
+                return (
+                  <section key={day.key} className="flex flex-col gap-2.5">
+                    <div className="flex items-center gap-2 px-1">
+                      {day.key === 'live' ? (
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500/60" />
+                          <span className="relative h-2 w-2 rounded-full bg-rose-500" />
+                        </span>
+                      ) : (
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      )}
+                      <h3
+                        className={`text-[10px] font-extrabold uppercase tracking-[0.15em] ${
+                          day.key === 'live' ? 'text-rose-300' : 'text-neutral-300'
+                        }`}
+                      >
+                        {day.label}
+                      </h3>
+                      <span className="rounded-full border border-neutral-800 bg-[#0d1118] px-2 py-0.5 text-[9px] font-mono text-neutral-500">
+                        {dayEventCount} {dayEventCount === 1 ? 'partido' : 'partidos'}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                      {day.leagues.map((lg) => {
+                        const firstEvent = lg.events[0];
+                        const sub = firstEvent?.markets[0]?.subcategory;
+                        const icon = sub !== undefined ? subcategoryIcon(sub) : null;
+                        const sampleStar =
+                          firstEvent !== undefined
+                            ? findStarMarket(firstEvent.markets)
+                            : null;
+                        const orderedOutcomes =
+                          sampleStar !== null && firstEvent !== undefined
+                            ? orderedStarOutcomes(
+                                sampleStar,
+                                firstEvent.participants,
+                              )
+                            : [];
+                        const cols = Math.min(orderedOutcomes.length, 3);
+                        const hasDraw = orderedOutcomes.some((outcome) =>
+                          /^(draw|empate|x)$/i.test(outcome.label.trim()),
+                        );
+                        const matchesParticipants =
+                          firstEvent?.participants?.length === 2 &&
+                          orderedOutcomes.length >= 2 &&
+                          orderedOutcomes[0]?.label
+                            .trim()
+                            .toLocaleLowerCase('es') ===
+                            firstEvent.participants[0].name
+                              .trim()
+                              .toLocaleLowerCase('es') &&
+                          orderedOutcomes[orderedOutcomes.length - 1]?.label
+                            .trim()
+                            .toLocaleLowerCase('es') ===
+                            firstEvent.participants[1].name
+                              .trim()
+                              .toLocaleLowerCase('es');
+                        const standardThreeWay = hasDraw && matchesParticipants;
+                        const participantOutcomes =
+                          firstEvent?.participants?.length === 2 &&
+                          orderedOutcomes.length === 2 &&
+                          orderedOutcomes.every((outcome, index) =>
+                            outcome.label
+                              .trim()
+                              .toLocaleLowerCase('es') ===
+                            firstEvent.participants?.[index]?.name
+                              .trim()
+                              .toLocaleLowerCase('es'),
+                          );
+                        const columnLabels = orderedOutcomes.map(
+                          (outcome, index) =>
+                            standardThreeWay
+                              ? index === 1
+                                ? 'X'
+                                : index === 0
+                                  ? '1'
+                                  : '2'
+                              : participantOutcomes
+                                ? index === 0
+                                  ? '1'
+                                  : '2'
+                                : translateOutcomeLabel(outcome.label),
+                        );
+
+                        return (
+                          <div
+                            key={lg.league}
+                            className="overflow-hidden rounded-xl border border-neutral-800/80 bg-[#0b0f15]"
+                          >
+                            <div className="flex items-center gap-3 border-b border-neutral-800/80 bg-[#10151d] px-3 py-2.5">
+                              <span className="w-11 shrink-0" />
+                              <p className="flex min-w-0 flex-1 items-center gap-2 text-[10px] font-bold uppercase tracking-[0.08em] text-neutral-400">
+                                {icon !== null && (
+                                  <span className="text-sm leading-none">{icon}</span>
+                                )}
+                                <span className="truncate">{lg.league}</span>
+                                <span className="rounded-md bg-neutral-800/70 px-1.5 py-0.5 text-[9px] font-mono text-neutral-500">
+                                  {lg.events.length}
+                                </span>
+                              </p>
+                              {/* Los títulos de cuotas reflejan el mercado de
+                                  cada grupo: 1X2, dos resultados u opciones. */}
+                              {cols >= 2 && (
+                                <div
+                                  className={`hidden shrink-0 gap-1.5 text-center text-[9px] font-bold uppercase tracking-wider text-neutral-600 sm:grid ${
+                                    cols === 2 ? 'grid-cols-2 w-32' : 'grid-cols-3 w-48'
+                                  }`}
+                                >
+                                  {columnLabels.slice(0, cols).map((label, index) => (
+                                    <span key={`${index}-${label}`} className="truncate">
+                                      {label}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              <span className="w-10 shrink-0" />
                             </div>
-                          )}
-                          <span className="w-10 shrink-0" />
-                        </div>
-                        {lg.events.map((e) => (
-                          <EventListRow
-                            key={e.id}
-                            event={e}
-                            onSelectMarket={selectMarket}
-                          />
-                        ))}
-                      </div>
-                    );
-                  })}
-                </section>
-              ))}
+                            <div className="divide-y divide-neutral-800/70">
+                              {lg.events.map((event) => (
+                                <EventListRow
+                                  key={event.id}
+                                  event={event}
+                                  dense
+                                  onSelectMarket={selectMarket}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
@@ -1009,22 +1109,39 @@ const SubcategoryChip: React.FC<{
   label: string;
   icon?: string | null;
   count?: number | null;
+  countTitle?: string;
   active: boolean;
   onClick: () => void;
-}> = ({ label, icon, count, active, onClick }) => (
+}> = ({ label, icon, count, countTitle, active, onClick }) => (
   <button
+    type="button"
     onClick={onClick}
-    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 border ${
+    aria-pressed={active}
+    title={count != null ? `${count} ${countTitle ?? 'eventos activos'}` : undefined}
+    className={`flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-[11px] font-bold whitespace-nowrap transition-all ${
       active
-        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
-        : 'bg-[#0f121a] text-neutral-500 border-neutral-800/80 hover:text-neutral-300 hover:border-neutral-700'
+        ? 'border-emerald-400/50 bg-emerald-400/10 text-emerald-200 shadow-[inset_0_0_0_1px_rgba(52,211,153,0.08)]'
+        : 'border-transparent bg-transparent text-neutral-400 hover:border-neutral-800 hover:bg-white/[0.03] hover:text-neutral-200'
     }`}
   >
-    {icon != null && <span className="text-[13px] leading-none">{icon}</span>}
+    {icon != null && (
+      <span
+        aria-hidden="true"
+        className={`flex h-6 w-6 items-center justify-center rounded-lg text-[13px] leading-none ${
+          active ? 'bg-emerald-400/10' : 'bg-[#131922]'
+        }`}
+      >
+        {icon}
+      </span>
+    )}
     <span>{label}</span>
     {count != null && (
       <span
-        className={`text-[9px] font-mono ${active ? 'text-emerald-400/80' : 'text-neutral-600'}`}
+        className={`rounded-md px-1.5 py-0.5 text-[9px] font-mono tabular-nums ${
+          active
+            ? 'bg-emerald-400/10 text-emerald-300'
+            : 'bg-[#141922] text-neutral-500'
+        }`}
       >
         {count}
       </span>

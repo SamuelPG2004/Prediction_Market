@@ -245,7 +245,7 @@ function isDrawOutcome(label: string): boolean {
  * (empate) · visitante, casando cada resultado con su participante aunque el
  * venue publique otro orden.
  */
-function orderedStarOutcomes(
+export function orderedStarOutcomes(
   market: Market,
   participants?: { name: string }[],
 ): Market['outcomes'] {
@@ -461,7 +461,8 @@ const StarOutcomeButton: React.FC<{
 export const EventListRow: React.FC<{
   event: MarketEventView;
   onSelectMarket: SelectMarketHandler;
-}> = ({ event, onSelectMarket }) => {
+  dense?: boolean;
+}> = ({ event, onSelectMarket, dense = false }) => {
   const { isSelected } = useBetSlip();
   const isMatchup =
     event.participants !== undefined && event.participants.length === 2;
@@ -481,7 +482,13 @@ export const EventListRow: React.FC<{
     star !== null ? favoritePriceOf(outcomes, star.priceFormat) : null;
 
   return (
-    <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-1.5 px-3 py-2 rounded-xl bg-[#0d1017] border border-neutral-800/70 hover:border-neutral-700 transition-colors">
+    <div
+      className={`flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-1.5 px-3 py-2.5 transition-colors ${
+        dense
+          ? 'bg-transparent hover:bg-white/[0.025]'
+          : 'rounded-xl bg-[#0d1017] border border-neutral-800/70 hover:border-neutral-700'
+      }`}
+    >
       {/* Hora o en juego */}
       <span className="w-11 shrink-0 text-[10px] font-mono text-neutral-500">
         {event.isLive ? (
