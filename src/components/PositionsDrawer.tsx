@@ -139,7 +139,7 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
           {wallet.address === null ? (
             <p className="text-xs text-neutral-400 p-2">
-              Conecta tu wallet para ver tus posiciones.
+              Inicia sesión con Google o X para ver tus posiciones.
             </p>
           ) : isLoading && feeds === null ? (
             <div className="py-16 flex flex-col items-center gap-3">

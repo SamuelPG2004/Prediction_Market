@@ -130,7 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="relative group overflow-hidden flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all duration-200 active:scale-95"
             >
               <Wallet className="w-4 h-4 text-black group-hover:scale-110 transition-transform" />
-              <span>Conectar wallet</span>
+              <span>Entrar</span>
             </button>
           )}
         </div>

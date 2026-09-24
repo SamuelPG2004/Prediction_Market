@@ -1,432 +1,271 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react'
 import {
-  X,
-  Wallet,
+  AlertTriangle,
   Check,
   Copy,
-  LogOut,
   ExternalLink,
-  AlertTriangle,
-  ArrowLeftRight,
-  Loader2,
   Eye,
-  Mail,
-} from 'lucide-react';
-import { useWallet } from '../services/web3Service';
-import { useVenueBalances } from '../hooks/useVenueBalances';
-import { chainLabel, explorerAddressUrl } from '../config/chains';
-import { LOCAL_WALLET_CONNECTOR_ID } from '../config/localWalletConnector';
-import { PRIVY_WALLET_CONNECTOR_ID } from '../config/privyWalletConnector';
-import { gasDestinationKey } from './BridgeModal';
-import { formatCurrency, shortenAddress } from '../utils/formatters';
-import { LocalWalletActions } from './LocalWalletActions';
-import { LocalWalletSetup } from './LocalWalletSetup';
+  Loader2,
+  LogOut,
+  Wallet,
+  X,
+} from 'lucide-react'
+import { useWallet } from '../services/web3Service'
+import { useVenueBalances } from '../hooks/useVenueBalances'
+import { chainLabel, explorerAddressUrl } from '../config/chains'
+import { formatCurrency } from '../utils/formatters'
 
 interface WalletConnectModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  /** Abre el modal de bridge (traer fondos desde otra red), opcionalmente
-   * con un destino preseleccionado (p. ej. el gas nativo de una red). */
-  onOpenBridge: (destination?: string) => void;
-}
-
-/** Forma mínima del conector que usa este modal. */
-interface ConnectorLike {
-  uid: string;
-  id: string;
-  name: string;
-  type: string;
+  isOpen: boolean
+  onClose: () => void
 }
 
 /**
- * wagmi lista los conectores configurados Y las wallets inyectadas que el
- * navegador anuncia (EIP-6963), así que una misma wallet puede aparecer dos
- * veces y el genérico "Injected" sobra cuando hay wallets con nombre propio
- * — o cuando no hay NINGUNA extensión instalada (sería un botón muerto).
- * La wallet local de la app tampoco se lista aquí: tiene su propia sección
- * (LocalWalletSetup) con el flujo de crear/desbloquear.
- */
-function dedupeConnectors<T extends ConnectorLike>(connectors: readonly T[]): T[] {
-  const external = connectors.filter(
-    (c) => c.id !== LOCAL_WALLET_CONNECTOR_ID && c.id !== PRIVY_WALLET_CONNECTOR_ID,
-  );
-  const hasInjectedProvider =
-    typeof window !== 'undefined' &&
-    (window as unknown as { ethereum?: unknown }).ethereum !== undefined;
-  const named = external.filter((c) => c.id !== 'injected');
-  const base =
-    named.length > 0 || !hasInjectedProvider
-      ? named
-      : external;
-  const seen = new Set<string>();
-  return base.filter((c) => {
-    const key = c.name.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-/** Traduce los errores de conexión más comunes a algo accionable. */
-function humanConnectError(error: Error): string {
-  const message = error.message;
-  if (/provider.*not.*(found|available)|no.*provider/i.test(message)) {
-    return 'Esa wallet no está instalada en este navegador. Instala su extensión, o conecta una wallet móvil por WalletConnect (ver abajo).';
-  }
-  if (/rejected|denied/i.test(message)) {
-    return 'Has cancelado la conexión en la wallet.';
-  }
-  if (/already (pending|processing)|-32002/i.test(message)) {
-    return 'La wallet ya tiene una petición de conexión pendiente de otro intento. Abre la extensión desde la barra del navegador, resuélvela (o desbloquéala) y vuelve a intentarlo.';
-  }
-  return message;
-}
-
-/**
- * Tras este tiempo conectando se enseña una pista: las extensiones (Binance
- * Wallet en Edge, típicamente) dejan la petición colgada en silencio si están
- * bloqueadas o su popup no llegó a abrirse.
- */
-const SLOW_CONNECT_HINT_MS = 6_000;
-
-/**
- * Conexión de wallet, vía wagmi. Conectar te da tu dirección y muestra tus
- * saldos reales de los tokens de apuesta de cada venue. Las operaciones se
- * firman siempre una a una desde el panel de apuesta.
+ * La única entrada para usuarios nuevos es su cuenta Google o X. Privy crea
+ * la wallet integrada durante el registro; aquí se muestra la dirección para
+ * que puedan depositar directamente y usar los mercados.
  */
 export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
   isOpen,
   onClose,
-  onOpenBridge,
 }) => {
   const {
     address,
-    activeConnectorId,
     isConnected,
-    connect,
-    connectors,
     isConnecting,
+    isEmbeddedWallet,
     connectError,
     disconnect,
     embeddedAuth,
     connectEmbedded,
-  } = useWallet();
-  const { balances, isLoading: balancesLoading } = useVenueBalances();
+  } = useWallet()
+  const { balances, isLoading: balancesLoading } = useVenueBalances()
+  const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState(false)
 
-  const [copied, setCopied] = useState(false);
-  /** uid del conector cuyo intento sigue vivo; null si no hay ninguno. */
-  const [pendingUid, setPendingUid] = useState<string | null>(null);
-  const [showSlowHint, setShowSlowHint] = useState(false);
-  const connectorList = dedupeConnectors(connectors);
+  if (!isOpen) return null
 
-  // La pista de "esto va lento" solo tras un rato con un intento colgado.
-  useEffect(() => {
-    if (pendingUid === null || !isConnecting) {
-      setShowSlowHint(false);
-      return;
+  const copyAddress = async () => {
+    if (address === null) return
+    try {
+      await navigator.clipboard.writeText(address)
+      setCopied(true)
+      setCopyError(false)
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+      setCopyError(true)
     }
-    const timer = window.setTimeout(() => setShowSlowHint(true), SLOW_CONNECT_HINT_MS);
-    return () => window.clearTimeout(timer);
-  }, [pendingUid, isConnecting]);
+  }
 
-  if (!isOpen) return null;
+  const signOut = () => {
+    const finish = () => {
+      disconnect()
+      onClose()
+    }
+    if (isEmbeddedWallet) {
+      void embeddedAuth.logout().catch(() => undefined).finally(finish)
+      return
+    }
+    finish()
+  }
 
-  const handleConnect = (connector: (typeof connectors)[number]) => {
-    const uid = connector.uid;
-    setPendingUid(uid);
-    connect(
-      { connector } as never,
-      {
-        // Solo limpia si el intento que terminó es el último lanzado; un
-        // intento colgado que muera tarde no debe pisar un reintento nuevo.
-        onSettled: () => {
-          setPendingUid((current) => (current === uid ? null : current));
-        },
-      },
-    );
-  };
-
-  const handleCopy = () => {
-    if (address === null) return;
-    navigator.clipboard.writeText(address);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
-  };
-
-  // La wallet local se conecta desde su propia sección, no desde la lista.
-  const localConnector = connectors.find((c) => c.id === LOCAL_WALLET_CONNECTOR_ID);
-  const isLocalWallet = activeConnectorId === LOCAL_WALLET_CONNECTOR_ID;
-  const handleConnectLocal = () => {
-    if (localConnector !== undefined) handleConnect(localConnector);
-  };
+  const walletReady = isConnected && address !== null
+  const preparingWallet = embeddedAuth.authenticated && !walletReady
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
-      <div
+      <button
+        type="button"
+        aria-label="Cerrar"
         className="fixed inset-0 bg-black/80 backdrop-blur-md animate-in fade-in"
         onClick={onClose}
       />
 
-      {/* max-h + scroll interno: con la wallet local conectada (depósito,
-          retiro, respaldo) el contenido supera la pantalla y la cabecera
-          debe quedarse fija mientras el cuerpo desplaza. */}
-      <div className="relative w-full max-w-md max-h-[88vh] flex flex-col rounded-2xl bg-[#0d1017] border border-neutral-800/90 shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-150">
-        {/* Cabecera */}
-        <div className="shrink-0 p-5 border-b border-neutral-800 flex items-center justify-between bg-[#131620]">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="wallet-modal-title"
+        className="relative w-full max-w-md max-h-[88vh] flex flex-col rounded-2xl bg-[#0d1017] border border-neutral-800/90 shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-150"
+      >
+        <header className="shrink-0 p-5 border-b border-neutral-800 flex items-center justify-between bg-[#131620]">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <Wallet className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-neutral-100">
-                {isConnected ? 'Wallet conectada' : 'Conectar wallet'}
-              </h3>
+              <h2 id="wallet-modal-title" className="text-sm font-bold text-neutral-100">
+                {walletReady ? 'Tu wallet Aether' : 'Entrar o registrarse'}
+              </h2>
               <p className="text-[11px] text-neutral-400">
-                Cada operación se firma una a una
+                {walletReady ? 'Lista para depositar y apostar' : 'Acceso sencillo con Google o X'}
               </p>
             </div>
           </div>
-
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Cerrar ventana"
             className="p-1.5 rounded-xl bg-neutral-800/80 hover:bg-neutral-700 text-neutral-400 hover:text-white transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
-        </div>
+        </header>
 
         <div className="p-5 sm:p-6 flex flex-col gap-4 overflow-y-auto">
           {isConnected && address !== null ? (
             <>
-              {/* Dirección */}
-              <div className="rounded-xl bg-[#090b0f] border border-neutral-800 p-3.5 flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase font-mono text-neutral-500 tracking-wider">
-                    Dirección
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={handleCopy}
-                      title="Copiar dirección"
-                      className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-emerald-400 transition-colors"
-                    >
-                      {copied ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                    {explorerAddressUrl(137, address) !== null && (
-                      <a
-                        href={explorerAddressUrl(137, address) ?? '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Ver en el explorador"
-                        className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-emerald-400 transition-colors"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-                <span className="text-sm font-mono text-neutral-100 break-all">
-                  {shortenAddress(address, 8)}
-                </span>
-              </div>
-
-              {/* Saldos por venue, solo lectura */}
-              <div className="rounded-xl bg-[#090b0f] border border-neutral-800 p-3.5 flex flex-col gap-2.5">
-                <div className="flex items-center gap-1.5">
-                  <Eye className="w-3 h-3 text-neutral-500" />
-                  <span className="text-[10px] uppercase font-mono text-neutral-500 tracking-wider">
-                    Saldos de apuesta · solo lectura
-                  </span>
-                </div>
-                {balances.map((b) => (
-                  <div
-                    key={b.venue}
-                    className="flex items-center justify-between text-xs font-mono"
-                  >
-                    <span className="text-neutral-500">
-                      {b.symbol} · {chainLabel(b.chainId)}
-                    </span>
-                    <span className="font-bold text-neutral-100">
-                      {balancesLoading && b.balance === null ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-500" />
-                      ) : b.balance === null ? (
-                        '—'
-                      ) : (
-                        formatCurrency(b.balance)
-                      )}
-                    </span>
-                  </div>
-                ))}
-                <p className="text-[11px] text-neutral-500 leading-relaxed">
-                  La app no mueve estos saldos sin una firma tuya por operación.
-                  ¿Tu dinero está en otra red (p. ej. BNB Chain)? Tráelo con el
-                  botón de abajo.
+              <section className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] p-4">
+                <h3 className="text-sm font-semibold text-neutral-100">Dirección asignada</h3>
+                <p className="mt-1 text-xs leading-relaxed text-neutral-400">
+                  Tu cuenta tiene una wallet propia. Envía fondos a esta dirección usando la red y el token correctos.
                 </p>
-              </div>
+                <div className="mt-3 flex items-center gap-2 rounded-lg border border-neutral-800 bg-[#090b0f] p-3">
+                  <span
+                    className="min-w-0 flex-1 break-all font-mono text-xs text-neutral-100"
+                    title={address}
+                  >
+                    {address}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={copyAddress}
+                    aria-label={copied ? 'Dirección copiada' : 'Copiar dirección'}
+                    title={copied ? 'Copiada' : 'Copiar dirección'}
+                    className="shrink-0 rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-emerald-400"
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4 text-emerald-400" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </button>
+                  {explorerAddressUrl(137, address) !== null && (
+                    <a
+                      href={explorerAddressUrl(137, address) ?? '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Abrir dirección en el explorador"
+                      title="Ver en PolygonScan"
+                      className="shrink-0 rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-emerald-400"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  )}
+                </div>
+                {copyError && (
+                  <p role="alert" className="mt-2 text-[11px] text-rose-300">
+                    No se pudo copiar. Selecciona la dirección y cópiala manualmente.
+                  </p>
+                )}
+              </section>
 
-              {/* Depósito, retiro y respaldo: solo para la wallet local. */}
-              {isLocalWallet && (
-                <LocalWalletActions
-                  address={address as `0x${string}`}
-                  onGetGas={(chainId) => onOpenBridge(gasDestinationKey(chainId))}
-                />
-              )}
+              <section className="rounded-xl border border-neutral-800 bg-[#11151e] p-4">
+                <h3 className="text-xs font-semibold text-neutral-200">Dónde depositar</h3>
+                <p className="mt-1 text-[11px] leading-relaxed text-neutral-400">
+                  Para jugar, deposita USDT por Polygon o USDC por Base en la dirección de arriba. Comprueba la red antes de enviar.
+                </p>
+              </section>
+
+              <section className="rounded-xl border border-neutral-800 bg-[#090b0f] p-4">
+                <div className="mb-3 flex items-center gap-1.5">
+                  <Eye className="h-3.5 w-3.5 text-neutral-500" />
+                  <h3 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">
+                    Saldos disponibles
+                  </h3>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {balances.map((balance) => (
+                    <div
+                      key={balance.venue}
+                      className="flex items-center justify-between text-xs font-mono"
+                    >
+                      <span className="text-neutral-400">
+                        {balance.symbol} · {chainLabel(balance.chainId)}
+                      </span>
+                      <span className="font-semibold text-neutral-100">
+                        {balancesLoading && balance.balance === null ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-neutral-500" />
+                        ) : balance.balance === null ? (
+                          '—'
+                        ) : (
+                          formatCurrency(balance.balance)
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <p className="text-[11px] leading-relaxed text-neutral-500">
+                Cada apuesta se confirma con tu firma. La app no mueve tus fondos por su cuenta.
+              </p>
 
               <button
-                onClick={() => onOpenBridge()}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-xs font-bold text-emerald-400 transition-all active:scale-95"
+                type="button"
+                onClick={signOut}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900 py-2.5 text-xs font-semibold text-neutral-300 transition-colors hover:border-rose-500/30 hover:bg-rose-500/5 hover:text-rose-300"
               >
-                <ArrowLeftRight className="w-3.5 h-3.5" />
-                <span>Traer fondos desde otra red</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  disconnect();
-                  onClose();
-                }}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-xs font-bold text-rose-400 transition-all active:scale-95"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Desconectar</span>
+                <LogOut className="h-3.5 w-3.5" />
+                Cerrar sesión
               </button>
             </>
+          ) : preparingWallet || isConnecting ? (
+            <div role="status" className="flex flex-col items-center gap-3 rounded-xl border border-neutral-800 bg-[#11151e] px-5 py-8 text-center">
+              <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+              <div>
+                <p className="text-sm font-semibold text-neutral-100">Preparando tu wallet</p>
+                <p className="mt-1 text-xs text-neutral-400">Esto puede tardar unos segundos.</p>
+              </div>
+            </div>
           ) : (
             <>
-              <section className="rounded-xl border border-neutral-800 bg-[#11151e] p-4">
-                <p className="text-sm font-semibold text-neutral-100">Acceso a tu wallet</p>
-                <p className="mt-1 text-xs text-neutral-400 leading-relaxed">
-                  Explora sin conectar. La wallet permite consultar tu dirección y saldos; cada apuesta requiere tu firma.
+              <div className="rounded-xl border border-neutral-800 bg-[#11151e] p-4">
+                <h3 className="text-sm font-semibold text-neutral-100">Una cuenta, una wallet</h3>
+                <p className="mt-1 text-xs leading-relaxed text-neutral-400">
+                  Regístrate con Google o X. Te asignamos una dirección para depositar y jugar; no necesitas instalar una extensión ni crear una wallet manualmente.
                 </p>
-              </section>
-
-              {embeddedAuth.enabled && (
-                <section className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4">
-                  <div className="flex items-start gap-3">
-                    <Mail className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
-                    <div>
-                      <h4 className="text-sm font-bold text-neutral-100">Email o cuenta social</h4>
-                      <p className="mt-1 text-xs leading-5 text-neutral-400">Crea una wallet integrada compatible con los mercados.</p>
-                      <button type="button" onClick={connectEmbedded} disabled={!embeddedAuth.ready} className="mt-3 rounded-lg bg-emerald-400 px-3 py-2 text-xs font-bold text-black disabled:opacity-50">
-                        {embeddedAuth.ready ? 'Continuar con email o social' : 'Preparando acceso…'}
-                      </button>
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              <LocalWalletSetup
-                onConnect={handleConnectLocal}
-                isConnecting={isConnecting}
-              />
-
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-neutral-800" />
-                <span className="text-[10px] uppercase font-mono text-neutral-600 tracking-wider">
-                  o una wallet externa
-                </span>
-                <div className="flex-1 h-px bg-neutral-800" />
               </div>
 
-              <section className="rounded-xl border border-neutral-800 bg-[#11151e] p-4">
-                <div className="mb-3">
-                  <h4 className="text-xs font-semibold text-neutral-200">Wallets disponibles</h4>
-                  <p className="mt-1 text-[11px] text-neutral-500">Selecciona una extensión instalada en este navegador.</p>
-                </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {connectorList.map((connector) => {
-                  const isThisPending =
-                    isConnecting && pendingUid === connector.uid;
-                  return (
-                    <button
-                      key={connector.uid}
-                      onClick={() => handleConnect(connector)}
-                      // Un intento colgado (pista visible) reabre el botón
-                      // para poder reintentar sin recargar la página.
-                      disabled={isThisPending && !showSlowHint}
-                      className="min-h-12 flex items-center justify-between gap-2 px-3 py-3 rounded-lg bg-[#0b0e14] hover:bg-neutral-800/80 border border-neutral-800 hover:border-emerald-500/30 text-sm font-semibold text-neutral-200 transition-colors disabled:opacity-50"
-                    >
-                      <span>{connector.name}</span>
-                      {isThisPending ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-neutral-500" />
-                      ) : (
-                        <Wallet className="w-4 h-4 text-emerald-400" />
-                      )}
-                    </button>
-                  );
-                })}
-
-                {showSlowHint && (
-                  <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/25 p-3 text-[11px] text-amber-200/90">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    <span>
-                      La wallet no responde. Suele pasar cuando la extensión
-                      está bloqueada o su ventana no llegó a abrirse: pincha en
-                      el icono de la extensión en la barra del navegador,
-                      desbloquéala y acepta la conexión pendiente — o vuelve a
-                      pulsar el botón para reintentar.
-                    </span>
-                  </div>
-                )}
-
-                {connectorList.length === 0 && (
-                  <div className="flex items-start gap-2 rounded-xl bg-neutral-900/70 border border-neutral-800 p-3 text-[11px] text-neutral-400">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    <span>
-                      No se detectó ninguna extensión de wallet en este
-                      navegador. Instala una (p. ej. Binance Wallet) o
-                      habilita WalletConnect para usar tu wallet móvil (abajo).
-                    </span>
-                  </div>
-                )}
-              </div>
-              </section>
-
-              {connectError && (
-                <div className="flex items-start gap-2 rounded-xl bg-rose-500/10 border border-rose-500/25 p-3 text-[11px] text-rose-300">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  <span>{humanConnectError(connectError)}</span>
-                </div>
-              )}
-
-              <button
-                onClick={() => onOpenBridge()}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-emerald-500/30 text-xs font-semibold text-neutral-300 transition-all active:scale-95"
-              >
-                <ArrowLeftRight className="w-3.5 h-3.5 text-emerald-400" />
-                <span>¿Fondos en otra red (BNB Chain)? Tráelos aquí</span>
-              </button>
-
-              <div className="rounded-xl bg-neutral-900/70 border border-neutral-800 p-3 text-[11px] text-neutral-400 leading-relaxed">
-                <p className="font-semibold text-neutral-300 mb-1">
-                  ¿Tu wallet es la app de Binance (u otra app móvil)?
-                </p>
-                <p>
-                  En escritorio: instala la extensión{' '}
-                  <span className="text-neutral-200">Binance Wallet</span> en el
-                  navegador y aparecerá arriba. Desde el móvil: usa{' '}
-                  <span className="text-neutral-200">WalletConnect</span> y
-                  escanea el QR con la app de Binance (Perfil → WalletConnect).
-                  {!connectors.some((c) => c.id === 'walletConnect') && (
+              {embeddedAuth.enabled ? (
+                <button
+                  type="button"
+                  onClick={connectEmbedded}
+                  disabled={!embeddedAuth.ready}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-400 px-4 py-3 text-sm font-bold text-[#07110d] transition-colors hover:bg-emerald-300 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {embeddedAuth.ready ? (
                     <>
-                      {' '}
-                      Para habilitar WalletConnect, define{' '}
-                      <span className="font-mono text-neutral-300">
-                        VITE_WALLETCONNECT_PROJECT_ID
-                      </span>{' '}
-                      en .env.local (gratis en cloud.reown.com) y reinicia.
+                      <span>Continuar con Google o X</span>
+                    </>
+                  ) : (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Preparando acceso…</span>
                     </>
                   )}
-                </p>
-              </div>
+                </button>
+              ) : (
+                <div className="flex items-start gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-200">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>El registro con Google o X no está disponible ahora. Inténtalo más tarde.</span>
+                </div>
+              )}
+
+              {connectError && (
+                <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-500/25 bg-rose-500/10 p-3 text-xs text-rose-300">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>No se pudo preparar la wallet. Cierra esta ventana e inténtalo de nuevo.</span>
+                </div>
+              )}
+
+              <p className="text-center text-[11px] leading-relaxed text-neutral-500">
+                Explorar los mercados es gratis. Cada apuesta requiere tu firma y usa fondos reales.
+              </p>
             </>
           )}
         </div>
-      </div>
+      </section>
     </div>
-  );
-};
+  )
+}

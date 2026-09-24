@@ -83,11 +83,6 @@ export default function App() {
         <WalletConnectModal
           isOpen={isWalletModalOpen}
           onClose={() => setIsWalletModalOpen(false)}
-          onOpenBridge={(destination) => {
-            setIsWalletModalOpen(false);
-            setBridgeDestination(destination);
-            setIsBridgeOpen(true);
-          }}
         />
       </ClientOnly>
 

@@ -441,7 +441,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
   const stakeNumber = isValidAmount(amount) ? Number(amount) : 0;
 
   const problems: string[] = [];
-  if (!wallet.isConnected) problems.push('Conecta tu wallet para apostar.');
+  if (!wallet.isConnected) problems.push('Inicia sesión con Google o X para apostar.');
   if (source !== null && !source.capabilities.canPlaceBet) {
     problems.push(
       `Este despliegue no tiene credenciales para apostar en ${source.displayName} (revisa .env).`,
@@ -794,7 +794,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
                   onClick={onConnectWallet}
                   className="mt-1 self-start px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-[11px] font-bold transition-all active:scale-95"
                 >
-                  Conectar wallet
+                  Entrar con Google o X
                 </button>
               )}
             </div>

@@ -226,7 +226,7 @@ export const BetSlip: React.FC<{ onConnectWallet: () => void }> = ({
                     className="w-full py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-[11px] font-bold text-amber-300 transition-colors flex items-center justify-center gap-1.5"
                   >
                     <AlertTriangle className="w-3.5 h-3.5" />
-                    Conecta tu wallet para apostar
+                    Entrar para apostar
                   </button>
                 )}
                 <button
@@ -483,7 +483,7 @@ const ComboPane: React.FC<{
                 className="w-full py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-[11px] font-bold text-amber-300 transition-colors flex items-center justify-center gap-1.5"
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
-                Conecta tu wallet para apostar
+                Entrar para apostar
               </button>
             )}
             <button

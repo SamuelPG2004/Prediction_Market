@@ -6,10 +6,11 @@ import { PRIVY_WALLET_CONNECTOR_ID, setPrivyEmbeddedWallet, type PrivyProviderLi
 interface EmbeddedAuth {
   enabled: boolean
   ready: boolean
+  authenticated: boolean
   login: () => void
   logout: () => Promise<void>
 }
-const unavailable: EmbeddedAuth = { enabled: false, ready: true, login: () => {}, logout: async () => {} }
+const unavailable: EmbeddedAuth = { enabled: false, ready: true, authenticated: false, login: () => {}, logout: async () => {} }
 const AuthContext = createContext<EmbeddedAuth>(unavailable)
 export const useEmbeddedAuth = () => useContext(AuthContext)
 
@@ -32,12 +33,27 @@ function PrivySession({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true }
   }, [authenticated, wallet, connectors, connect])
 
-  const value = useMemo<EmbeddedAuth>(() => ({ enabled: true, ready, login, logout }), [ready, login, logout])
+  const value = useMemo<EmbeddedAuth>(
+    () => ({ enabled: true, ready, authenticated, login, logout }),
+    [ready, authenticated, login, logout],
+  )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
   const appId = import.meta.env.VITE_PRIVY_APP_ID as string | undefined
   if (appId === undefined || appId.trim() === '') return <AuthContext.Provider value={unavailable}>{children}</AuthContext.Provider>
-  return <PrivyProvider appId={appId} config={{ loginMethods: ['email', 'google', 'twitter', 'discord', 'twitch'], embeddedWallets: { ethereum: { createOnLogin: 'users-without-wallets' } } }}><PrivySession>{children}</PrivySession></PrivyProvider>
+  return (
+    <PrivyProvider
+      appId={appId}
+      config={{
+        loginMethods: ['google', 'twitter'],
+        embeddedWallets: {
+          ethereum: { createOnLogin: 'users-without-wallets' },
+        },
+      }}
+    >
+      <PrivySession>{children}</PrivySession>
+    </PrivyProvider>
+  )
 }
