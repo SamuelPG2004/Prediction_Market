@@ -139,6 +139,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     events,
     isLoading,
     isLoadingMore,
+    loadMoreError,
     error,
     degradedVenues,
     hasMore,
@@ -359,7 +360,10 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
 
   const sentinelRef = useInfiniteScroll({
     onReachEnd: reachEnd,
-    enabled: !isLoading && (visibleCount < filteredEvents.length || hasMore),
+    enabled:
+      !isLoading &&
+      loadMoreError === null &&
+      (visibleCount < filteredEvents.length || hasMore),
   });
 
   const totalMarkets = useMemo(
@@ -891,11 +895,30 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
 
           {/* Centinela: dispara la carga al acercarse el final. */}
           <div ref={sentinelRef} className="flex items-center justify-center py-6">
-            {visibleCount < filteredEvents.length || hasMore ? (
+            {isLoadingMore ? (
               <div className="flex items-center gap-2 text-[11px] font-mono text-neutral-600">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>{isLoadingMore ? 'Trayendo más mercados…' : 'Cargando más…'}</span>
+                <span>Trayendo más partidos…</span>
               </div>
+            ) : loadMoreError !== null ? (
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-xs text-amber-300">{loadMoreError}</p>
+                <button
+                  type="button"
+                  onClick={loadMore}
+                  className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-200 hover:border-emerald-500/40"
+                >
+                  Reintentar
+                </button>
+              </div>
+            ) : visibleCount < filteredEvents.length || hasMore ? (
+              <button
+                type="button"
+                onClick={reachEnd}
+                className="rounded-lg border border-neutral-800 bg-neutral-900/70 px-3 py-2 text-[11px] font-semibold text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
+              >
+                Ver más partidos
+              </button>
             ) : (
               filteredEvents.length > 0 && (
                 <p className="text-[11px] font-mono text-neutral-700">

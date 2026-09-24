@@ -45,6 +45,7 @@ export interface UseDomainEventsState {
   events: MarketEventView[]
   isLoading: boolean
   isLoadingMore: boolean
+  loadMoreError: string | null
   /** Solo cuando NINGUNA fuente pudo responder. */
   error: string | null
   /** Fuentes que fallaron mientras otras sí respondieron. */
@@ -112,6 +113,7 @@ export function useDomainEvents(options: {
   const [feeds, setFeeds] = useState<SourceFeed[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [degradedVenues, setDegradedVenues] = useState<string[]>([])
@@ -151,6 +153,7 @@ export function useDomainEvents(options: {
     let alive = true
     autoLoadsRef.current = 0
     setIsLoading(true)
+    setLoadMoreError(null)
     setError(null)
     setDegradedVenues([])
     setFeeds([])
@@ -206,6 +209,7 @@ export function useDomainEvents(options: {
 
     loadingRef.current = true
     setIsLoadingMore(true)
+    setLoadMoreError(null)
     try {
       const results = await Promise.all(
         pending.map(async (feed) => {
@@ -240,7 +244,11 @@ export function useDomainEvents(options: {
           }
         }),
       )
+      const failed = results.some((item) => item !== null && !item.result.ok)
+      if (failed) setLoadMoreError('No se pudo cargar la siguiente página.')
       setLastSyncAt(Date.now())
+    } catch {
+      setLoadMoreError('No se pudo cargar la siguiente página. Inténtalo de nuevo.')
     } finally {
       loadingRef.current = false
       setIsLoadingMore(false)
@@ -321,6 +329,7 @@ export function useDomainEvents(options: {
     events,
     isLoading,
     isLoadingMore,
+    loadMoreError,
     error,
     degradedVenues,
     hasMore: feeds.some((feed) => feed.cursor !== null),
