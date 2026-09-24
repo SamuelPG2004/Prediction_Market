@@ -200,7 +200,6 @@ export function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
     <PrivyProvider
       appId={appId}
       config={{
-        loginMethods: ['google', 'twitter', 'email', 'wallet', 'discord', 'twitch'],
         loginMethodsAndOrder: {
           primary: ['google', 'twitter', 'discord', 'twitch'],
           overflow: ['email', 'detected_ethereum_wallets', 'wallet_connect'],
