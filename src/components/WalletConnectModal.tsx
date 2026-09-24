@@ -21,9 +21,8 @@ interface WalletConnectModalProps {
 }
 
 /**
- * La única entrada para usuarios nuevos es su cuenta Google o X. Privy crea
- * la wallet integrada durante el registro; aquí se muestra la dirección para
- * que puedan depositar directamente y usar los mercados.
+ * Privy ofrece los métodos activados para la app y crea una wallet integrada
+ * para quienes entren sin conectar una wallet externa.
  */
 export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
   isOpen,
@@ -95,10 +94,10 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
             </div>
             <div>
               <h2 id="wallet-modal-title" className="text-sm font-bold text-neutral-100">
-                {walletReady ? 'Tu wallet Aether' : 'Entrar o registrarse'}
+                {walletReady ? (isEmbeddedWallet ? 'Tu wallet Aether' : 'Tu wallet conectada') : 'Entrar o registrarse'}
               </h2>
               <p className="text-[11px] text-neutral-400">
-                {walletReady ? 'Lista para depositar y apostar' : 'Acceso sencillo con Google o X'}
+                {walletReady ? 'Lista para depositar y apostar' : 'Accede con tus métodos favoritos'}
               </p>
             </div>
           </div>
@@ -116,9 +115,13 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
           {isConnected && address !== null ? (
             <>
               <section className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] p-4">
-                <h3 className="text-sm font-semibold text-neutral-100">Dirección asignada</h3>
+                <h3 className="text-sm font-semibold text-neutral-100">
+                  {isEmbeddedWallet ? 'Dirección asignada' : 'Dirección de tu wallet externa'}
+                </h3>
                 <p className="mt-1 text-xs leading-relaxed text-neutral-400">
-                  Tu cuenta tiene una wallet propia. Envía fondos a esta dirección usando la red y el token correctos.
+                  {isEmbeddedWallet
+                    ? 'Tu cuenta tiene una wallet propia. Envía fondos a esta dirección usando la red y el token correctos.'
+                    : 'Esta es la dirección de la wallet que conectaste. Comprueba la red y el token antes de enviar fondos.'}
                 </p>
                 <div className="mt-3 flex items-center gap-2 rounded-lg border border-neutral-800 bg-[#090b0f] p-3">
                   <span
@@ -221,9 +224,9 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
           ) : (
             <>
               <div className="rounded-xl border border-neutral-800 bg-[#11151e] p-4">
-                <h3 className="text-sm font-semibold text-neutral-100">Una cuenta, una wallet</h3>
+                <h3 className="text-sm font-semibold text-neutral-100">Elige cómo entrar</h3>
                 <p className="mt-1 text-xs leading-relaxed text-neutral-400">
-                  Regístrate con Google o X. Te asignamos una dirección para depositar y jugar; no necesitas instalar una extensión ni crear una wallet manualmente.
+                  Entra con Google, X, Discord, Twitch o correo y te asignamos una wallet. También puedes conectar una wallet externa y usar esa dirección.
                 </p>
               </div>
 
@@ -236,7 +239,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                 >
                   {embeddedAuth.ready ? (
                     <>
-                      <span>Continuar con Google o X</span>
+                      <span>Elegir método de acceso</span>
                     </>
                   ) : (
                     <>
@@ -248,7 +251,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
               ) : (
                 <div className="flex items-start gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-200">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>El registro con Google o X no está disponible ahora. Inténtalo más tarde.</span>
+                  <span>El acceso no está disponible ahora. Inténtalo más tarde.</span>
                 </div>
               )}
 

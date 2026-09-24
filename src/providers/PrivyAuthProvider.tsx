@@ -47,7 +47,7 @@ export function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
     <PrivyProvider
       appId={appId}
       config={{
-        loginMethods: ['google', 'twitter'],
+        loginMethods: ['google', 'twitter', 'email', 'wallet', 'discord', 'twitch'],
         embeddedWallets: {
           ethereum: { createOnLogin: 'users-without-wallets' },
         },
