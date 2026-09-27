@@ -43,6 +43,8 @@ const STATUS_LABEL: Record<Position['status'], { text: string; tone: string }> =
   redeemed: { text: 'Cobrada', tone: 'bg-neutral-800 text-neutral-400' },
 };
 
+type PositionFilter = 'all' | 'open' | 'settled' | 'redeemable';
+
 /**
  * Cartera real: posiciones de cada venue registrado, vía el puerto del
  * dominio. Los venues sin soporte o sin credenciales se listan como tales en
@@ -55,6 +57,9 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
   const wallet = useWallet();
   const [feeds, setFeeds] = useState<VenuePositions[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [filter, setFilter] = useState<PositionFilter>('all');
+  const [redeemedReferences, setRedeemedReferences] = useState<Record<string, { reference: string; explorerUrl: string | null }>>({});
 
   const load = useCallback(async () => {
     if (wallet.address === null) {
@@ -84,6 +89,7 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
       }),
     );
     setFeeds(results);
+    setUpdatedAt(new Date());
     setIsLoading(false);
   }, [wallet.address]);
 
@@ -99,6 +105,17 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
   const pricedOpenPositions = openPositions.filter((position) => position.currentValue !== null);
   const openValue = pricedOpenPositions.reduce((sum, position) => sum + Number(position.currentValue), 0);
   const openPnl = pricedOpenPositions.length === openPositions.length ? openValue - openStake : null;
+  const redeemableCount = feeds?.flatMap((feed) => feed.positions).filter((position) => position.status === 'redeemable').length ?? 0;
+  const allPositions = feeds?.flatMap((feed) => feed.positions) ?? [];
+  const filteredFeeds = feeds?.map((feed) => ({
+    ...feed,
+    positions: feed.positions.filter((position) => {
+      if (filter === 'all') return true;
+      if (filter === 'open') return position.status === 'open';
+      if (filter === 'redeemable') return position.status === 'redeemable';
+      return position.status === 'won' || position.status === 'lost' || position.status === 'redeemed';
+    }),
+  }));
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -121,6 +138,7 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
               <p className="text-[11px] text-neutral-400">
                 {total} {total === 1 ? 'posición' : 'posiciones'} · abiertas {formatCurrency(openStake)}
               </p>
+              {updatedAt !== null && <p className="text-[10px] text-neutral-600">Actualizado {updatedAt.toLocaleTimeString()}</p>}
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -142,6 +160,15 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+          {wallet.address !== null && (
+            <div className="flex gap-1 overflow-x-auto pb-1">
+              {([
+                ['all', 'Todas'], ['open', 'Abiertas'], ['settled', 'Liquidadas'], ['redeemable', `Cobrables${redeemableCount ? ` · ${redeemableCount}` : ''}`],
+              ] as const).map(([key, label]) => (
+                <button key={key} onClick={() => setFilter(key)} className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] font-medium ${filter === key ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-neutral-200'}`}>{label}</button>
+              ))}
+            </div>
+          )}
           {wallet.address !== null && openPositions.length > 0 && (
             <div className="grid grid-cols-2 gap-2 rounded-xl border border-neutral-800 bg-[#0d1017] p-3 text-[11px]">
               <div>
@@ -168,7 +195,7 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
               </p>
             </div>
           ) : (
-            feeds?.map((feed) => (
+            filteredFeeds?.map((feed) => (
               <div key={feed.venue} className="flex flex-col gap-2">
                 <h4 className="text-[10px] uppercase font-mono text-neutral-500 tracking-widest">
                   {feed.displayName}
@@ -186,7 +213,7 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
                   </div>
                 ) : feed.positions.length === 0 ? (
                   <p className="text-[11px] text-neutral-600 px-1">
-                    Sin posiciones en {feed.displayName}.
+                    {allPositions.length === 0 ? `Sin posiciones en ${feed.displayName}.` : 'No hay posiciones en este filtro.'}
                   </p>
                 ) : (
                   feed.positions.map((p) => (
@@ -196,7 +223,11 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
                       venueName={feed.displayName}
                       onRedeem={redeemerFor(feed.venue, wallet.address)}
                       cashouter={cashouterFor(feed.venue, wallet.address)}
-                      onActionComplete={() => void load()}
+                      redeemedReceipt={redeemedReferences[p.id] ?? null}
+                      onActionComplete={(positionId, receipt) => {
+                        if (receipt !== null) setRedeemedReferences((current) => ({ ...current, [positionId]: receipt }));
+                        void load();
+                      }}
                     />
                   ))
                 )}
@@ -246,6 +277,7 @@ function cashouterFor(venue: string, address: string | null): Cashouter | null {
 
 type RedeemState =
   | { status: 'idle' }
+  | { status: 'reviewing' }
   | { status: 'redeeming' }
   | { status: 'done'; receipt: RedeemReceipt }
   | { status: 'error'; message: string };
@@ -264,8 +296,9 @@ const PositionCard: React.FC<{
   venueName: string;
   onRedeem: Redeemer | null;
   cashouter: Cashouter | null;
-  onActionComplete: () => void;
-}> = ({ position, venueName, onRedeem, cashouter, onActionComplete }) => {
+  redeemedReceipt: { reference: string; explorerUrl: string | null } | null;
+  onActionComplete: (positionId: string, receipt: { reference: string; explorerUrl: string | null } | null) => void;
+}> = ({ position, venueName, onRedeem, cashouter, redeemedReceipt, onActionComplete }) => {
   const queryClient = useQueryClient();
   const [redeem, setRedeem] = useState<RedeemState>({ status: 'idle' });
   const [cashout, setCashout] = useState<CashoutState>({ status: 'idle' });
@@ -276,7 +309,7 @@ const PositionCard: React.FC<{
   const status = STATUS_LABEL[effectiveStatus];
 
   const runRedeem = async () => {
-    if (onRedeem === null || redeem.status === 'redeeming') return;
+    if (onRedeem === null || redeem.status !== 'reviewing') return;
     setRedeem({ status: 'redeeming' });
     const result = await onRedeem(position);
     setRedeem(
@@ -288,7 +321,7 @@ const PositionCard: React.FC<{
     // bajar ya, no en el próximo sondeo.
     if (result.ok) {
       void queryClient.invalidateQueries({ queryKey: ['redeemable-count'] });
-      onActionComplete();
+      onActionComplete(position.id, null);
     }
   };
 
@@ -315,7 +348,7 @@ const PositionCard: React.FC<{
         ? { status: 'done', receipt: result.data }
         : { status: 'error', message: result.error.message },
     );
-    if (result.ok) onActionComplete();
+    if (result.ok) onActionComplete(position.id, { reference: result.data.reference, explorerUrl: result.data.explorerUrl });
   };
 
   return (
@@ -357,7 +390,7 @@ const PositionCard: React.FC<{
             : 'Valor actual no disponible'}
         </span>
         {position.openedAt !== null && (
-          <span>{position.openedAt.toLocaleDateString()}</span>
+          <span>{position.openedAt.toLocaleString()}</span>
         )}
       </div>
       {position.status === 'open' && position.currentValue !== null && (
@@ -365,7 +398,6 @@ const PositionCard: React.FC<{
           P/G no realizada: {Number(position.currentValue) - Number(position.stake) > 0 ? '+' : ''}{formatCurrency(Number(position.currentValue) - Number(position.stake))}
         </div>
       )}
-
       {effectiveStatus === 'open' && cashouter === null && (
         <p className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-2.5 py-2 text-[10px] leading-relaxed text-neutral-500">
           El cierre desde esta pantalla todavía no está disponible. Gestiona esta posición desde {venueName}.
@@ -374,23 +406,25 @@ const PositionCard: React.FC<{
 
       {/* Cobro: solo posiciones cobrables de venues que saben cobrar. */}
       {effectiveStatus === 'redeemable' && onRedeem !== null && (
-        <button
-          onClick={() => void runRedeem()}
-          disabled={redeem.status === 'redeeming'}
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-[11px] font-bold text-emerald-300 transition-all active:scale-95 disabled:opacity-60"
-        >
-          {redeem.status === 'redeeming' ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span>Cobrando… firma en tu wallet</span>
-            </>
-          ) : (
-            <>
-              <Coins className="w-3.5 h-3.5" />
-              <span>Cobrar {formatCurrency(Number(position.potentialPayout))}</span>
-            </>
-          )}
-        </button>
+        redeem.status === 'reviewing' || redeem.status === 'redeeming' ? (
+          <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-2.5 flex flex-col gap-2">
+            <p className="text-[11px] text-neutral-200">Premio a cobrar: <strong className="font-mono text-emerald-300">{formatCurrency(Number(position.potentialPayout))}</strong></p>
+            <p className="text-[10px] text-neutral-500">Se abrirá la wallet para firmar el reclamo on-chain.</p>
+            <div className="flex gap-2">
+              <button onClick={() => void runRedeem()} disabled={redeem.status === 'redeeming'} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500 text-black text-[11px] font-bold disabled:opacity-60">
+                {redeem.status === 'redeeming' ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Abriendo wallet…</> : 'Confirmar cobro'}
+              </button>
+              {redeem.status === 'reviewing' && <button onClick={() => setRedeem({ status: 'idle' })} className="px-3 rounded-lg bg-neutral-800 text-neutral-300 text-[11px]">Volver</button>}
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setRedeem({ status: 'reviewing' })} className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-[11px] font-bold text-emerald-300 transition-all active:scale-95">
+            <Coins className="w-3.5 h-3.5" /><span>Cobrar {formatCurrency(Number(position.potentialPayout))}</span>
+          </button>
+        )
+      )}
+      {effectiveStatus === 'redeemable' && onRedeem === null && (
+        <p className="text-[10px] text-neutral-500">Premio liquidado. El retiro desde esta app aún no está disponible para este venue.</p>
       )}
 
       {/* Cash out: cerrar una posición abierta al precio que ofrezca el venue
@@ -405,7 +439,7 @@ const PositionCard: React.FC<{
                 className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-neutral-800/60 hover:bg-neutral-800 border border-neutral-700/60 text-[11px] font-bold text-neutral-300 hover:text-neutral-100 transition-all active:scale-95"
               >
                 <Banknote className="w-3.5 h-3.5" />
-                <span>Consultar cash out</span>
+                <span>Cash out · consultar oferta</span>
               </button>
             )}
             {cashout.status === 'consulting' && (
@@ -416,7 +450,7 @@ const PositionCard: React.FC<{
             )}
             {cashout.status === 'no-offer' && (
               <p className="text-[11px] text-neutral-500 rounded-lg bg-neutral-900/60 border border-dashed border-neutral-800 p-2.5">
-                Sin oferta de cash out para esta apuesta ahora mismo.
+                Cash out cierra una apuesta abierta; Azuro no ofrece un precio para cerrarla ahora. Esto no afecta a premios ya liquidados.
               </p>
             )}
             {(cashout.status === 'offered' || cashout.status === 'executing') && (
@@ -483,7 +517,7 @@ const PositionCard: React.FC<{
 
       {redeem.status === 'done' && (
         <div className="flex items-center justify-between gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 p-2.5 text-[11px] text-emerald-300">
-          <span>Premio cobrado. Ya está en tu wallet.</span>
+          <span>Reclamo enviado a la red. Espera la confirmación de la transacción.</span>
           {redeem.receipt.explorerUrl !== null && (
             <a
               href={redeem.receipt.explorerUrl}

@@ -861,12 +861,14 @@ export const TradePanel: React.FC<TradePanelProps> = ({
                 <dd className="text-right font-mono text-neutral-200">{quote.stake} {venueToken?.symbol ?? ''}</dd>
                 <dt className="text-neutral-500">Pago estimado si acierta</dt>
                 <dd className="text-right font-mono text-emerald-300">{formatCurrency(Number(quote.expectedPayout))}</dd>
-                <dt className="text-neutral-500">Precio medio estimado</dt>
+                <dt className="text-neutral-500">Cuota efectiva estimada</dt>
                 <dd className="text-right font-mono text-neutral-200">
-                  ${Number(quote.stake) / Number(quote.expectedPayout) > 0
-                    ? (Number(quote.stake) / Number(quote.expectedPayout)).toFixed(3)
+                  {Number(quote.stake) > 0
+                    ? (Number(quote.expectedPayout) / Number(quote.stake)).toFixed(2)
                     : '—'}
                 </dd>
+                <dt className="text-neutral-500">Ganancia neta potencial</dt>
+                <dd className="text-right font-mono text-neutral-200">{formatCurrency(Math.max(0, Number(quote.expectedPayout) - Number(quote.stake)))}</dd>
                 <dt className="text-neutral-500">Slippage máximo</dt>
                 <dd className="text-right font-mono text-neutral-200">{(slippage * 100).toFixed(0)}%</dd>
                 <dt className="text-neutral-500">Red</dt>
@@ -909,11 +911,16 @@ export const TradePanel: React.FC<TradePanelProps> = ({
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <span>
-                  Apuesta {placeState.receipt.status === 'confirmed'
-                    ? 'confirmada'
-                    : 'enviada (pendiente de confirmación)'}
+                  {placeState.receipt.status === 'confirmed'
+                    ? 'Apuesta abierta y confirmada'
+                    : 'Pendiente de aceptación/confirmación en Azuro'}
                   .
                 </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1 text-neutral-300">
+                <span>Arriesgado</span><span className="text-right font-mono">{quote?.stake ?? amount} {venueToken?.symbol ?? ''}</span>
+                <span>Cuota efectiva al cotizar</span><span className="text-right font-mono">{quote !== null && Number(quote.stake) > 0 ? (Number(quote.expectedPayout) / Number(quote.stake)).toFixed(2) : '—'}</span>
+                <span>Pago potencial</span><span className="text-right font-mono text-emerald-300">{quote !== null ? formatCurrency(Number(quote.expectedPayout)) : '—'}</span>
               </div>
               <span className="font-mono text-neutral-400 break-all">
                 ref: {placeState.receipt.reference}
