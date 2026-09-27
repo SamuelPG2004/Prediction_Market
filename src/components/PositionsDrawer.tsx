@@ -94,6 +94,11 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
   if (!isOpen) return null;
 
   const total = feeds?.reduce((a, f) => a + f.positions.length, 0) ?? 0;
+  const openPositions = feeds?.flatMap((feed) => feed.positions).filter((position) => position.status === 'open') ?? [];
+  const openStake = openPositions.reduce((sum, position) => sum + Number(position.stake), 0);
+  const pricedOpenPositions = openPositions.filter((position) => position.currentValue !== null);
+  const openValue = pricedOpenPositions.reduce((sum, position) => sum + Number(position.currentValue), 0);
+  const openPnl = pricedOpenPositions.length === openPositions.length ? openValue - openStake : null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -114,7 +119,7 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
                 Mis posiciones reales
               </h3>
               <p className="text-[11px] text-neutral-400">
-                {total} {total === 1 ? 'posición' : 'posiciones'}
+                {total} {total === 1 ? 'posición' : 'posiciones'} · abiertas {formatCurrency(openStake)}
               </p>
             </div>
           </div>
@@ -137,6 +142,20 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+          {wallet.address !== null && openPositions.length > 0 && (
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-neutral-800 bg-[#0d1017] p-3 text-[11px]">
+              <div>
+                <p className="text-[9px] uppercase text-neutral-500">Valor actual</p>
+                <p className="mt-1 font-mono text-neutral-200">{formatCurrency(openValue)}</p>
+              </div>
+              <div>
+                <p className="text-[9px] uppercase text-neutral-500">P/G abierta estimada</p>
+                <p className={`mt-1 font-mono ${openPnl === null ? 'text-neutral-500' : openPnl >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  {openPnl === null ? 'Datos incompletos' : `${openPnl > 0 ? '+' : ''}${formatCurrency(openPnl)}`}
+                </p>
+              </div>
+            </div>
+          )}
           {wallet.address === null ? (
             <p className="text-xs text-neutral-400 p-2">
               Inicia sesión para ver tus posiciones.
@@ -174,8 +193,10 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
                     <PositionCard
                       key={p.id}
                       position={p}
+                      venueName={feed.displayName}
                       onRedeem={redeemerFor(feed.venue, wallet.address)}
                       cashouter={cashouterFor(feed.venue, wallet.address)}
+                      onActionComplete={() => void load()}
                     />
                   ))
                 )}
@@ -240,9 +261,11 @@ type CashoutState =
 
 const PositionCard: React.FC<{
   position: Position;
+  venueName: string;
   onRedeem: Redeemer | null;
   cashouter: Cashouter | null;
-}> = ({ position, onRedeem, cashouter }) => {
+  onActionComplete: () => void;
+}> = ({ position, venueName, onRedeem, cashouter, onActionComplete }) => {
   const queryClient = useQueryClient();
   const [redeem, setRedeem] = useState<RedeemState>({ status: 'idle' });
   const [cashout, setCashout] = useState<CashoutState>({ status: 'idle' });
@@ -265,6 +288,7 @@ const PositionCard: React.FC<{
     // bajar ya, no en el próximo sondeo.
     if (result.ok) {
       void queryClient.invalidateQueries({ queryKey: ['redeemable-count'] });
+      onActionComplete();
     }
   };
 
@@ -291,6 +315,7 @@ const PositionCard: React.FC<{
         ? { status: 'done', receipt: result.data }
         : { status: 'error', message: result.error.message },
     );
+    if (result.ok) onActionComplete();
   };
 
   return (
@@ -335,6 +360,17 @@ const PositionCard: React.FC<{
           <span>{position.openedAt.toLocaleDateString()}</span>
         )}
       </div>
+      {position.status === 'open' && position.currentValue !== null && (
+        <div className={`text-[10px] font-mono ${Number(position.currentValue) - Number(position.stake) >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+          P/G no realizada: {Number(position.currentValue) - Number(position.stake) > 0 ? '+' : ''}{formatCurrency(Number(position.currentValue) - Number(position.stake))}
+        </div>
+      )}
+
+      {effectiveStatus === 'open' && cashouter === null && (
+        <p className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-2.5 py-2 text-[10px] leading-relaxed text-neutral-500">
+          El cierre desde esta pantalla todavía no está disponible. Gestiona esta posición desde {venueName}.
+        </p>
+      )}
 
       {/* Cobro: solo posiciones cobrables de venues que saben cobrar. */}
       {effectiveStatus === 'redeemable' && onRedeem !== null && (

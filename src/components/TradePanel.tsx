@@ -318,6 +318,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
   const [slippage, setSlippage] = useState<number>(0.05);
   const [quoteState, setQuoteState] = useState<QuoteState>({ status: 'idle' });
   const [placeState, setPlaceState] = useState<PlaceState>({ status: 'idle' });
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [quoteNonce, setQuoteNonce] = useState(0);
   /** Secciones del selector plegadas por el usuario, por etiqueta de grupo. */
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
@@ -332,7 +333,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
   const pendingOutcomeRef = useRef<string | null>(null);
 
   const wallet = useWallet();
-  const { balances } = useVenueBalances();
+  const { balances, refetch: refetchBalances } = useVenueBalances();
   const { isSelected } = useBetSlip();
 
   const source = marketSources.sourceFor(market.id);
@@ -410,6 +411,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
 
   // Cotización con retardo: una petición por pausa de tecleo, no por tecla.
   useEffect(() => {
+    setReviewOpen(false);
     setPlaceState((prev) => (prev.status === 'done' ? prev : { status: 'idle' }));
     if (source === null || outcomeId === '' || !isValidAmount(amount)) {
       setQuoteState({ status: 'idle' });
@@ -444,7 +446,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
   if (!wallet.isConnected) problems.push('Inicia sesión o conecta tu wallet para apostar.');
   if (source !== null && !source.capabilities.canPlaceBet) {
     problems.push(
-      `Este despliegue no tiene credenciales para apostar en ${source.displayName} (revisa .env).`,
+      `Las apuestas desde esta app no están habilitadas para ${source.displayName} todavía.`,
     );
   }
   if (!market.isQuotable) {
@@ -464,10 +466,20 @@ export const TradePanel: React.FC<TradePanelProps> = ({
     placeState.status !== 'placing' &&
     wallet.address !== null;
 
-  const place = async () => {
+  const openReview = () => {
+    if (canPlace) setReviewOpen(true);
+  };
+
+  const confirmPlace = async () => {
     if (!canPlace || source === null || quote === null || wallet.address === null) {
       return;
     }
+    if (quote.expiresAt !== null && quote.expiresAt.getTime() <= Date.now()) {
+      setReviewOpen(false);
+      setQuoteNonce((value) => value + 1);
+      return;
+    }
+    setReviewOpen(false);
     setPlaceState({ status: 'placing' });
     const result = await source.placeBet(quote, {
       slippageTolerance: slippage,
@@ -475,6 +487,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
     });
     if (result.ok) {
       setPlaceState({ status: 'done', receipt: result.data });
+      refetchBalances();
       try {
         confetti({ particleCount: 45, spread: 60, origin: { y: 0.8 } });
       } catch {
@@ -801,7 +814,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
           )}
 
           <button
-            onClick={place}
+            onClick={openReview}
             disabled={!canPlace}
             className={`w-full py-3 rounded-xl font-bold text-sm transition-all active:scale-98 flex items-center justify-center gap-2 ${
               !canPlace
@@ -818,7 +831,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
               <>
                 <Wallet className="w-4 h-4" />
                 <span>
-                  Apostar
+                  Revisar apuesta
                   {outcome !== null
                     ? ` a ${translateOutcomeLabel(outcome.label)}`
                     : ''}
@@ -830,9 +843,64 @@ export const TradePanel: React.FC<TradePanelProps> = ({
             )}
           </button>
 
+          {reviewOpen && quote !== null && outcome !== null && (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3 flex flex-col gap-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-xs font-bold text-neutral-100">Confirma los detalles</h4>
+                <button
+                  onClick={() => setReviewOpen(false)}
+                  className="text-[10px] text-neutral-500 hover:text-neutral-200"
+                >
+                  Cambiar
+                </button>
+              </div>
+              <dl className="grid grid-cols-2 gap-y-1 text-[11px]">
+                <dt className="text-neutral-500">Resultado</dt>
+                <dd className="text-right text-neutral-200">{translateOutcomeLabel(outcome.label)}</dd>
+                <dt className="text-neutral-500">Arriesgas</dt>
+                <dd className="text-right font-mono text-neutral-200">{quote.stake} {venueToken?.symbol ?? ''}</dd>
+                <dt className="text-neutral-500">Pago estimado si acierta</dt>
+                <dd className="text-right font-mono text-emerald-300">{formatCurrency(Number(quote.expectedPayout))}</dd>
+                <dt className="text-neutral-500">Precio medio estimado</dt>
+                <dd className="text-right font-mono text-neutral-200">
+                  ${Number(quote.stake) / Number(quote.expectedPayout) > 0
+                    ? (Number(quote.stake) / Number(quote.expectedPayout)).toFixed(3)
+                    : '—'}
+                </dd>
+                <dt className="text-neutral-500">Slippage máximo</dt>
+                <dd className="text-right font-mono text-neutral-200">{(slippage * 100).toFixed(0)}%</dd>
+                <dt className="text-neutral-500">Red</dt>
+                <dd className="text-right text-neutral-200">{chainLabel(market.chainId)}</dd>
+              </dl>
+              {quote.priceImpact !== null && (
+                <p className={`text-[10px] ${quote.priceImpact > 0.05 ? 'text-amber-300' : 'text-neutral-500'}`}>
+                  Impacto estimado en precio: {(quote.priceImpact * 100).toFixed(1)}%
+                </p>
+              )}
+              <p className="text-[10px] leading-relaxed text-neutral-500">
+                La orden respetará este slippage máximo; si el precio rebasa el límite, no se ejecutará a un precio peor.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setReviewOpen(false)}
+                  className="flex-1 py-2 rounded-lg bg-neutral-800 text-neutral-300 text-[11px] font-semibold hover:bg-neutral-700"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={() => void confirmPlace()}
+                  disabled={!canPlace}
+                  className="flex-1 py-2 rounded-lg bg-emerald-500 text-black text-[11px] font-bold hover:bg-emerald-400 disabled:opacity-50"
+                >
+                  Confirmar y abrir wallet
+                </button>
+              </div>
+            </div>
+          )}
+
           <p className="text-[10px] text-center text-neutral-500 leading-relaxed">
-            La apuesta se firma con tu wallet (EIP-712). Si hace falta aprobar
-            el gasto del token, la wallet te pedirá esa firma primero.
+            Al confirmar se abrirá tu wallet. Puede pedir primero la aprobación
+            del token y después la firma de la apuesta; revisa cada solicitud.
           </p>
 
           {/* Resultado */}

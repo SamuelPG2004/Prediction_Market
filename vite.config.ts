@@ -37,11 +37,9 @@ export default defineConfig(({command, isPreview}) => {
 });
 
 /**
- * La API de Limitless tiene allowlist de CORS (solo responde con
- * Access-Control-Allow-Origin a sus propios dominios), así que el navegador
- * no puede llamarla directamente desde este origen. El adaptador pide a
- * `/api/limitless/...` (same-origin) y este proxy reenvía. En producción, el
- * host que sirva la app necesita un reverse proxy equivalente.
+ * Limitless restringe CORS, por eso el navegador la llama mediante un proxy
+ * same-origin. En producción Vercel aplica la reescritura equivalente de
+ * vercel.json.
  */
 const limitlessProxy = {
   '/api/limitless': {

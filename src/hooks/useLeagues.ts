@@ -8,6 +8,7 @@
  */
 import { useEffect, useState } from 'react'
 import type { League, MarketCategory } from '../domain/types'
+import type { MarketSourceRegistry } from '../domain/registry'
 import { marketSources } from '../services/marketSources'
 
 const cache = new Map<string, League[]>()
@@ -15,13 +16,14 @@ const cache = new Map<string, League[]>()
 export function useLeagues(
   category: MarketCategory | undefined,
   subcategory: string | undefined,
+  registry: MarketSourceRegistry = marketSources,
 ): {
   leagues: League[]
   isLoading: boolean
 } {
   const key =
     category !== undefined && subcategory !== undefined
-      ? `${category}:${subcategory}`
+    ? `${registry.sources.map((s) => s.venue).join(',')}:${category}:${subcategory}`
       : null
   const [leagues, setLeagues] = useState<League[]>(
     key !== null ? (cache.get(key) ?? []) : [],
@@ -42,7 +44,7 @@ export function useLeagues(
     let alive = true
     setIsLoading(true)
     Promise.all(
-      marketSources.sources
+      registry.sources
         .filter((s) => s.capabilities.canListLeagues)
         .map((s) => s.listLeagues(category, subcategory)),
     )
@@ -78,7 +80,7 @@ export function useLeagues(
     return () => {
       alive = false
     }
-  }, [key, category, subcategory])
+  }, [key, category, subcategory, registry])
 
   return { leagues, isLoading }
 }

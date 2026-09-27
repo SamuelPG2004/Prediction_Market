@@ -381,6 +381,27 @@ describe('getQuote', () => {
 })
 
 describe('placeBet', () => {
+  it('no firma si el libro cambió desde la cotización visible', async () => {
+    const wallet = new FakeWallet()
+    const { adapter, gateway } = makeAdapter({ wallet })
+    const quote = await quoteNo(adapter)
+    gateway.responses.getOrderbook = {
+      ...(orderbookFixture as Record<string, unknown>),
+      bids: [{ price: 0.95, size: 1_000_000_000 }],
+    }
+
+    const result = await adapter.placeBet(quote, {
+      slippageTolerance: 0.05,
+      from: BETTOR,
+    })
+
+    expect(!result.ok && result.error.kind).toBe('not_quotable')
+    expect(!result.ok && result.error.message).toContain('El libro cambió')
+    expect(wallet.approvals).toHaveLength(0)
+    expect(wallet.signedTypedData).toBeNull()
+    expect(gateway.lastSubmit).toBeNull()
+  })
+
   it('sin credenciales → unsupported; sin wallet → wallet', async () => {
     const conWallet = makeAdapter({
       config: makeLimitlessConfig(),
@@ -480,7 +501,11 @@ describe('placeBet', () => {
     )
     const rechazada = await adapter.placeBet(quote, { slippageTolerance: 0.05, from: BETTOR })
     expect(!rechazada.ok && rechazada.error.kind).toBe('not_quotable')
-    if (!rechazada.ok) expect(rechazada.error.message).toBe('insufficient balance')
+    if (!rechazada.ok) {
+      expect(rechazada.error.message).toBe(
+        'Saldo insuficiente para ejecutar esta orden en Limitless.',
+      )
+    }
 
     delete gateway.errors.submitOrder
     wallet.signError = { name: 'UserRejectedRequestError' }

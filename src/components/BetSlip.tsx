@@ -19,6 +19,7 @@ import {
 } from '../domain/types';
 import { marketSources } from '../services/marketSources';
 import { useWallet } from '../services/web3Service';
+import { useVenueBalances } from '../hooks/useVenueBalances';
 import {
   clearSelections,
   removeSelection,
@@ -69,6 +70,7 @@ export const BetSlip: React.FC<{ onConnectWallet: () => void }> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isPlacingAll, setIsPlacingAll] = useState(false);
   const wallet = useWallet();
+  const { balances } = useVenueBalances();
 
   // Las filas cotizan por su cuenta; este tick re-renderiza el pie (contador
   // de listas y botón) cuando el estado de una fila cambia.
@@ -220,6 +222,7 @@ export const BetSlip: React.FC<{ onConnectWallet: () => void }> = ({
                     selection={selection}
                     registry={itemApis.current}
                     walletAddress={wallet.address}
+                    venueBalance={balances.find((balance) => balance.venue === selection.market.venue)?.balance ?? null}
                     onChanged={onItemChanged}
                   />
                 ))}
@@ -532,9 +535,10 @@ const SlipItem: React.FC<{
   selection: BetSlipSelection;
   registry: Map<string, SlipItemApi>;
   walletAddress: string | null;
+  venueBalance: number | null;
   /** Avisa al boleto de que la disponibilidad de esta fila cambió. */
   onChanged: () => void;
-}> = ({ selection, registry, walletAddress, onChanged }) => {
+}> = ({ selection, registry, walletAddress, venueBalance, onChanged }) => {
   const { market, outcomeId, eventTitle } = selection;
   const [amount, setAmount] = useState('');
   const [quoteState, setQuoteState] = useState<ItemQuoteState>({ status: 'idle' });
@@ -616,6 +620,9 @@ const SlipItem: React.FC<{
 
   const quote = quoteState.status === 'ok' ? quoteState.quote : null;
   const payout = quote === null ? null : Number(quote.expectedPayout);
+  const freshOdds = quote !== null && Number(quote.stake) > 0
+    ? Number(quote.expectedPayout) / Number(quote.stake)
+    : null;
 
   return (
     <div className="rounded-xl bg-[#0f121a] border border-neutral-800 p-3 flex flex-col gap-2">
@@ -662,6 +669,17 @@ const SlipItem: React.FC<{
         </div>
       ) : (
         <>
+          <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
+            <span className="text-neutral-500">
+              {freshOdds !== null ? `Cuota cotizada ${freshOdds.toFixed(2)}` : 'Cuota actualizada al cotizar'}
+              {' · '}slippage máx. {(SLIPPAGE * 100).toFixed(0)}%
+            </span>
+            {venueBalance !== null && (
+              <span className={isValidAmount(amount) && Number(amount) > venueBalance ? 'text-rose-300' : 'text-neutral-500'}>
+                Saldo {venueBalance.toFixed(2)}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -688,6 +706,15 @@ const SlipItem: React.FC<{
               )}
             </span>
           </div>
+
+          {quote !== null && payout !== null && (
+            <div className="flex items-center justify-between rounded-lg bg-emerald-500/[0.06] px-2.5 py-1.5 text-[10px]">
+              <span className="text-neutral-500">Pago estimado</span>
+              <span className="font-mono text-emerald-300">
+                {formatCurrency(payout)} · gana {formatCurrency(Math.max(0, payout - Number(quote.stake)))}
+              </span>
+            </div>
+          )}
 
           {quoteState.status === 'error' && (
             <p className="text-[10px] text-amber-300">

@@ -99,7 +99,7 @@ clasificación de errores.
 
 ## Historial
 
-El proyecto empezó como mercado de práctica con datos de Polymarket. La
-integración con Polymarket y el modo práctica se eliminaron en la Fase 4
-(PRs #1–#4 documentan la migración por fases). Los hallazgos técnicos de las
-APIs viven en los comentarios de cada adaptador y en los README de fixtures.
+El proyecto empezó como mercado de práctica con datos de Polymarket. El modo
+práctica se eliminó en la Fase 4 (PRs #1–#4 documentan la migración por fases).
+Los hallazgos técnicos de las APIs viven en los comentarios de cada adaptador y
+en los README de fixtures.

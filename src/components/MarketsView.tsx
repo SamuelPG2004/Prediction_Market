@@ -99,6 +99,8 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
   // Solo eventos en juego ahora mismo. Va en el filtro a los venues: Azuro
   // tiene listado en vivo propio; los venues sin en-vivo aportan cero.
   const [liveOnly, setLiveOnly] = useState(false);
+  const [upcomingOnly, setUpcomingOnly] = useState(false);
+  const [dateRange, setDateRange] = useState<'any' | 'today' | 'tomorrow' | 'week'>('any');
 
   // Tarjetas o lista compacta (solo Deportes). Preferencia por navegador;
   // localStorage puede no estar (modo privado): en ese caso, tarjetas.
@@ -162,6 +164,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
 
   const { balances } = useVenueBalances();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [marketSort, setMarketSort] = useState<'recommended' | 'closing'>('recommended');
   const [selected, setSelected] = useState<{
     event: MarketEventView;
     market: Market;
@@ -261,13 +264,27 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
   }, []);
 
   // El recorte de liga se aplica en cliente sobre los eventos descargados.
-  const filteredEvents = useMemo(
-    () =>
-      leagueFilter === null
-        ? events
-        : events.filter((e) => e.leagueName === leagueFilter),
-    [events, leagueFilter],
-  );
+  const filteredEvents = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const end = new Date(start);
+    if (dateRange === 'today') end.setDate(end.getDate() + 1);
+    if (dateRange === 'tomorrow') {
+      start.setDate(start.getDate() + 1);
+      end.setDate(start.getDate() + 1);
+    }
+    if (dateRange === 'week') end.setDate(end.getDate() + 7);
+    return events.filter((event) => {
+      if (leagueFilter !== null && event.leagueName !== leagueFilter) return false;
+      if (upcomingOnly && event.isLive) return false;
+      if (dateRange === 'any') return true;
+      const kickoff = event.markets.reduce<number | null>((soonest, market) => {
+        const time = market.closesAt?.getTime();
+        return time == null ? soonest : soonest == null ? time : Math.min(soonest, time);
+      }, null);
+      return kickoff !== null && kickoff >= start.getTime() && kickoff < end.getTime();
+    });
+  }, [events, leagueFilter, upcomingOnly, dateRange]);
 
   // La portada conserva sus carruseles. Deportes usa una sola tarjeta principal
   // y solo cuando el usuario está en el landing sin filtros activos.
@@ -276,7 +293,9 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     debouncedQuery.trim() === '' &&
     subcategory === undefined &&
     leagueFilter === null &&
-    !liveOnly;
+    !liveOnly &&
+    !upcomingOnly &&
+    dateRange === 'any';
   const showSportsLanding =
     tab.category === 'sports' &&
     debouncedQuery.trim() === '' &&
@@ -284,11 +303,13 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     leagueFilter === null &&
     selectedLeague === null &&
     !browseAll &&
-    !liveOnly;
+    !liveOnly &&
+    !upcomingOnly &&
+    dateRange === 'any';
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [tabIndex, subcategory, debouncedQuery, liveOnly, leagueFilter, selectedLeague]);
+  }, [tabIndex, subcategory, debouncedQuery, liveOnly, upcomingOnly, dateRange, leagueFilter, selectedLeague]);
 
   // Cambiar de pestaña abandona los filtros de la anterior (salvo el en-vivo
   // recién puesto por el "Ver todos" de la sección En vivo).
@@ -298,6 +319,8 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     setBrowseAll(false);
     if (keepLiveRef.current) keepLiveRef.current = false;
     else setLiveOnly(false);
+    setUpcomingOnly(false);
+    setDateRange('any');
   }, [tabIndex]);
 
   /**
@@ -314,6 +337,8 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     selectedLeague === null &&
     !browseAll &&
     !liveOnly &&
+    !upcomingOnly &&
+    dateRange === 'any' &&
     leagueFilter === null &&
     debouncedQuery.trim() === '';
 
@@ -354,7 +379,16 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
    */
   const visible = useMemo(() => {
     const ordered =
-      tab.category === 'sports'
+      marketSort === 'closing'
+        ? [...filteredEvents].sort((a, b) => {
+            const closeAt = (event: MarketEventView) =>
+              event.markets.reduce<number | null>((soonest, market) => {
+                const time = market.closesAt?.getTime();
+                return time == null ? soonest : soonest == null ? time : Math.min(soonest, time);
+              }, null) ?? Number.POSITIVE_INFINITY;
+            return closeAt(a) - closeAt(b);
+          })
+        : tab.category === 'sports'
         ? [...filteredEvents].sort((a, b) => {
             if ((a.isLive === true) !== (b.isLive === true)) {
               return a.isLive === true ? -1 : 1;
@@ -367,7 +401,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
           })
         : filteredEvents;
     return ordered.slice(0, visibleCount);
-  }, [filteredEvents, visibleCount, tab.category]);
+  }, [filteredEvents, visibleCount, tab.category, marketSort]);
 
   const sentinelRef = useInfiniteScroll({
     onReachEnd: reachEnd,
@@ -389,6 +423,8 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     setSelectedLeague(null);
     setBrowseAll(false);
     setLiveOnly(false);
+    setUpcomingOnly(false);
+    setDateRange('any');
     setSubcategory(undefined);
   }, []);
 
@@ -398,6 +434,8 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     selectedLeague !== null ||
     browseAll ||
     liveOnly ||
+    upcomingOnly ||
+    dateRange !== 'any' ||
     subcategory !== undefined;
 
   return (
@@ -507,7 +545,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
         <div className="-mt-2 flex items-center gap-1.5 overflow-x-auto rounded-2xl border border-neutral-800/80 bg-[#0c1017] p-2">
           {/* En vivo: filtro de estado, pide a los venues su listado en juego. */}
           <button
-            onClick={() => setLiveOnly((v) => !v)}
+            onClick={() => { setUpcomingOnly(false); setLiveOnly((v) => !v); }}
             aria-pressed={liveOnly}
             className={`flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-[11px] font-bold whitespace-nowrap transition-all ${
               liveOnly
@@ -519,6 +557,28 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
             <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
             <span>En vivo</span>
           </button>
+          <button
+            onClick={() => { setLiveOnly(false); setUpcomingOnly((value) => !value); }}
+            aria-pressed={upcomingOnly}
+            className={`flex shrink-0 items-center rounded-xl border px-3 py-2 text-[11px] font-bold whitespace-nowrap transition-all ${upcomingOnly ? 'border-sky-500/40 bg-sky-500/15 text-sky-300' : 'border-neutral-800 bg-[#10151c] text-neutral-400 hover:border-sky-500/40 hover:text-sky-300'}`}
+            title="Solo partidos próximos"
+          >
+            Próximos
+          </button>
+          <label className="flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-800 bg-[#10151c] px-2.5 py-2 text-[10px] text-neutral-500">
+            Fecha
+            <select
+              value={dateRange}
+              onChange={(event) => setDateRange(event.target.value as typeof dateRange)}
+              className="bg-transparent text-[11px] font-semibold text-neutral-200 outline-none"
+              aria-label="Filtrar partidos por fecha"
+            >
+              <option value="any">Cualquiera</option>
+              <option value="today">Hoy</option>
+              <option value="tomorrow">Mañana</option>
+              <option value="week">7 días</option>
+            </select>
+          </label>
           <span className="w-px h-4 bg-neutral-800 shrink-0" />
           <SubcategoryChip
             label="Todos"
@@ -783,14 +843,26 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
       ) : (
         <>
           {/* Contador y estado de sincronización */}
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <p className="text-[11px] font-mono text-neutral-500">
               <span className="text-neutral-300">{visible.length}</span> de{' '}
               <span className="text-neutral-300">{filteredEvents.length}</span>{' '}
               eventos · {totalMarkets} mercados operables
             </p>
-
-            <SyncIndicator isSyncing={isSyncing} lastSyncAt={lastSyncAt} />
+            <div className="flex items-center gap-3 ml-auto">
+              <label className="flex items-center gap-1.5 text-[10px] text-neutral-500">
+                Ordenar
+                <select
+                  value={marketSort}
+                  onChange={(event) => setMarketSort(event.target.value as 'recommended' | 'closing')}
+                  className="rounded-lg border border-neutral-800 bg-[#0d1017] px-2 py-1.5 text-neutral-300 outline-none focus:border-emerald-500/50"
+                >
+                  <option value="recommended">Recomendados</option>
+                  <option value="closing">Cierre más próximo</option>
+                </select>
+              </label>
+              <SyncIndicator isSyncing={isSyncing} lastSyncAt={lastSyncAt} />
+            </div>
           </div>
 
           {visible.length === 0 && (hasMore || isLoadingMore) ? (

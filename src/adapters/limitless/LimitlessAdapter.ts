@@ -646,6 +646,23 @@ export class LimitlessAdapter implements MarketSource {
       return this.fail('invalid_response', 'La cotización lleva direcciones inválidas. Vuelve a cotizar.')
     }
 
+    // El libro puede cambiar mientras el usuario revisa la pantalla. Antes de
+    // pedir cualquier firma, volver a leerlo y exigir que coincida con lo que
+    // se mostró; nunca ejecutar silenciosamente una cotización distinta.
+    const freshQuote = await this.getQuote(quote.marketId, quote.outcomeId, quote.stake)
+    if (!freshQuote.ok) return freshQuote
+    if (
+      !isLimitlessQuoteData(freshQuote.data.venueData) ||
+      freshQuote.data.expectedPayout !== quote.expectedPayout ||
+      freshQuote.data.venueData.worstPriceMilli !== data.worstPriceMilli ||
+      freshQuote.data.venueData.tokenId !== data.tokenId
+    ) {
+      return this.fail(
+        'not_quotable',
+        'El libro cambió desde que viste la cotización. Revísala y confirma de nuevo.',
+      )
+    }
+
     // 1. Perfil: ownerId de la orden, tarifa del usuario y verificación de que
     //    el token API pertenece a la wallet que firma.
     let rawProfile: unknown
@@ -752,9 +769,15 @@ export class LimitlessAdapter implements MarketSource {
       if (cause instanceof LimitlessHttpError) {
         const message = limitlessErrorMessage(cause)
         if (cause.status === 400 || cause.status === 409 || cause.status === 425) {
+          const lower = message?.toLowerCase() ?? ''
+          const friendly = /balance|insufficient|funds/.test(lower)
+            ? 'Saldo insuficiente para ejecutar esta orden en Limitless.'
+            : /allowance|approval|approved/.test(lower)
+              ? 'Falta aprobar USDC para el exchange de este mercado. Inténtalo de nuevo y confirma la aprobación en tu wallet.'
+              : message ?? 'Limitless rechazó la orden. La cotización pudo cambiar; revísala e inténtalo de nuevo.'
           return this.fail(
             'not_quotable',
-            message ?? 'Limitless rechazó la orden. Vuelve a cotizar e inténtalo de nuevo.',
+            friendly,
             cause,
           )
         }

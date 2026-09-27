@@ -132,6 +132,7 @@ const limitless = new LimitlessAdapter({
   wallet: lazyLimitlessBridge(limitlessConfig.chainId),
 })
 
+
 /**
  * Nombres de las direcciones con las que opera la app, para el diálogo de
  * confirmación de firma: que diga "el relayer de Azuro" en vez de un

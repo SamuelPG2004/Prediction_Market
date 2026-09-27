@@ -8,16 +8,18 @@
  */
 import { useEffect, useState } from 'react'
 import type { MarketCategory, Subcategory } from '../domain/types'
+import type { MarketSourceRegistry } from '../domain/registry'
 import { marketSources } from '../services/marketSources'
 
-const cache = new Map<MarketCategory, Subcategory[]>()
+const cache = new Map<string, Subcategory[]>()
 
-export function useSubcategories(category: MarketCategory | undefined): {
+export function useSubcategories(category: MarketCategory | undefined, registry: MarketSourceRegistry = marketSources): {
   subcategories: Subcategory[]
   isLoading: boolean
 } {
+  const key = category === undefined ? null : `${registry.sources.map((s) => s.venue).join(',')}:${category}`
   const [subcategories, setSubcategories] = useState<Subcategory[]>(
-    category !== undefined ? (cache.get(category) ?? []) : [],
+    key !== null ? (cache.get(key) ?? []) : [],
   )
   const [isLoading, setIsLoading] = useState(false)
 
@@ -26,7 +28,7 @@ export function useSubcategories(category: MarketCategory | undefined): {
       setSubcategories([])
       return
     }
-    const cached = cache.get(category)
+    const cached = key === null ? undefined : cache.get(key)
     if (cached !== undefined) {
       setSubcategories(cached)
       return
@@ -35,7 +37,7 @@ export function useSubcategories(category: MarketCategory | undefined): {
     let alive = true
     setIsLoading(true)
     Promise.all(
-      marketSources.sources
+      registry.sources
         .filter((s) => s.capabilities.canListSubcategories)
         .map((s) => s.listSubcategories(category)),
     )
@@ -62,7 +64,7 @@ export function useSubcategories(category: MarketCategory | undefined): {
         const merged = [...byId.values()].sort(
           (a, b) => (b.activeCount ?? 0) - (a.activeCount ?? 0),
         )
-        cache.set(category, merged)
+        if (key !== null) cache.set(key, merged)
         setSubcategories(merged)
       })
       .finally(() => {
@@ -72,7 +74,7 @@ export function useSubcategories(category: MarketCategory | undefined): {
     return () => {
       alive = false
     }
-  }, [category])
+  }, [category, key, registry])
 
   return { subcategories, isLoading }
 }

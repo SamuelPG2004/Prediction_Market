@@ -18,6 +18,7 @@ import type {
   MarketFilter,
   MarketSource,
 } from '../domain/types'
+import type { MarketSourceRegistry } from '../domain/registry'
 import { marketSources } from '../services/marketSources'
 import {
   groupMarketsIntoEvents,
@@ -64,6 +65,7 @@ function buildFilter(
   search: string,
   liveOnly: boolean,
   cursor?: string,
+  limit?: number,
 ): MarketFilter {
   return {
     ...(category !== undefined ? { category } : {}),
@@ -74,6 +76,7 @@ function buildFilter(
     ...(search.trim() !== '' ? { query: search.trim() } : {}),
     ...(liveOnly ? { state: 'live' as const } : {}),
     ...(cursor !== undefined ? { cursor } : {}),
+    ...(limit !== undefined ? { limit } : {}),
   }
 }
 
@@ -100,6 +103,9 @@ export function useDomainEvents(options: {
   /** Solo eventos en juego ahora mismo (los venues sin en-vivo aportan cero). */
   liveOnly?: boolean
   refreshMs?: number
+  /** Registry selected by the surface. Exchange sources can stay isolated. */
+  registry?: MarketSourceRegistry
+  limit?: number
 }): UseDomainEventsState {
   const {
     category,
@@ -108,6 +114,8 @@ export function useDomainEvents(options: {
     search = '',
     liveOnly = false,
     refreshMs = DEFAULT_REFRESH_MS,
+    registry = marketSources,
+    limit,
   } = options
 
   const [feeds, setFeeds] = useState<SourceFeed[]>([])
@@ -143,9 +151,9 @@ export function useDomainEvents(options: {
   const fetchFirstPage = useCallback(
     async (source: MarketSource) =>
       source.listMarkets(
-        buildFilter(category, subcategory, stableLeague, search, liveOnly),
+        buildFilter(category, subcategory, stableLeague, search, liveOnly, undefined, limit),
       ),
-    [category, subcategory, stableLeague, search, liveOnly],
+    [category, subcategory, stableLeague, search, liveOnly, limit],
   )
 
   // Carga inicial; se repite al cambiar categoría, búsqueda o al recargar.
@@ -158,7 +166,7 @@ export function useDomainEvents(options: {
     setDegradedVenues([])
     setFeeds([])
 
-    const pending = marketSources.sources.map(async (source) => {
+    const pending = registry.sources.map(async (source) => {
       const result = await fetchFirstPage(source)
       if (!alive) return
 
@@ -200,7 +208,7 @@ export function useDomainEvents(options: {
     return () => {
       alive = false
     }
-  }, [fetchFirstPage, nonce])
+  }, [fetchFirstPage, nonce, registry])
 
   const loadMore = useCallback(async () => {
     if (loadingRef.current) return
@@ -213,7 +221,7 @@ export function useDomainEvents(options: {
     try {
       const results = await Promise.all(
         pending.map(async (feed) => {
-          const source = marketSources.byVenue(feed.venue)
+          const source = registry.byVenue(feed.venue)
           if (source === null || feed.cursor === null) return null
           const result = await source.listMarkets(
             buildFilter(
@@ -223,6 +231,7 @@ export function useDomainEvents(options: {
               search,
               liveOnly,
               feed.cursor,
+              limit,
             ),
           )
           return { venue: feed.venue, result }
@@ -253,7 +262,7 @@ export function useDomainEvents(options: {
       loadingRef.current = false
       setIsLoadingMore(false)
     }
-  }, [category, subcategory, stableLeague, search, liveOnly])
+  }, [category, subcategory, stableLeague, search, liveOnly, limit, registry])
 
   const events = useMemo(
     () => interleave(feeds.map((feed) => groupMarketsIntoEvents(feed.markets))),
@@ -284,7 +293,7 @@ export function useDomainEvents(options: {
       setIsSyncing(true)
       try {
         const results = await Promise.all(
-          marketSources.sources.map(async (source) => ({
+          registry.sources.map(async (source) => ({
             venue: source.venue,
             result: await fetchFirstPage(source),
           })),
@@ -323,7 +332,7 @@ export function useDomainEvents(options: {
       window.clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [fetchFirstPage, refreshMs])
+  }, [fetchFirstPage, refreshMs, registry])
 
   return {
     events,
