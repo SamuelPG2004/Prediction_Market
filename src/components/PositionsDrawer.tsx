@@ -23,6 +23,7 @@ import type {
 import { marketSources } from '../services/marketSources';
 import { useWallet } from '../services/web3Service';
 import { formatCurrency } from '../utils/formatters';
+import { WithdrawalAccess } from './WithdrawalAccess';
 
 interface PositionsDrawerProps {
   isOpen: boolean;
@@ -68,6 +69,9 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
   const loadingAddressRef = useRef<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [tab, setTab] = useState<PositionTab>('open');
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [recipientDraft, setRecipientDraft] = useState<{ wallet: string | null; value: string }>({ wallet: null, value: '' });
+  const withdrawalRecipient = recipientDraft.wallet === wallet.address ? recipientDraft.value : wallet.address ?? '';
   const [redeemedReferences, setRedeemedReferences] = useState<Record<string, { reference: string; explorerUrl: string | null }>>({});
 
   const load = useCallback(async () => {
@@ -144,10 +148,13 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
   const redeemableCount = visibleFeeds?.flatMap((feed) => feed.positions).filter((position) => position.status === 'redeemable').length ?? 0;
   const allPositions = visibleFeeds?.flatMap((feed) => feed.positions) ?? [];
   const historyCount = allPositions.filter((position) => position.status !== 'open').length;
+  const pendingTransferCount = walletRecords.filter(record => record.receipt.transferError !== null).length;
   const filteredFeeds = visibleFeeds?.map((feed) => ({
     ...feed,
     positions: feed.positions.filter((position) =>
-      tab === 'open' ? position.status === 'open' : position.status !== 'open',
+      withdrawing
+        ? position.status === 'redeemable' || payoutRecords[payoutKey(wallet.address ?? '', position.id)]?.receipt.transferError != null
+        : tab === 'open' ? position.status === 'open' : position.status !== 'open',
     ),
   }));
 
@@ -191,7 +198,19 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+        <div className="px-4 pt-4">
+          <WithdrawalAccess
+            open={withdrawing}
+            connected={wallet.address !== null}
+            loading={isLoading || visibleFeeds === undefined}
+            readError={visibleFeeds?.some(feed => feed.error !== null || feed.unsupported) ?? false}
+            availableCount={redeemableCount + pendingTransferCount}
+            recipient={withdrawalRecipient}
+            onRecipientChange={(value) => setRecipientDraft({ wallet: wallet.address, value })}
+            onToggle={() => { setWithdrawing(current => !current); setTab('history'); }}
+          />
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-4">
           {wallet.address !== null && (
             <div className="grid grid-cols-2 gap-1 rounded-xl border border-neutral-800 bg-[#0d1017] p-1" role="tablist" aria-label="Mis apuestas">
               {([
@@ -203,7 +222,7 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
                   type="button"
                   role="tab"
                   aria-selected={tab === key}
-                  onClick={() => setTab(key)}
+                  onClick={() => { setTab(key); setWithdrawing(false); }}
                   className={`rounded-lg px-3 py-2 text-[11px] font-semibold transition-colors ${tab === key ? 'bg-emerald-500/15 text-emerald-300' : 'text-neutral-400 hover:text-neutral-200'}`}
                 >
                   {label}
@@ -280,6 +299,7 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
                       position={p}
                       venueName={feed.displayName}
                       senderAddress={wallet.address ?? ''}
+                      suggestedRecipient={withdrawalRecipient}
                       payoutReceipt={payoutRecords[payoutKey(wallet.address ?? '', p.id)]?.receipt ?? null}
                       onSavePayout={(receipt) => { if (wallet.address) savePayout(wallet.address, p, receipt); }}
                       onTransfer={transfererFor(feed.venue, wallet.address)}
@@ -370,6 +390,7 @@ const PositionCard: React.FC<{
   position: Position;
   venueName: string;
   senderAddress: string;
+  suggestedRecipient: string;
   payoutReceipt: RedeemReceipt | null;
   onSavePayout: (receipt: RedeemReceipt) => void;
   onTransfer: Transferer | null;
@@ -377,7 +398,7 @@ const PositionCard: React.FC<{
   cashouter: Cashouter | null;
   redeemedReceipt: { reference: string; explorerUrl: string | null } | null;
   onActionComplete: (positionId: string, receipt: { reference: string; explorerUrl: string | null } | null) => void;
-}> = ({ position, venueName, senderAddress, payoutReceipt, onSavePayout, onTransfer, onRedeem, cashouter, redeemedReceipt, onActionComplete }) => {
+}> = ({ position, venueName, senderAddress, suggestedRecipient, payoutReceipt, onSavePayout, onTransfer, onRedeem, cashouter, redeemedReceipt, onActionComplete }) => {
   const queryClient = useQueryClient();
   const [redeem, setRedeem] = useState<RedeemState>({ status: 'idle' });
   const [recipient, setRecipient] = useState(senderAddress);
@@ -553,7 +574,7 @@ const PositionCard: React.FC<{
             </div>
           </div>
         ) : (
-          <button onClick={() => setRedeem({ status: 'reviewing' })} className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-[11px] font-bold">
+          <button onClick={() => { setRecipient(suggestedRecipient); setRedeem({ status: 'reviewing' }); }} className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-[11px] font-bold">
             <Coins className="w-3.5 h-3.5" />Retirar a mi wallet · {formatCurrency(Number(position.potentialPayout))}
           </button>
         )
