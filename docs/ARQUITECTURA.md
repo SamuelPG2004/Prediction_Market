@@ -89,6 +89,21 @@ de cadena si toca), porque al arrancar no hay wallet. wagmi es multi-chain
 `src/config/chains.ts` (los públicos caducan — hay lista verificada y
 `VITE_POLYGON_RPC_URL`/`VITE_BASE_RPC_URL` para endpoints propios).
 
+## Retiro a una direccion elegida
+
+`redeemPosition` acepta un destino opcional. El contrato paga primero a la
+wallet firmante; si el destino es distinto, el adaptador envia una segunda
+transaccion ERC-20. El importe se obtiene de los eventos `Transfer` del
+recibo confirmado, filtrando token, contrato pagador y wallet receptora.
+La UI muestra ambos pasos y nunca calcula el envio a partir del premio estimado.
+
+Un cobro confirmado se guarda por wallet en `usePayoutReceipts`, incluso si
+el envio falla o la pagina se recarga. `transferPayout` comprueba otra vez el
+cobro original y permite recuperar exclusivamente el segundo paso. Un hash
+ya enviado se consulta sin emitir otra transferencia; solo un recibo revertido
+permite un nuevo intento. La wallet debe seguir siendo la que cobro y cada
+operacion empieza con una accion explicita en la UI.
+
 ## Tests
 
 `npm test` — vitest, sin red. Cada adaptador se prueba contra fixtures

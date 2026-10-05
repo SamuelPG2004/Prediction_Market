@@ -382,13 +382,43 @@ export interface RedeemReceipt {
   /** URL al explorador, ya construida por el adaptador, o null. */
   explorerUrl: string | null
   redeemedAt: Date
+  /** Importe exacto recibido del contrato, como decimal sin redondeo. */
+  amount: DecimalString
+  tokenSymbol: string
+  recipient: string
+  /** Segunda transacción ERC-20 cuando el destino difiere de la wallet firmante. */
+  transferReference: string | null
+  transferExplorerUrl: string | null
+  /** No-null si el cobro funcionó pero falló el envío al destino. */
+  transferError: string | null
+  /** Datos opacos del venue para reintentar el envío sin volver a cobrar. */
+  transferData: unknown
 }
 
-/** Progreso tipado de una transacción de cobro enviada desde la wallet. */
+export interface RedeemTransferReceipt {
+  positionId: string
+  amount: DecimalString
+  tokenSymbol: string
+  recipient: string
+  reference: string
+  explorerUrl: string | null
+  transferredAt: Date
+}
+
+/** Progreso tipado de cobro y envío ERC-20 desde la wallet. */
 export type RedeemProgress =
-  | { status: 'pending' }
-  | { status: 'confirming'; hash: string }
-  | { status: 'success'; hash: string }
+  | { status: 'transfer-reverted' }
+  | { status: 'pending'; step: 'redeem' | 'transfer' }
+  | { status: 'confirming'; step: 'redeem' | 'transfer'; hash: string }
+  | {
+      status: 'payout-received'
+      receipt: RedeemReceipt
+      redeemHash: string
+      amount: DecimalString
+      tokenSymbol: string
+      recipient: string
+    }
+  | { status: 'success'; step: 'redeem' | 'transfer'; hash: string }
 
 /**
  * Oferta de cash out: lo que el venue paga AHORA por cerrar una posición
@@ -649,9 +679,24 @@ export interface MarketSource {
     position: Position,
     opts: {
       from: string
+      recipient?: string
       onProgress?: (progress: RedeemProgress) => void
     },
   ): Promise<Result<RedeemReceipt>>
+
+  /**
+   * Reintenta el envío ERC-20 de un premio ya cobrado. No vuelve a ejecutar el
+   * redeem del contrato; usa los datos opacos de ese recibo.
+   */
+  transferPayout(
+    position: Position,
+    receipt: RedeemReceipt,
+    opts: {
+      from: string
+      to: string
+      onProgress?: (progress: RedeemProgress) => void
+    },
+  ): Promise<Result<RedeemTransferReceipt>>
 
   /**
    * Oferta de cash out para una posición 'open', o `null` si el venue no

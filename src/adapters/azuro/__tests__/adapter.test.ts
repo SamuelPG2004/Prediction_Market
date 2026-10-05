@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { maxUint256, type Address, type Hex } from 'viem'
 import { getBetTypedData, getComboBetTypedData } from '@azuro-org/toolkit'
-import { toDecimal, type Quote } from '../../../domain/types.ts'
+import { toDecimal, type Quote, type RedeemReceipt } from '../../../domain/types.ts'
 import { AzuroAdapter } from '../AzuroAdapter.ts'
 import { makeAzuroConfig, type AzuroConfig } from '../config.ts'
 import type { PlanDeFirmas } from '../../../services/signatureGuard.ts'
@@ -141,6 +141,10 @@ class FakeWallet implements AzuroWalletBridge {
   signError: unknown = null
   withdrawals: { lp: Address; core: Address; tokenId: bigint }[] = []
   withdrawError: unknown = null
+  withdrawAmount = 12_000_000n
+  transfers: { token: Address; recipient: Address; amount: bigint }[] = []
+  transferError: unknown = null
+  transferWaitError: unknown = null
 
   async readAllowance() {
     return this.allowance
@@ -181,12 +185,30 @@ class FakeWallet implements AzuroWalletBridge {
     lp: Address,
     core: Address,
     tokenId: bigint,
+    _token: Address,
+    _sender: Address,
     onSubmitted?: (hash: Hex) => void,
-  ): Promise<Hex> {
+  ): Promise<{ hash: Hex; amount: bigint }> {
     if (this.withdrawError !== null) throw this.withdrawError
     this.withdrawals.push({ lp, core, tokenId })
     const hash = '0xcobro' as Hex
     onSubmitted?.(hash)
+    return { hash, amount: this.withdrawAmount }
+  }
+  async readReceivedPayout() { return this.withdrawAmount }
+  async transferToken(
+    token: Address,
+    recipient: Address,
+    amount: bigint,
+    _sender: Address,
+    onSubmitted?: (hash: Hex) => void,
+    existingHash?: Hex,
+  ): Promise<Hex> {
+    if (this.transferError !== null) throw this.transferError
+    if (!existingHash) this.transfers.push({ token, recipient, amount })
+    const hash = existingHash ?? '0xtransfer' as Hex
+    onSubmitted?.(hash)
+    if (this.transferWaitError !== null) throw this.transferWaitError
     return hash
   }
   nftApproved = false
@@ -858,7 +880,7 @@ describe('redeemPosition', () => {
       onProgress: ({ status }) => progress.push(status),
     })
     expect(result.ok).toBe(true)
-    expect(progress).toEqual(['pending', 'confirming', 'success'])
+    expect(progress).toEqual(['pending', 'confirming', 'payout-received', 'success'])
     if (!result.ok) return
 
     expect(wallet.withdrawals).toEqual([
@@ -871,6 +893,92 @@ describe('redeemPosition', () => {
     expect(result.data.positionId).toBe(position.id)
     expect(result.data.reference).toBe('0xcobro')
     expect(result.data.explorerUrl).toBe('https://polygonscan.com/tx/0xcobro')
+  })
+
+  it('envia exactamente 20 USDT a otro destino despues del cobro confirmado', async () => {
+    const wallet = new FakeWallet()
+    wallet.withdrawAmount = 20_000_001n
+    const { adapter } = makeAdapter({ wallet })
+    const position = await redeemablePosition(adapter)
+    const recipient = '0x3333333333333333333333333333333333333333'
+    const progress: string[] = []
+    const result = await adapter.redeemPosition(position, { from: BETTOR, recipient,
+      onProgress: p => progress.push(p.status === 'pending' || p.status === 'confirming' || p.status === 'success' ? `${p.step}:${p.status}` : p.status) })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data.amount).toBe('20.000001')
+    expect(result.data.transferReference).toBe('0xtransfer')
+    expect(result.data.transferError).toBeNull()
+    expect(wallet.transfers).toEqual([{ token: makeAzuroConfig(137, AFFILIATE).betToken.address, recipient, amount: 20_000_001n }])
+    expect(progress).toEqual(['redeem:pending', 'redeem:confirming', 'payout-received', 'transfer:pending', 'transfer:confirming', 'transfer:success'])
+  })
+  it('conserva el cobro al rechazar el segundo envio y reintenta sin repetirlo', async () => {
+    const wallet = new FakeWallet()
+    wallet.transferError = { code: 4001 }
+    const { adapter } = makeAdapter({ wallet })
+    const position = await redeemablePosition(adapter)
+    const recipient = '0x3333333333333333333333333333333333333333'
+    const result = await adapter.redeemPosition(position, { from: BETTOR, recipient })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data.transferError).not.toBeNull()
+    expect(result.data.transferReference).toBeNull()
+    wallet.transferError = null
+    const retry = await adapter.transferPayout(position, result.data, { from: BETTOR, to: recipient })
+    expect(retry.ok).toBe(true)
+    expect(wallet.withdrawals).toHaveLength(1)
+    expect(wallet.transfers).toHaveLength(1)
+  })
+  it('un timeout conserva el hash y un recibo obsoleto no duplica el envio', async () => {
+    const wallet = new FakeWallet(), { adapter } = makeAdapter({ wallet })
+    const position = await redeemablePosition(adapter)
+    const recipient = '0x3333333333333333333333333333333333333333'
+    wallet.transferWaitError = new Error('timeout')
+    const result = await adapter.redeemPosition(position, { from: BETTOR, recipient })
+    if (!result.ok) throw new Error('cobro fallo')
+    expect(result.data.transferReference).toBe('0xtransfer')
+    expect(result.data.transferError).not.toBeNull()
+    wallet.transferWaitError = null
+    const retry = await adapter.transferPayout(position, { ...result.data, transferReference: null }, { from: BETTOR, to: recipient })
+    expect(retry.ok).toBe(true)
+    expect(wallet.transfers).toHaveLength(1)
+    expect(wallet.withdrawals).toHaveLength(1)
+  })
+  it('bloquea un reintento mientras la segunda firma ya esta en curso', async () => {
+    const wallet = new FakeWallet(), { adapter } = makeAdapter({ wallet })
+    const position = await redeemablePosition(adapter)
+    const recipient = '0x3333333333333333333333333333333333333333'
+    let release!: () => void
+    const blocked = new Promise<void>(resolve => { release = resolve })
+    const original = wallet.transferToken.bind(wallet)
+    wallet.transferToken = async (...args) => { await blocked; return original(...args) }
+    let received!: (receipt: RedeemReceipt) => void
+    const receivedPromise = new Promise<RedeemReceipt>(resolve => { received = resolve })
+    const redemption = adapter.redeemPosition(position, { from: BETTOR, recipient,
+      onProgress: p => { if (p.status === 'payout-received') received(p.receipt) } })
+    const receipt = await receivedPromise
+    const retry = await adapter.transferPayout(position, receipt, { from: BETTOR, to: recipient })
+    expect(retry.ok).toBe(false)
+    release()
+    expect((await redemption).ok).toBe(true)
+    expect(wallet.transfers).toHaveLength(1)
+  })
+
+  it('rechaza destino invalido antes del cobro e importe o remitente alterados al reintentar', async () => {
+    const wallet = new FakeWallet(), { adapter } = makeAdapter({ wallet })
+    const position = await redeemablePosition(adapter)
+    for (const recipient of ['mal', '0x0000000000000000000000000000000000000000']) {
+      expect((await adapter.redeemPosition(position, { from: BETTOR, recipient })).ok).toBe(false)
+    }
+    expect(wallet.withdrawals).toHaveLength(0)
+    wallet.transferError = new Error('gas')
+    const recipient = '0x3333333333333333333333333333333333333333'
+    const result = await adapter.redeemPosition(position, { from: BETTOR, recipient })
+    if (!result.ok) throw new Error('cobro fallo')
+    wallet.transferError = null
+    expect((await adapter.transferPayout(position, { ...result.data, amount: toDecimal('30') }, { from: BETTOR, to: recipient })).ok).toBe(false)
+    expect((await adapter.transferPayout(position, result.data, { from: recipient, to: recipient })).ok).toBe(false)
+    expect(wallet.transfers).toHaveLength(0)
   })
 
   it('exige wallet, posición cobrable y datos de cobro presentes', async () => {

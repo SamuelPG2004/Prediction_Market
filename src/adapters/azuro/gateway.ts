@@ -43,6 +43,7 @@ import {
   type SignTypedDataParameters,
   type WalletClient,
 } from 'viem'
+import { payoutAccount, receivedPayout, transferPayoutToken } from '../payoutTransactions'
 import type { AzuroChainId } from './config.ts'
 import { fetchGasStationInfo, tryGaslessApprove } from './gasStation.ts'
 import {
@@ -147,7 +148,19 @@ export interface AzuroWalletBridge {
     lp: Address,
     core: Address,
     tokenId: bigint,
+    token: Address,
+    expectedFrom: Address,
     onSubmitted?: (hash: Hex) => void,
+  ): Promise<{ hash: Hex; amount: bigint }>
+  readReceivedPayout(token: Address, contract: Address, sender: Address, hash: Hex): Promise<bigint>
+  /** Envía el importe exacto ya cobrado a la dirección indicada. */
+  transferToken(
+    token: Address,
+    recipient: Address,
+    amount: bigint,
+    expectedFrom: Address,
+    onSubmitted?: (hash: Hex) => void,
+    existingHash?: Hex,
   ): Promise<Hex>
   /** ¿Tiene `operator` permiso sobre todos los NFT de `owner` en `nft`? */
   isApprovedForAll(nft: Address, owner: Address, operator: Address): Promise<boolean>
@@ -284,9 +297,8 @@ export function createViemWalletBridge(
     async signCashoutTypedData(typedData) {
       return walletClient.signTypedData(typedData)
     },
-    async withdrawPayout(lp, core, tokenId, onSubmitted) {
-      const account = walletClient.account
-      if (!account) throw new Error('La wallet no tiene cuenta activa')
+    async withdrawPayout(lp, core, tokenId, token, expectedFrom, onSubmitted) {
+      const account = payoutAccount(walletClient, expectedFrom)
       const hash = await walletClient.writeContract({
         address: lp,
         abi: LP_WITHDRAW_PAYOUT_ABI,
@@ -296,8 +308,14 @@ export function createViemWalletBridge(
         chain: walletClient.chain,
       })
       onSubmitted?.(hash)
-      await publicClient.waitForTransactionReceipt({ hash })
-      return hash
+      const receipt = await publicClient.waitForTransactionReceipt({ hash })
+      return { hash: receipt.transactionHash, amount: receivedPayout(receipt, token, lp, expectedFrom) }
+    },
+    async readReceivedPayout(token, contract, sender, hash) {
+      return receivedPayout(await publicClient.waitForTransactionReceipt({ hash }), token, contract, sender)
+    },
+    async transferToken(token, recipient, amount, expectedFrom, onSubmitted, existingHash) {
+      return transferPayoutToken(publicClient, walletClient, token, recipient, amount, expectedFrom, onSubmitted, existingHash)
     },
     async isApprovedForAll(nft, owner, operator) {
       return publicClient.readContract({

@@ -1,3 +1,4 @@
+import { PayoutTransferReverted } from '../payoutTransactions'
 /**
  * Adaptador de Limitless: implementa el puerto `MarketSource` del dominio.
  *
@@ -36,6 +37,7 @@ import {
   type CashoutReceipt,
   type RedeemProgress,
   type RedeemReceipt,
+  type RedeemTransferReceipt,
   type Result,
   type Subcategory,
   type VenueCapabilities,
@@ -122,6 +124,29 @@ interface LimitlessQuoteData {
   collateralDecimals: number
 }
 
+interface LimitlessPayoutTransferData {
+  sender: Address
+  payoutContract: Address
+  tokenAddress: Address
+  tokenDecimals: number
+  tokenSymbol: string
+}
+
+function isLimitlessPayoutTransferData(u: unknown): u is LimitlessPayoutTransferData {
+  if (typeof u !== 'object' || u === null) return false
+  const record = u as Record<string, unknown>
+  return (
+    typeof record.payoutContract === 'string' && isAddress(record.payoutContract) &&
+    typeof record.sender === 'string' && isAddress(record.sender) &&
+    typeof record.tokenAddress === 'string' &&
+    isAddress(record.tokenAddress) &&
+    typeof record.tokenDecimals === 'number' &&
+    Number.isInteger(record.tokenDecimals) &&
+    record.tokenDecimals >= 0 && record.tokenDecimals <= 255 &&
+    typeof record.tokenSymbol === 'string'
+  )
+}
+
 function isLimitlessQuoteData(u: unknown): u is LimitlessQuoteData {
   if (typeof u !== 'object' || u === null) return false
   const d = u as Record<string, unknown>
@@ -155,6 +180,8 @@ export class LimitlessAdapter implements MarketSource {
   private readonly config: LimitlessConfig
   private readonly gateway: LimitlessGateway
   private readonly wallet: LimitlessWalletBridge | null
+  private readonly payoutTransfers = new Set<string>()
+  private readonly payoutTransferHashes = new Map<string, Hex>()
   private readonly now: () => number
 
   constructor(deps: LimitlessAdapterDeps) {
@@ -347,6 +374,7 @@ export class LimitlessAdapter implements MarketSource {
     position: Position,
     opts: {
       from: string
+      recipient?: string
       onProgress?: (progress: RedeemProgress) => void
     },
   ): Promise<Result<RedeemReceipt>> {
@@ -356,6 +384,11 @@ export class LimitlessAdapter implements MarketSource {
     if (!isAddress(opts.from)) {
       return this.fail('wallet', 'La dirección de la wallet no es válida.')
     }
+    const requestedRecipient = opts.recipient ?? opts.from
+    if (!isAddress(requestedRecipient) || requestedRecipient.toLowerCase() === ZERO_ADDRESS) {
+      return this.fail('wallet', 'La dirección destino no es válida.')
+    }
+    const recipient = getAddress(requestedRecipient)
     if (position.status !== 'redeemable') {
       return this.fail('not_quotable', 'Esta posición no está lista para cobrar.')
     }
@@ -384,10 +417,12 @@ export class LimitlessAdapter implements MarketSource {
     }
     const exchange = market.venue.exchange
     const conditionId = market.conditionId
-    const collateral = market.collateralToken?.address ?? null
+    const collateralToken = market.collateralToken
+    const collateral = collateralToken?.address ?? null
     if (
       exchange === null ||
       !isAddress(exchange) ||
+      collateralToken === null ||
       collateral === null ||
       !isAddress(collateral) ||
       conditionId === null ||
@@ -416,30 +451,206 @@ export class LimitlessAdapter implements MarketSource {
       )
     }
 
-    let txHash: Hex
+    let redeemHash: Hex
+    let amountRaw: bigint
     try {
-      opts.onProgress?.({ status: 'pending' })
-      txHash = await this.wallet.redeemPositions(
+      opts.onProgress?.({ status: 'pending', step: 'redeem' })
+      const redemption = await this.wallet.redeemPositions(
         ctf,
         getAddress(collateral),
         conditionId as Hex,
-        (hash) => opts.onProgress?.({ status: 'confirming', hash }),
+        getAddress(opts.from),
+        (hash) => opts.onProgress?.({ status: 'confirming', step: 'redeem', hash }),
       )
+      redeemHash = redemption.hash
+      amountRaw = redemption.amount
     } catch (cause) {
       return this.walletFail('No se pudo cobrar la posición.', cause)
     }
 
-    opts.onProgress?.({ status: 'success', hash: txHash })
+    const amount = toDecimal(formatUnits(amountRaw, collateralToken.decimals))
+    const transferData: LimitlessPayoutTransferData = {
+      payoutContract: ctf,
+      sender: getAddress(opts.from),
+      tokenAddress: getAddress(collateral),
+      tokenDecimals: collateralToken.decimals,
+      tokenSymbol: collateralToken.symbol,
+    }
+    const initialReceipt: RedeemReceipt = {
+      positionId: position.id, reference: redeemHash,
+      explorerUrl: this.chainId === 8453 ? `https://basescan.org/tx/${redeemHash}` : null,
+      redeemedAt: new Date(this.now()), amount, tokenSymbol: transferData.tokenSymbol,
+      recipient, transferReference: null, transferExplorerUrl: null,
+      transferError: recipient.toLowerCase() === opts.from.toLowerCase() ? null : 'Envio al destino pendiente.',
+      transferData,
+    }
+    opts.onProgress?.({ status: 'payout-received', redeemHash, amount,
+      tokenSymbol: transferData.tokenSymbol, recipient, receipt: initialReceipt })
+
+    const transferKey = `${opts.from.toLowerCase()}:${position.id}`
+    let ownsTransferLock = false
+    let transferReference: Hex | null = null
+    let transferError: string | null = null
+    if (recipient.toLowerCase() !== opts.from.toLowerCase()) {
+      if (amountRaw <= 0n) {
+        transferError = 'El contrato no devolvió un importe que se pueda enviar.'
+      } else {
+        try {
+          if (this.payoutTransfers.has(transferKey)) throw new Error('Ya hay un envio en curso para este premio.')
+          this.payoutTransfers.add(transferKey)
+          ownsTransferLock = true
+          opts.onProgress?.({ status: 'pending', step: 'transfer' })
+          transferReference = await this.wallet.transferToken(
+            transferData.tokenAddress,
+            recipient,
+            amountRaw,
+            getAddress(opts.from),
+            (hash) => {
+              transferReference = hash
+              this.payoutTransferHashes.set(transferKey, hash)
+              opts.onProgress?.({ status: 'confirming', step: 'transfer', hash })
+            },
+          )
+        } catch (cause) {
+          if (cause instanceof PayoutTransferReverted) {
+            transferReference = null
+            this.payoutTransferHashes.delete(transferKey)
+            opts.onProgress?.({ status: 'transfer-reverted' })
+          }
+          const failure = this.walletFail<never>(
+            'El premio se cobró, pero no se pudo enviar a la dirección destino.',
+            cause,
+          )
+          transferError = failure.ok
+            ? 'El premio se cobró, pero no se pudo enviar a la dirección destino.'
+            : failure.error.message
+        } finally {
+          if (ownsTransferLock) this.payoutTransfers.delete(transferKey)
+        }
+      }
+    }
+
+    if (transferError === null) {
+      opts.onProgress?.({
+        status: 'success',
+        step: transferReference === null ? 'redeem' : 'transfer',
+        hash: transferReference ?? redeemHash,
+      })
+    }
 
     return {
       ok: true,
       data: {
         positionId: position.id,
-        reference: txHash,
+        reference: redeemHash,
         explorerUrl:
-          this.chainId === 8453 ? `https://basescan.org/tx/${txHash}` : null,
+          this.chainId === 8453 ? `https://basescan.org/tx/${redeemHash}` : null,
         redeemedAt: new Date(this.now()),
+        amount,
+        tokenSymbol: transferData.tokenSymbol,
+        recipient,
+        transferReference,
+        transferExplorerUrl:
+          transferReference !== null && this.chainId === 8453
+            ? `https://basescan.org/tx/${transferReference}`
+            : null,
+        transferError,
+        transferData,
       },
+    }
+  }
+
+  async transferPayout(
+    position: Position,
+    receipt: RedeemReceipt,
+    opts: {
+      from: string
+      to: string
+      onProgress?: (progress: RedeemProgress) => void
+    },
+  ): Promise<Result<RedeemTransferReceipt>> {
+    if (this.wallet === null) {
+      return this.fail('wallet', 'Conecta la wallet que recibió el premio para reintentar el envío.')
+    }
+    if (!isAddress(opts.from) || !isAddress(opts.to) || opts.to.toLowerCase() === ZERO_ADDRESS) {
+      return this.fail('wallet', 'La dirección de origen o destino no es válida.')
+    }
+    if (!isLimitlessPayoutTransferData(receipt.transferData)) {
+      return this.fail('invalid_response', 'No se encontraron los datos para reintentar el envío del premio.')
+    }
+    if (receipt.positionId !== position.id) {
+      return this.fail('invalid_response', 'El recibo no corresponde a esta posición.')
+    }
+
+    const transferData = receipt.transferData
+    if (transferData.sender.toLowerCase() !== opts.from.toLowerCase() ||
+        receipt.recipient.toLowerCase() !== opts.to.toLowerCase() || receipt.transferError === null) {
+      return this.fail('wallet', 'Usa la wallet y el destino originales de un envio pendiente.')
+    }
+    let amountRaw: bigint
+    try {
+      amountRaw = parseUnits(receipt.amount, transferData.tokenDecimals)
+    } catch (cause) {
+      return this.fail('invalid_response', 'El importe cobrado no es válido.', cause)
+    }
+    try {
+      const slug = this.slugOf(position.marketId)
+      if (!slug) return this.fail('invalid_response', 'Mercado desconocido.')
+      const market = parseMarket(await this.gateway.getMarket(slug))
+      if (!market?.collateralToken || !market.venue.exchange || market.venue.adapter !== null ||
+          market.collateralToken.address.toLowerCase() !== transferData.tokenAddress.toLowerCase() ||
+          market.collateralToken.decimals !== transferData.tokenDecimals ||
+          (await this.wallet.readExchangeCtf(getAddress(market.venue.exchange))).toLowerCase() !== transferData.payoutContract.toLowerCase()) {
+        return this.fail('invalid_response', 'El token del recibo no corresponde a este mercado.')
+      }
+      const received = await this.wallet.readReceivedPayout(transferData.tokenAddress,
+        transferData.payoutContract, getAddress(opts.from), receipt.reference as Hex)
+      if (received !== amountRaw) return this.fail('invalid_response', 'El importe no coincide con el cobro confirmado.')
+    } catch (cause) {
+      return this.walletFail('No se pudo verificar el cobro original.', cause)
+    }
+    if (amountRaw <= 0n) {
+      return this.fail('not_quotable', 'El importe cobrado debe ser mayor que cero.')
+    }
+
+    const transferKey = `${opts.from.toLowerCase()}:${position.id}`
+    receipt.transferReference = this.payoutTransferHashes.get(transferKey) ?? receipt.transferReference
+    if (this.payoutTransfers.has(transferKey)) return this.fail('wallet', 'Ya hay un envio en curso para este premio. Espera la confirmacion de la wallet.')
+    this.payoutTransfers.add(transferKey)
+    try {
+      opts.onProgress?.({ status: 'pending', step: 'transfer' })
+      const hash = await this.wallet.transferToken(
+        transferData.tokenAddress,
+        getAddress(opts.to),
+        amountRaw,
+        getAddress(opts.from),
+        (submittedHash) =>
+          { receipt.transferReference = submittedHash; this.payoutTransferHashes.set(transferKey, submittedHash); opts.onProgress?.({ status: 'confirming', step: 'transfer', hash: submittedHash }) },
+        (receipt.transferReference as Hex | null) ?? undefined,
+      )
+      opts.onProgress?.({ status: 'success', step: 'transfer', hash })
+      return {
+        ok: true,
+        data: {
+          positionId: position.id,
+          amount: receipt.amount,
+          tokenSymbol: transferData.tokenSymbol,
+          recipient: getAddress(opts.to),
+          reference: hash,
+          explorerUrl:
+            this.chainId === 8453 ? `https://basescan.org/tx/${hash}` : null,
+          transferredAt: new Date(this.now()),
+        },
+      }
+    } catch (cause) {
+      if (cause instanceof PayoutTransferReverted) {
+        receipt.transferReference = null
+        this.payoutTransferHashes.delete(transferKey)
+        opts.onProgress?.({ status: 'transfer-reverted' })
+      }
+      return this.walletFail('No se pudo enviar el premio a la dirección destino.', cause)
+    } finally {
+      this.payoutTransfers.delete(transferKey)
     }
   }
 

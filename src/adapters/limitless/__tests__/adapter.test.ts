@@ -90,6 +90,9 @@ class FakeWallet implements LimitlessWalletBridge {
   payoutDenominator = 1n
   redeems: { ctf: Address; collateral: Address; conditionId: Hex }[] = []
   redeemError: unknown = null
+  redeemAmount = 2_000_000n
+  transferError: unknown = null
+  transfers: { token: Address; recipient: Address; amount: bigint }[] = []
 
   async readAllowance() {
     return this.allowance
@@ -113,11 +116,20 @@ class FakeWallet implements LimitlessWalletBridge {
     ctf: Address,
     collateral: Address,
     conditionId: Hex,
+    _sender: Address,
     onSubmitted?: (hash: Hex) => void,
-  ): Promise<Hex> {
+  ): Promise<{ hash: Hex; amount: bigint }> {
     if (this.redeemError !== null) throw this.redeemError
     this.redeems.push({ ctf, collateral, conditionId })
     const hash = '0xcafe' as Hex
+    onSubmitted?.(hash)
+    return { hash, amount: this.redeemAmount }
+  }
+  async readReceivedPayout() { return this.redeemAmount }
+  async transferToken(token: Address, recipient: Address, amount: bigint, _sender: Address, onSubmitted?: (hash: Hex) => void, existingHash?: Hex): Promise<Hex> {
+    if (this.transferError) throw this.transferError
+    if (!existingHash) this.transfers.push({ token, recipient, amount })
+    const hash = existingHash ?? '0xtransfer'
     onSubmitted?.(hash)
     return hash
   }
@@ -554,7 +566,7 @@ describe('redeemPosition', () => {
       onProgress: ({ status }) => progress.push(status),
     })
     expect(result.ok).toBe(true)
-    expect(progress).toEqual(['pending', 'confirming', 'success'])
+    expect(progress).toEqual(['pending', 'confirming', 'payout-received', 'success'])
     if (!result.ok) return
     expect(result.data.reference).toBe('0xcafe')
     expect(result.data.explorerUrl).toContain('basescan.org/tx/0xcafe')
@@ -565,6 +577,32 @@ describe('redeemPosition', () => {
         conditionId: resolvedFixture.conditionId,
       },
     ])
+  })
+
+  it('envia el colateral real y conserva el cobro si se rechaza la segunda firma', async () => {
+    const wallet = new FakeWallet(), gateway = new FakeGateway()
+    gateway.responses.getMarket = resolvedFixture
+    const { adapter } = makeAdapter({ gateway, wallet })
+    const recipient = '0x3333333333333333333333333333333333333333'
+    wallet.redeemAmount = 20_000_001n
+    wallet.transferError = { code: 4001 }
+    const result = await adapter.redeemPosition(redeemable, { from: BETTOR, recipient })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data.amount).toBe('20.000001')
+    expect(result.data.transferError).not.toBeNull()
+    wallet.transferError = null
+    const retry = await adapter.transferPayout(redeemable, result.data, { from: BETTOR, to: recipient })
+    expect(retry.ok).toBe(true)
+    expect(wallet.redeems).toHaveLength(1)
+    expect(wallet.transfers).toEqual([{ token: resolvedFixture.collateralToken.address, recipient, amount: 20_000_001n }])
+  })
+  it('rechaza destino cero antes de firmar', async () => {
+    const wallet = new FakeWallet(), gateway = new FakeGateway()
+    gateway.responses.getMarket = resolvedFixture
+    const { adapter } = makeAdapter({ gateway, wallet })
+    expect((await adapter.redeemPosition(redeemable, { from: BETTOR, recipient: '0x0000000000000000000000000000000000000000' })).ok).toBe(false)
+    expect(wallet.redeems).toHaveLength(0)
   })
 
   it('sin resolución on-chain no envía la transacción', async () => {

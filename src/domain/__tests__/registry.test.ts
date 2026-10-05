@@ -35,6 +35,7 @@ function fakeSource(venue: string): MarketSource {
     listSubcategories: unsupported,
     listLeagues: unsupported,
     redeemPosition: unsupported,
+    transferPayout: unsupported,
     getCashoutOffer: unsupported,
     cashoutPosition: unsupported,
   }

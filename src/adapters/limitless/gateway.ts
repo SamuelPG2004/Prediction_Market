@@ -1,3 +1,4 @@
+import { payoutAccount, receivedPayout, transferPayoutToken } from '../payoutTransactions'
 /**
  * Frontera del adaptador con el mundo exterior de Limitless.
  *
@@ -293,6 +294,7 @@ const CTF_ABI = [
     stateMutability: 'nonpayable',
     type: 'function',
   },
+
 ] as const
 
 const PARENT_COLLECTION_ROOT =
@@ -319,7 +321,18 @@ export interface LimitlessWalletBridge {
     ctf: Address,
     collateral: Address,
     conditionId: Hex,
+    expectedFrom: Address,
     onSubmitted?: (hash: Hex) => void,
+  ): Promise<{ hash: Hex; amount: bigint }>
+  readReceivedPayout(token: Address, contract: Address, sender: Address, hash: Hex): Promise<bigint>
+  /** Envía el colateral ya cobrado a la dirección indicada. */
+  transferToken(
+    token: Address,
+    recipient: Address,
+    amount: bigint,
+    expectedFrom: Address,
+    onSubmitted?: (hash: Hex) => void,
+    existingHash?: Hex,
   ): Promise<Hex>
 }
 
@@ -368,9 +381,8 @@ export function createViemLimitlessWalletBridge(
         args: [conditionId],
       })
     },
-    async redeemPositions(ctf, collateral, conditionId, onSubmitted) {
-      const account = walletClient.account
-      if (!account) throw new Error('La wallet no tiene cuenta activa')
+    async redeemPositions(ctf, collateral, conditionId, expectedFrom, onSubmitted) {
+      const account = payoutAccount(walletClient, expectedFrom)
       const hash = await walletClient.writeContract({
         address: ctf,
         abi: CTF_ABI,
@@ -380,8 +392,14 @@ export function createViemLimitlessWalletBridge(
         chain: walletClient.chain,
       })
       onSubmitted?.(hash)
-      await publicClient.waitForTransactionReceipt({ hash })
-      return hash
+      const receipt = await publicClient.waitForTransactionReceipt({ hash })
+      return { hash: receipt.transactionHash, amount: receivedPayout(receipt, collateral, ctf, expectedFrom) }
+    },
+    async readReceivedPayout(token, contract, sender, hash) {
+      return receivedPayout(await publicClient.waitForTransactionReceipt({ hash }), token, contract, sender)
+    },
+    async transferToken(token, recipient, amount, expectedFrom, onSubmitted, existingHash) {
+      return transferPayoutToken(publicClient, walletClient, token, recipient, amount, expectedFrom, onSubmitted, existingHash)
     },
   }
 }

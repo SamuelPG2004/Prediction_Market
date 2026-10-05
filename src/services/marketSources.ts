@@ -89,6 +89,8 @@ function lazyAzuroBridge(chainId: number): AzuroWalletBridge {
       (await bridge()).signComboBetTypedData(...args),
     signCashoutTypedData: async (...args) =>
       (await bridge()).signCashoutTypedData(...args),
+    readReceivedPayout: async (...args) => (await bridge()).readReceivedPayout(...args),
+    transferToken: async (...args) => (await bridge()).transferToken(...args),
     withdrawPayout: async (...args) => (await bridge()).withdrawPayout(...args),
     isApprovedForAll: async (...args) =>
       (await bridge()).isApprovedForAll(...args),
@@ -110,6 +112,8 @@ function lazyLimitlessBridge(chainId: number): LimitlessWalletBridge {
     readExchangeCtf: async (...args) => (await bridge()).readExchangeCtf(...args),
     readPayoutDenominator: async (...args) =>
       (await bridge()).readPayoutDenominator(...args),
+    readReceivedPayout: async (...args) => (await bridge()).readReceivedPayout(...args),
+    transferToken: async (...args) => (await bridge()).transferToken(...args),
     redeemPositions: async (...args) => (await bridge()).redeemPositions(...args),
   }
 }
