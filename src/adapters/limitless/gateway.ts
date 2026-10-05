@@ -315,7 +315,12 @@ export interface LimitlessWalletBridge {
    * el lado perdedor paga cero, así que cobrar ambos es idempotente). Espera
    * la confirmación y devuelve el hash.
    */
-  redeemPositions(ctf: Address, collateral: Address, conditionId: Hex): Promise<Hex>
+  redeemPositions(
+    ctf: Address,
+    collateral: Address,
+    conditionId: Hex,
+    onSubmitted?: (hash: Hex) => void,
+  ): Promise<Hex>
 }
 
 /** Implementación real de la wallet sobre clientes viem. */
@@ -363,7 +368,7 @@ export function createViemLimitlessWalletBridge(
         args: [conditionId],
       })
     },
-    async redeemPositions(ctf, collateral, conditionId) {
+    async redeemPositions(ctf, collateral, conditionId, onSubmitted) {
       const account = walletClient.account
       if (!account) throw new Error('La wallet no tiene cuenta activa')
       const hash = await walletClient.writeContract({
@@ -374,6 +379,7 @@ export function createViemLimitlessWalletBridge(
         account,
         chain: walletClient.chain,
       })
+      onSubmitted?.(hash)
       await publicClient.waitForTransactionReceipt({ hash })
       return hash
     },

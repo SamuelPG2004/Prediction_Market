@@ -66,8 +66,7 @@ const SLIPPAGE = 0.05;
 export const BetSlip: React.FC<{ onConnectWallet: () => void }> = ({
   onConnectWallet,
 }) => {
-  const { selections } = useBetSlip();
-  const [isOpen, setIsOpen] = useState(false);
+  const { selections, isOpen, setOpen } = useBetSlip();
   const [isPlacingAll, setIsPlacingAll] = useState(false);
   const wallet = useWallet();
   const { balances } = useVenueBalances();
@@ -100,14 +99,6 @@ export const BetSlip: React.FC<{ onConnectWallet: () => void }> = ({
     if (!comboAvailable && mode === 'combo') setMode('simple');
   }, [comboAvailable, mode]);
 
-  // Al añadir la primera selección el cajón se abre solo: el usuario acaba de
-  // clicar una cuota y debe ver dónde cayó.
-  const prevCount = useRef(0);
-  useEffect(() => {
-    if (selections.length > 0 && prevCount.current === 0) setIsOpen(true);
-    prevCount.current = selections.length;
-  }, [selections.length]);
-
   const itemApis = useRef(new Map<string, SlipItemApi>());
 
   const placeAll = async () => {
@@ -136,7 +127,7 @@ export const BetSlip: React.FC<{ onConnectWallet: () => void }> = ({
       {/* Botón flotante con el contador de selecciones */}
       {!isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={() => setOpen(true)}
           type="button"
           aria-expanded={false}
           className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-xl border border-emerald-300/30 bg-emerald-400 px-4 py-3 text-xs font-extrabold text-[#07110e] shadow-[0_12px_38px_-12px_rgba(16,185,129,0.65)] transition-all hover:bg-emerald-300 active:scale-95"
@@ -151,7 +142,7 @@ export const BetSlip: React.FC<{ onConnectWallet: () => void }> = ({
 
       {/* Cajón */}
       {isOpen && (
-        <div className="fixed inset-x-0 bottom-0 z-50 flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-neutral-700/80 bg-[#0b0d13] shadow-[0_-18px_70px_-30px_rgba(0,0,0,0.9)] sm:inset-auto sm:bottom-5 sm:right-5 sm:max-h-[85vh] sm:w-[390px] sm:rounded-2xl sm:shadow-2xl">
+        <div className="fixed inset-x-0 bottom-0 z-[60] flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-neutral-700/80 bg-[#0b0d13] shadow-[0_-18px_70px_-30px_rgba(0,0,0,0.9)] sm:inset-auto sm:bottom-5 sm:right-5 sm:max-h-[85vh] sm:w-[390px] sm:rounded-2xl sm:shadow-2xl">
           <div className="flex shrink-0 items-center justify-between gap-2 border-b border-neutral-800 bg-[#10151d] px-4 py-3.5">
             <div className="flex items-center gap-2">
               <ReceiptText className="w-4 h-4 text-emerald-400" />
@@ -174,7 +165,7 @@ export const BetSlip: React.FC<{ onConnectWallet: () => void }> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
+                onClick={() => setOpen(false)}
                 aria-label="Minimizar el boleto"
                 title="Minimizar"
                 className="p-2.5 sm:p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"

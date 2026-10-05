@@ -49,6 +49,7 @@ import {
   type Position,
   type Subcategory,
   type Quote,
+  type RedeemProgress,
   type RedeemReceipt,
   type Result,
   type VenueCapabilities,
@@ -1251,7 +1252,10 @@ export class AzuroAdapter implements MarketSource {
 
   async redeemPosition(
     position: Position,
-    opts: { from: string },
+    opts: {
+      from: string
+      onProgress?: (progress: RedeemProgress) => void
+    },
   ): Promise<Result<RedeemReceipt>> {
     if (this.wallet === null) {
       return this.fail('wallet', 'Conecta una wallet para cobrar.')
@@ -1280,14 +1284,18 @@ export class AzuroAdapter implements MarketSource {
     // el propio LP lo valida on-chain (revierte con un core desconocido).
     let txHash: Hex
     try {
+      opts.onProgress?.({ status: 'pending' })
       txHash = await this.wallet.withdrawPayout(
         this.config.lpAddress,
         core,
         BigInt(betId),
+        (hash) => opts.onProgress?.({ status: 'confirming', hash }),
       )
     } catch (cause) {
       return this.walletFail('No se pudo cobrar la posición.', cause)
     }
+
+    opts.onProgress?.({ status: 'success', hash: txHash })
 
     return {
       ok: true,

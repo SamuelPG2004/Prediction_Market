@@ -1,16 +1,10 @@
 /**
  * Boleto de apuestas: selecciones acumuladas para apostar en tanda.
  *
- * Son apuestas SIMPLES múltiples, no una combinada: el dominio no tiene
- * combos (decisión de la Fase 2), así que cada selección se cotiza y se firma
- * por separado contra su venue. El boleto es estado de UI puro: solo conoce
- * el dominio y no toca la red — cotizar y apostar lo hace quien lo pinta.
- *
- * Store de módulo con suscripción: el mismo boleto vive en las tarjetas (para
- * marcar la cuota elegida), en el botón flotante y en el cajón, sin arrastrar
- * un provider ni una librería de estado.
+ * El store solo contiene estado de UI y tipos del dominio. Cotizar y apostar
+ * sigue siendo responsabilidad del boleto y requiere confirmación explícita.
  */
-import { useSyncExternalStore } from 'react'
+import { create } from 'zustand'
 import type { Market } from '../domain/types'
 
 export interface BetSlipSelection {
@@ -23,60 +17,79 @@ export interface BetSlipSelection {
 /** Tope de selecciones: cada una exige su propia firma al apostar. */
 export const BET_SLIP_LIMIT = 10
 
-let selections: readonly BetSlipSelection[] = []
-const listeners = new Set<() => void>()
-
-function emit(next: readonly BetSlipSelection[]): void {
-  selections = next
-  for (const listener of listeners) listener()
+interface BetSlipState {
+  selections: BetSlipSelection[]
+  isOpen: boolean
+  toggleSelection: (
+    eventTitle: string,
+    market: Market,
+    outcomeId: string,
+  ) => void
+  removeSelection: (marketId: string) => void
+  clearSelections: () => void
+  setOpen: (isOpen: boolean) => void
 }
 
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
-}
+/** Store global: cuotas, boleto flotante y panel comparten la misma selección. */
+export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
+  selections: [],
+  isOpen: false,
+  toggleSelection: (eventTitle, market, outcomeId) => {
+    const { selections } = get()
+    const existing = selections.find((selection) => selection.market.id === market.id)
 
-function getSnapshot(): readonly BetSlipSelection[] {
-  return selections
-}
+    if (existing?.outcomeId === outcomeId) {
+      set({ selections: selections.filter((selection) => selection.market.id !== market.id) })
+      return
+    }
 
-/**
- * Clic en una cuota: la añade al boleto; repetir la misma la quita, y otra
- * cuota del mismo mercado la sustituye (una selección por mercado, como en
- * cualquier casa de apuestas).
- */
+    const next = selections.filter((selection) => selection.market.id !== market.id)
+    if (next.length >= BET_SLIP_LIMIT) return
+
+    set({
+      selections: [...next, { market, outcomeId, eventTitle }],
+      isOpen: true,
+    })
+  },
+  removeSelection: (marketId) =>
+    set((state) => ({
+      selections: state.selections.filter((selection) => selection.market.id !== marketId),
+    })),
+  clearSelections: () => set({ selections: [] }),
+  setOpen: (isOpen) => set({ isOpen }),
+}))
+
 export function toggleSelection(
   eventTitle: string,
   market: Market,
   outcomeId: string,
 ): void {
-  const existing = selections.find((s) => s.market.id === market.id)
-  if (existing !== undefined && existing.outcomeId === outcomeId) {
-    emit(selections.filter((s) => s.market.id !== market.id))
-    return
-  }
-  const next = selections.filter((s) => s.market.id !== market.id)
-  if (next.length >= BET_SLIP_LIMIT) return
-  emit([...next, { market, outcomeId, eventTitle }])
+  useBetSlipStore.getState().toggleSelection(eventTitle, market, outcomeId)
 }
 
 export function removeSelection(marketId: string): void {
-  emit(selections.filter((s) => s.market.id !== marketId))
+  useBetSlipStore.getState().removeSelection(marketId)
 }
 
 export function clearSelections(): void {
-  emit([])
+  useBetSlipStore.getState().clearSelections()
 }
 
 export function useBetSlip(): {
-  selections: readonly BetSlipSelection[]
+  selections: BetSlipSelection[]
+  isOpen: boolean
+  setOpen: (isOpen: boolean) => void
   /** ¿Está esta cuota exacta en el boleto? Para marcar el botón en la tarjeta. */
   isSelected: (marketId: string, outcomeId: string) => boolean
 } {
-  const current = useSyncExternalStore(subscribe, getSnapshot)
+  const selections = useBetSlipStore((state) => state.selections)
+  const isOpen = useBetSlipStore((state) => state.isOpen)
+  const setOpen = useBetSlipStore((state) => state.setOpen)
   return {
-    selections: current,
+    selections,
+    isOpen,
+    setOpen,
     isSelected: (marketId, outcomeId) =>
-      current.some((s) => s.market.id === marketId && s.outcomeId === outcomeId),
+      selections.some((selection) => selection.market.id === marketId && selection.outcomeId === outcomeId),
   }
 }

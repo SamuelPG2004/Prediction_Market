@@ -177,10 +177,17 @@ class FakeWallet implements AzuroWalletBridge {
     this.signedComboTypedData = typedData
     return '0xfirmacombo'
   }
-  async withdrawPayout(lp: Address, core: Address, tokenId: bigint): Promise<Hex> {
+  async withdrawPayout(
+    lp: Address,
+    core: Address,
+    tokenId: bigint,
+    onSubmitted?: (hash: Hex) => void,
+  ): Promise<Hex> {
     if (this.withdrawError !== null) throw this.withdrawError
     this.withdrawals.push({ lp, core, tokenId })
-    return '0xcobro'
+    const hash = '0xcobro' as Hex
+    onSubmitted?.(hash)
+    return hash
   }
   nftApproved = false
   nftApprovals: { nft: Address; operator: Address }[] = []
@@ -844,9 +851,14 @@ describe('redeemPosition', () => {
     const wallet = new FakeWallet()
     const { adapter } = makeAdapter({ wallet })
     const position = await redeemablePosition(adapter)
+    const progress: string[] = []
 
-    const result = await adapter.redeemPosition(position, { from: BETTOR })
+    const result = await adapter.redeemPosition(position, {
+      from: BETTOR,
+      onProgress: ({ status }) => progress.push(status),
+    })
     expect(result.ok).toBe(true)
+    expect(progress).toEqual(['pending', 'confirming', 'success'])
     if (!result.ok) return
 
     expect(wallet.withdrawals).toEqual([

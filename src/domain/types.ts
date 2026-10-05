@@ -384,6 +384,12 @@ export interface RedeemReceipt {
   redeemedAt: Date
 }
 
+/** Progreso tipado de una transacción de cobro enviada desde la wallet. */
+export type RedeemProgress =
+  | { status: 'pending' }
+  | { status: 'confirming'; hash: string }
+  | { status: 'success'; hash: string }
+
 /**
  * Oferta de cash out: lo que el venue paga AHORA por cerrar una posición
  * abierta antes de que se resuelva. Es una oferta firme y caduca; ejecutar
@@ -641,7 +647,10 @@ export interface MarketSource {
    */
   redeemPosition(
     position: Position,
-    opts: { from: string },
+    opts: {
+      from: string
+      onProgress?: (progress: RedeemProgress) => void
+    },
   ): Promise<Result<RedeemReceipt>>
 
   /**

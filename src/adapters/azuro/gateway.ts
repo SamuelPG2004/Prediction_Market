@@ -143,7 +143,12 @@ export interface AzuroWalletBridge {
    * Cobra el premio de la apuesta `tokenId` llamando a `LP.withdrawPayout`.
    * Espera la confirmación y devuelve el hash de la transacción.
    */
-  withdrawPayout(lp: Address, core: Address, tokenId: bigint): Promise<Hex>
+  withdrawPayout(
+    lp: Address,
+    core: Address,
+    tokenId: bigint,
+    onSubmitted?: (hash: Hex) => void,
+  ): Promise<Hex>
   /** ¿Tiene `operator` permiso sobre todos los NFT de `owner` en `nft`? */
   isApprovedForAll(nft: Address, owner: Address, operator: Address): Promise<boolean>
   /**
@@ -279,7 +284,7 @@ export function createViemWalletBridge(
     async signCashoutTypedData(typedData) {
       return walletClient.signTypedData(typedData)
     },
-    async withdrawPayout(lp, core, tokenId) {
+    async withdrawPayout(lp, core, tokenId, onSubmitted) {
       const account = walletClient.account
       if (!account) throw new Error('La wallet no tiene cuenta activa')
       const hash = await walletClient.writeContract({
@@ -290,6 +295,7 @@ export function createViemWalletBridge(
         account,
         chain: walletClient.chain,
       })
+      onSubmitted?.(hash)
       await publicClient.waitForTransactionReceipt({ hash })
       return hash
     },

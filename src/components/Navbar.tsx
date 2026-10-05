@@ -77,12 +77,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             }
             aria-label={
               redeemableCount > 0
-                ? `Mis posiciones, ${redeemableCount} ${redeemableCount === 1 ? 'premio cobrable' : 'premios cobrables'}`
-                : 'Mis posiciones'
+                ? `Mis apuestas, ${redeemableCount} ${redeemableCount === 1 ? 'premio cobrable' : 'premios cobrables'}`
+                : 'Mis apuestas'
             }
           >
             <Layers className="w-3.5 h-3.5 text-neutral-400" />
-            <span className="hidden sm:inline">Mis posiciones</span>
+            <span className="hidden sm:inline">Mis apuestas</span>
             {/* Dinero pendiente de cobrar: visible sin abrir el cajón. */}
             {redeemableCount > 0 && (
               <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-black text-[10px] font-bold tabular-nums flex items-center justify-center shadow-sm shadow-emerald-500/40">

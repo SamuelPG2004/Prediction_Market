@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   X,
@@ -14,6 +14,7 @@ import type {
   CashoutOffer,
   CashoutReceipt,
   Position,
+  RedeemProgress,
   RedeemReceipt,
   Result,
 } from '../domain/types';
@@ -43,7 +44,7 @@ const STATUS_LABEL: Record<Position['status'], { text: string; tone: string }> =
   redeemed: { text: 'Cobrada', tone: 'bg-neutral-800 text-neutral-400' },
 };
 
-type PositionFilter = 'all' | 'open' | 'settled' | 'redeemable';
+type PositionTab = 'open' | 'history';
 
 /**
  * Cartera real: posiciones de cada venue registrado, vía el puerto del
@@ -57,44 +58,68 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
   const wallet = useWallet();
   const [feeds, setFeeds] = useState<VenuePositions[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const walletAddressRef = useRef(wallet.address);
+  walletAddressRef.current = wallet.address;
+  const loadingAddressRef = useRef<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
-  const [filter, setFilter] = useState<PositionFilter>('all');
+  const [tab, setTab] = useState<PositionTab>('open');
   const [redeemedReferences, setRedeemedReferences] = useState<Record<string, { reference: string; explorerUrl: string | null }>>({});
 
   const load = useCallback(async () => {
-    if (wallet.address === null) {
+    const address = wallet.address;
+    if (address === null) {
       setFeeds(null);
       return;
     }
+    if (loadingAddressRef.current === address) return;
+    loadingAddressRef.current = address;
     setIsLoading(true);
-    const results = await Promise.all(
-      marketSources.sources.map(async (source): Promise<VenuePositions> => {
-        if (!source.capabilities.canReadPositions) {
+    try {
+      const results = await Promise.all(
+        marketSources.sources.map(async (source): Promise<VenuePositions> => {
+          if (!source.capabilities.canReadPositions) {
+            return {
+              venue: source.venue,
+              displayName: source.displayName,
+              positions: [],
+              error: null,
+              unsupported: true,
+            };
+          }
+          const result = await source.getPositions(address);
           return {
             venue: source.venue,
             displayName: source.displayName,
-            positions: [],
-            error: null,
-            unsupported: true,
+            positions: result.ok ? result.data : [],
+            error: result.ok ? null : result.error.message,
+            unsupported: !result.ok && result.error.kind === 'unsupported',
           };
-        }
-        const result = await source.getPositions(wallet.address!);
-        return {
-          venue: source.venue,
-          displayName: source.displayName,
-          positions: result.ok ? result.data : [],
-          error: result.ok ? null : result.error.message,
-          unsupported: !result.ok && result.error.kind === 'unsupported',
-        };
-      }),
-    );
-    setFeeds(results);
-    setUpdatedAt(new Date());
-    setIsLoading(false);
+        }),
+      );
+      if (walletAddressRef.current === address) {
+        setFeeds(results);
+        setUpdatedAt(new Date());
+      }
+    } finally {
+      if (loadingAddressRef.current === address) {
+        loadingAddressRef.current = null;
+        setIsLoading(false);
+      }
+    }
   }, [wallet.address]);
 
   useEffect(() => {
-    if (isOpen) void load();
+    if (!isOpen) return;
+    const refresh = () => {
+      if (!document.hidden) void load();
+    };
+    refresh();
+    const interval = window.setInterval(refresh, 30_000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', refresh);
+    };
   }, [isOpen, load]);
 
   if (!isOpen) return null;
@@ -107,14 +132,12 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
   const openPnl = pricedOpenPositions.length === openPositions.length ? openValue - openStake : null;
   const redeemableCount = feeds?.flatMap((feed) => feed.positions).filter((position) => position.status === 'redeemable').length ?? 0;
   const allPositions = feeds?.flatMap((feed) => feed.positions) ?? [];
+  const historyCount = allPositions.filter((position) => position.status !== 'open').length;
   const filteredFeeds = feeds?.map((feed) => ({
     ...feed,
-    positions: feed.positions.filter((position) => {
-      if (filter === 'all') return true;
-      if (filter === 'open') return position.status === 'open';
-      if (filter === 'redeemable') return position.status === 'redeemable';
-      return position.status === 'won' || position.status === 'lost' || position.status === 'redeemed';
-    }),
+    positions: feed.positions.filter((position) =>
+      tab === 'open' ? position.status === 'open' : position.status !== 'open',
+    ),
   }));
 
   return (
@@ -132,11 +155,9 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
               <Layers className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-neutral-100">
-                Mis posiciones reales
-              </h3>
+              <h3 className="text-sm font-bold text-neutral-100">Mis apuestas</h3>
               <p className="text-[11px] text-neutral-400">
-                {total} {total === 1 ? 'posición' : 'posiciones'} · abiertas {formatCurrency(openStake)}
+                {total} {total === 1 ? 'ticket' : 'tickets'} · abiertas {formatCurrency(openStake)}
               </p>
               {updatedAt !== null && <p className="text-[10px] text-neutral-600">Actualizado {updatedAt.toLocaleTimeString()}</p>}
             </div>
@@ -161,15 +182,25 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
 
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
           {wallet.address !== null && (
-            <div className="flex gap-1 overflow-x-auto pb-1">
+            <div className="grid grid-cols-2 gap-1 rounded-xl border border-neutral-800 bg-[#0d1017] p-1" role="tablist" aria-label="Mis apuestas">
               {([
-                ['all', 'Todas'], ['open', 'Abiertas'], ['settled', 'Liquidadas'], ['redeemable', `Cobrables${redeemableCount ? ` · ${redeemableCount}` : ''}`],
+                ['open', `Abiertos · ${openPositions.length}`],
+                ['history', `Historial · ${historyCount}${redeemableCount > 0 ? ` · ${redeemableCount} cobrables` : ''}`],
               ] as const).map(([key, label]) => (
-                <button key={key} onClick={() => setFilter(key)} className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] font-medium ${filter === key ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-neutral-200'}`}>{label}</button>
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === key}
+                  onClick={() => setTab(key)}
+                  className={`rounded-lg px-3 py-2 text-[11px] font-semibold transition-colors ${tab === key ? 'bg-emerald-500/15 text-emerald-300' : 'text-neutral-400 hover:text-neutral-200'}`}
+                >
+                  {label}
+                </button>
               ))}
             </div>
           )}
-          {wallet.address !== null && openPositions.length > 0 && (
+          {wallet.address !== null && tab === 'open' && openPositions.length > 0 && (
             <div className="grid grid-cols-2 gap-2 rounded-xl border border-neutral-800 bg-[#0d1017] p-3 text-[11px]">
               <div>
                 <p className="text-[9px] uppercase text-neutral-500">Valor actual</p>
@@ -240,7 +271,10 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
   );
 };
 
-type Redeemer = (position: Position) => Promise<Result<RedeemReceipt>>;
+type Redeemer = (
+  position: Position,
+  onProgress: (progress: RedeemProgress) => void,
+) => Promise<Result<RedeemReceipt>>;
 
 /**
  * Cobrador para las posiciones de un venue, o null si no aplica (el venue no
@@ -251,7 +285,8 @@ function redeemerFor(venue: string, address: string | null): Redeemer | null {
   if (source === null || !source.capabilities.canRedeem || address === null) {
     return null;
   }
-  return (position) => source.redeemPosition(position, { from: address });
+  return (position, onProgress) =>
+    source.redeemPosition(position, { from: address, onProgress });
 }
 
 interface Cashouter {
@@ -278,7 +313,8 @@ function cashouterFor(venue: string, address: string | null): Cashouter | null {
 type RedeemState =
   | { status: 'idle' }
   | { status: 'reviewing' }
-  | { status: 'redeeming' }
+  | { status: 'pending' }
+  | { status: 'confirming'; hash: string }
   | { status: 'done'; receipt: RedeemReceipt }
   | { status: 'error'; message: string };
 
@@ -307,11 +343,19 @@ const PositionCard: React.FC<{
   // indexador del venue refleje el redeemedAt (puede tardar unos segundos).
   const effectiveStatus = redeem.status === 'done' ? 'redeemed' : position.status;
   const status = STATUS_LABEL[effectiveStatus];
+  const isPending = redeem.status === 'pending';
+  const isConfirming = redeem.status === 'confirming';
+  const isSuccess = redeem.status === 'done';
 
   const runRedeem = async () => {
     if (onRedeem === null || redeem.status !== 'reviewing') return;
-    setRedeem({ status: 'redeeming' });
-    const result = await onRedeem(position);
+    setRedeem({ status: 'pending' });
+    const result = await onRedeem(position, (progress) => {
+      if (progress.status === 'pending') setRedeem({ status: 'pending' });
+      if (progress.status === 'confirming') {
+        setRedeem({ status: 'confirming', hash: progress.hash });
+      }
+    });
     setRedeem(
       result.ok
         ? { status: 'done', receipt: result.data }
@@ -364,10 +408,14 @@ const PositionCard: React.FC<{
         </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 text-[11px] font-mono">
+      <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
         <div>
           <div className="text-neutral-600 text-[9px] uppercase">Resultado</div>
           <div className="text-neutral-300 truncate">{position.outcomeLabel}</div>
+        </div>
+        <div>
+          <div className="text-neutral-600 text-[9px] uppercase">Cuota aprox.</div>
+          <div className="text-neutral-200">{impliedOdds(position)}</div>
         </div>
         <div>
           <div className="text-neutral-600 text-[9px] uppercase">Apostado</div>
@@ -376,9 +424,15 @@ const PositionCard: React.FC<{
           </div>
         </div>
         <div>
-          <div className="text-neutral-600 text-[9px] uppercase">Si acierta</div>
+          <div className="text-neutral-600 text-[9px] uppercase">Retorno si acierta</div>
           <div className="text-emerald-400">
             {formatCurrency(Number(position.potentialPayout))}
+          </div>
+        </div>
+        <div>
+          <div className="text-neutral-600 text-[9px] uppercase">Ganancia neta potencial</div>
+          <div className="text-emerald-300">
+            {formatCurrency(Number(position.potentialPayout) - Number(position.stake))}
           </div>
         </div>
       </div>
@@ -406,13 +460,19 @@ const PositionCard: React.FC<{
 
       {/* Cobro: solo posiciones cobrables de venues que saben cobrar. */}
       {effectiveStatus === 'redeemable' && onRedeem !== null && (
-        redeem.status === 'reviewing' || redeem.status === 'redeeming' ? (
+        redeem.status === 'reviewing' || isPending || isConfirming ? (
           <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-2.5 flex flex-col gap-2">
             <p className="text-[11px] text-neutral-200">Premio a cobrar: <strong className="font-mono text-emerald-300">{formatCurrency(Number(position.potentialPayout))}</strong></p>
-            <p className="text-[10px] text-neutral-500">Se abrirá la wallet para firmar el reclamo on-chain.</p>
+            <p className="text-[10px] text-neutral-500">
+              {isConfirming
+                ? `Transacción ${redeem.hash.slice(0, 10)}… enviada; esperando confirmación en la red.`
+                : 'Se abrirá la wallet para confirmar el cobro on-chain.'}
+            </p>
             <div className="flex gap-2">
-              <button onClick={() => void runRedeem()} disabled={redeem.status === 'redeeming'} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500 text-black text-[11px] font-bold disabled:opacity-60">
-                {redeem.status === 'redeeming' ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Abriendo wallet…</> : 'Confirmar cobro'}
+              <button onClick={() => void runRedeem()} disabled={isPending || isConfirming} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500 text-black text-[11px] font-bold disabled:opacity-60">
+                {isPending || isConfirming
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{isPending ? 'Esperando la wallet…' : 'Confirmando transacción…'}</>
+                  : 'Confirmar cobro'}
               </button>
               {redeem.status === 'reviewing' && <button onClick={() => setRedeem({ status: 'idle' })} className="px-3 rounded-lg bg-neutral-800 text-neutral-300 text-[11px]">Volver</button>}
             </div>
@@ -515,7 +575,7 @@ const PositionCard: React.FC<{
         </div>
       )}
 
-      {redeem.status === 'done' && (
+      {isSuccess && (
         <div className="flex items-center justify-between gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 p-2.5 text-[11px] text-emerald-300">
           <span>Reclamo enviado a la red. Espera la confirmación de la transacción.</span>
           {redeem.receipt.explorerUrl !== null && (
@@ -534,3 +594,10 @@ const PositionCard: React.FC<{
     </div>
   );
 };
+
+function impliedOdds(position: Position): string {
+  const stake = Number(position.stake);
+  const payout = Number(position.potentialPayout);
+  if (!Number.isFinite(stake) || !Number.isFinite(payout) || stake <= 0) return '—';
+  return `${(payout / stake).toFixed(2)}×`;
+}

@@ -113,10 +113,13 @@ class FakeWallet implements LimitlessWalletBridge {
     ctf: Address,
     collateral: Address,
     conditionId: Hex,
+    onSubmitted?: (hash: Hex) => void,
   ): Promise<Hex> {
     if (this.redeemError !== null) throw this.redeemError
     this.redeems.push({ ctf, collateral, conditionId })
-    return '0xcafe'
+    const hash = '0xcafe' as Hex
+    onSubmitted?.(hash)
+    return hash
   }
 }
 
@@ -544,9 +547,14 @@ describe('redeemPosition', () => {
     const gateway = new FakeGateway()
     gateway.responses.getMarket = resolvedFixture
     const { adapter } = makeAdapter({ gateway, wallet })
+    const progress: string[] = []
 
-    const result = await adapter.redeemPosition(redeemable, { from: BETTOR })
+    const result = await adapter.redeemPosition(redeemable, {
+      from: BETTOR,
+      onProgress: ({ status }) => progress.push(status),
+    })
     expect(result.ok).toBe(true)
+    expect(progress).toEqual(['pending', 'confirming', 'success'])
     if (!result.ok) return
     expect(result.data.reference).toBe('0xcafe')
     expect(result.data.explorerUrl).toContain('basescan.org/tx/0xcafe')

@@ -34,6 +34,7 @@ import {
   type Quote,
   type CashoutOffer,
   type CashoutReceipt,
+  type RedeemProgress,
   type RedeemReceipt,
   type Result,
   type Subcategory,
@@ -344,7 +345,10 @@ export class LimitlessAdapter implements MarketSource {
    */
   async redeemPosition(
     position: Position,
-    opts: { from: string },
+    opts: {
+      from: string
+      onProgress?: (progress: RedeemProgress) => void
+    },
   ): Promise<Result<RedeemReceipt>> {
     if (this.wallet === null) {
       return this.fail('wallet', 'Conecta una wallet para cobrar.')
@@ -414,14 +418,18 @@ export class LimitlessAdapter implements MarketSource {
 
     let txHash: Hex
     try {
+      opts.onProgress?.({ status: 'pending' })
       txHash = await this.wallet.redeemPositions(
         ctf,
         getAddress(collateral),
         conditionId as Hex,
+        (hash) => opts.onProgress?.({ status: 'confirming', hash }),
       )
     } catch (cause) {
       return this.walletFail('No se pudo cobrar la posición.', cause)
     }
+
+    opts.onProgress?.({ status: 'success', hash: txHash })
 
     return {
       ok: true,
