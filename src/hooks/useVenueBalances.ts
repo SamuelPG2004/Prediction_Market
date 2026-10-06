@@ -12,6 +12,7 @@ import { venueTokens, type VenueTokenInfo } from '../services/marketSources'
 export interface VenueBalance extends VenueTokenInfo {
   /** Saldo en unidades humanas, o `null` mientras carga / sin wallet. */
   balance: number | null
+  rawBalance: bigint | null
 }
 
 export function useVenueBalances(): {
@@ -41,6 +42,7 @@ export function useVenueBalances(): {
         const raw = data?.[i]?.result
         return {
           ...token,
+          rawBalance: typeof raw === 'bigint' ? raw : null,
           balance:
             typeof raw === 'bigint'
               ? Number(formatUnits(raw, token.decimals))

@@ -37,6 +37,7 @@ import {
 } from '../adapters/limitless'
 import { wagmiConfig } from '../config/wagmi'
 import { registrarDireccionesConocidas } from './signatureGuard'
+import { createBalanceWithdrawal } from '../adapters/balanceWithdrawal'
 
 /** Token con el que se apuesta en cada venue, para mostrar saldos en la UI. */
 export interface VenueTokenInfo {
@@ -197,3 +198,10 @@ export const venueTokens: VenueTokenInfo[] = [
     ...BASE_USDC,
   },
 ]
+
+/** Retiro de saldo independiente de posiciones y premios. */
+export const balanceWithdrawal = createBalanceWithdrawal({
+  tokens: venueTokens,
+  clients: viemClientsFor,
+  storage: () => window.localStorage,
+})

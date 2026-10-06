@@ -1292,11 +1292,11 @@ export class AzuroAdapter implements MarketSource {
     if (!isAddress(opts.from)) {
       return this.fail('wallet', 'La dirección de la wallet no es válida.')
     }
-    const requestedRecipient = opts.recipient ?? opts.from
-    if (!isAddress(requestedRecipient) || /^0x0{40}$/i.test(requestedRecipient)) {
-      return this.fail('wallet', 'La dirección destino no es válida.')
+    // El cobro acredita únicamente la wallet firmante; el retiro es independiente.
+    if (opts.recipient !== undefined && opts.recipient.toLowerCase() !== opts.from.toLowerCase()) {
+      return this.fail('wallet', 'Para enviar a otra dirección utiliza Retirar fondos.')
     }
-    const recipient = getAddress(requestedRecipient)
+    const recipient = getAddress(opts.from)
     if (position.status !== 'redeemable') {
       return this.fail('not_quotable', 'Esta posición no está lista para cobrar.')
     }
@@ -1347,85 +1347,14 @@ export class AzuroAdapter implements MarketSource {
       explorerUrl: this.config.explorerBase !== null ? `${this.config.explorerBase}/tx/${redeemHash}` : null,
       redeemedAt: new Date(this.now()), amount, tokenSymbol: transferData.tokenSymbol,
       recipient, transferReference: null, transferExplorerUrl: null,
-      transferError: recipient.toLowerCase() === opts.from.toLowerCase() ? null : 'Envio al destino pendiente.',
+      transferError: null,
       transferData,
     }
     opts.onProgress?.({ status: 'payout-received', redeemHash, amount,
       tokenSymbol: transferData.tokenSymbol, recipient, receipt: initialReceipt })
 
-    const transferKey = `${opts.from.toLowerCase()}:${position.id}`
-    let ownsTransferLock = false
-    let transferReference: Hex | null = null
-    let transferError: string | null = null
-    if (recipient.toLowerCase() !== opts.from.toLowerCase()) {
-      if (amountRaw <= 0n) {
-        transferError = 'El contrato no devolvió un importe que se pueda enviar.'
-      } else {
-        try {
-          if (this.payoutTransfers.has(transferKey)) throw new Error('Ya hay un envio en curso para este premio.')
-          this.payoutTransfers.add(transferKey)
-          ownsTransferLock = true
-          opts.onProgress?.({ status: 'pending', step: 'transfer' })
-          transferReference = await this.wallet.transferToken(
-            transferData.tokenAddress,
-            recipient,
-            amountRaw,
-            getAddress(opts.from),
-            (hash) => {
-              transferReference = hash
-              this.payoutTransferHashes.set(transferKey, hash)
-              opts.onProgress?.({ status: 'confirming', step: 'transfer', hash })
-            },
-          )
-        } catch (cause) {
-          if (cause instanceof PayoutTransferReverted) {
-            transferReference = null
-            this.payoutTransferHashes.delete(transferKey)
-            opts.onProgress?.({ status: 'transfer-reverted' })
-          }
-          const failure = this.walletFail<never>(
-            'El premio se cobró, pero no se pudo enviar a la dirección destino.',
-            cause,
-          )
-          transferError = failure.ok
-            ? 'El premio se cobró, pero no se pudo enviar a la dirección destino.'
-            : failure.error.message
-        } finally {
-          if (ownsTransferLock) this.payoutTransfers.delete(transferKey)
-        }
-      }
-    }
-
-    if (transferError === null) {
-      opts.onProgress?.({
-        status: 'success',
-        step: transferReference === null ? 'redeem' : 'transfer',
-        hash: transferReference ?? redeemHash,
-      })
-    }
-
-    return {
-      ok: true,
-      data: {
-        positionId: position.id,
-        reference: redeemHash,
-        explorerUrl:
-          this.config.explorerBase !== null
-            ? `${this.config.explorerBase}/tx/${redeemHash}`
-            : null,
-        redeemedAt: new Date(this.now()),
-        amount,
-        tokenSymbol: transferData.tokenSymbol,
-        recipient,
-        transferReference,
-        transferExplorerUrl:
-          transferReference !== null && this.config.explorerBase !== null
-            ? `${this.config.explorerBase}/tx/${transferReference}`
-            : null,
-        transferError,
-        transferData,
-      },
-    }
+    opts.onProgress?.({ status: 'success', step: 'redeem', hash: redeemHash })
+    return { ok: true, data: initialReceipt }
   }
 
   async transferPayout(

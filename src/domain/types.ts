@@ -679,6 +679,7 @@ export interface MarketSource {
     position: Position,
     opts: {
       from: string
+      /** Compatibilidad: solo puede coincidir con from. Para destinos externos usa WithdrawalPort. */
       recipient?: string
       onProgress?: (progress: RedeemProgress) => void
     },

@@ -579,20 +579,21 @@ describe('redeemPosition', () => {
     ])
   })
 
-  it('envia el colateral real y conserva el cobro si se rechaza la segunda firma', async () => {
+  it('acredita el saldo y permite recuperar un envío antiguo independiente', async () => {
     const wallet = new FakeWallet(), gateway = new FakeGateway()
     gateway.responses.getMarket = resolvedFixture
     const { adapter } = makeAdapter({ gateway, wallet })
     const recipient = '0x3333333333333333333333333333333333333333'
     wallet.redeemAmount = 20_000_001n
     wallet.transferError = { code: 4001 }
-    const result = await adapter.redeemPosition(redeemable, { from: BETTOR, recipient })
+    const result = await adapter.redeemPosition(redeemable, { from: BETTOR })
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.amount).toBe('20.000001')
-    expect(result.data.transferError).not.toBeNull()
+    expect(result.data.transferError).toBeNull()
+    expect(wallet.transfers).toHaveLength(0)
     wallet.transferError = null
-    const retry = await adapter.transferPayout(redeemable, result.data, { from: BETTOR, to: recipient })
+    const retry = await adapter.transferPayout(redeemable, { ...result.data, recipient, transferError: 'Envío anterior pendiente.' }, { from: BETTOR, to: recipient })
     expect(retry.ok).toBe(true)
     expect(wallet.redeems).toHaveLength(1)
     expect(wallet.transfers).toEqual([{ token: resolvedFixture.collateralToken.address, recipient, amount: 20_000_001n }])

@@ -895,90 +895,38 @@ describe('redeemPosition', () => {
     expect(result.data.explorerUrl).toBe('https://polygonscan.com/tx/0xcobro')
   })
 
-  it('envia exactamente 20 USDT a otro destino despues del cobro confirmado', async () => {
-    const wallet = new FakeWallet()
+  it('acredita el saldo y no envía una segunda transferencia', async () => {
+    const wallet = new FakeWallet(), { adapter } = makeAdapter({ wallet })
     wallet.withdrawAmount = 20_000_001n
-    const { adapter } = makeAdapter({ wallet })
     const position = await redeemablePosition(adapter)
-    const recipient = '0x3333333333333333333333333333333333333333'
-    const progress: string[] = []
-    const result = await adapter.redeemPosition(position, { from: BETTOR, recipient,
-      onProgress: p => progress.push(p.status === 'pending' || p.status === 'confirming' || p.status === 'success' ? `${p.step}:${p.status}` : p.status) })
+    const result = await adapter.redeemPosition(position, { from: BETTOR })
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.amount).toBe('20.000001')
-    expect(result.data.transferReference).toBe('0xtransfer')
+    expect(result.data.recipient.toLowerCase()).toBe(BETTOR.toLowerCase())
     expect(result.data.transferError).toBeNull()
-    expect(wallet.transfers).toEqual([{ token: makeAzuroConfig(137, AFFILIATE).betToken.address, recipient, amount: 20_000_001n }])
-    expect(progress).toEqual(['redeem:pending', 'redeem:confirming', 'payout-received', 'transfer:pending', 'transfer:confirming', 'transfer:success'])
-  })
-  it('conserva el cobro al rechazar el segundo envio y reintenta sin repetirlo', async () => {
-    const wallet = new FakeWallet()
-    wallet.transferError = { code: 4001 }
-    const { adapter } = makeAdapter({ wallet })
-    const position = await redeemablePosition(adapter)
-    const recipient = '0x3333333333333333333333333333333333333333'
-    const result = await adapter.redeemPosition(position, { from: BETTOR, recipient })
-    expect(result.ok).toBe(true)
-    if (!result.ok) return
-    expect(result.data.transferError).not.toBeNull()
-    expect(result.data.transferReference).toBeNull()
-    wallet.transferError = null
-    const retry = await adapter.transferPayout(position, result.data, { from: BETTOR, to: recipient })
-    expect(retry.ok).toBe(true)
-    expect(wallet.withdrawals).toHaveLength(1)
-    expect(wallet.transfers).toHaveLength(1)
-  })
-  it('un timeout conserva el hash y un recibo obsoleto no duplica el envio', async () => {
-    const wallet = new FakeWallet(), { adapter } = makeAdapter({ wallet })
-    const position = await redeemablePosition(adapter)
-    const recipient = '0x3333333333333333333333333333333333333333'
-    wallet.transferWaitError = new Error('timeout')
-    const result = await adapter.redeemPosition(position, { from: BETTOR, recipient })
-    if (!result.ok) throw new Error('cobro fallo')
-    expect(result.data.transferReference).toBe('0xtransfer')
-    expect(result.data.transferError).not.toBeNull()
-    wallet.transferWaitError = null
-    const retry = await adapter.transferPayout(position, { ...result.data, transferReference: null }, { from: BETTOR, to: recipient })
-    expect(retry.ok).toBe(true)
-    expect(wallet.transfers).toHaveLength(1)
-    expect(wallet.withdrawals).toHaveLength(1)
-  })
-  it('bloquea un reintento mientras la segunda firma ya esta en curso', async () => {
-    const wallet = new FakeWallet(), { adapter } = makeAdapter({ wallet })
-    const position = await redeemablePosition(adapter)
-    const recipient = '0x3333333333333333333333333333333333333333'
-    let release!: () => void
-    const blocked = new Promise<void>(resolve => { release = resolve })
-    const original = wallet.transferToken.bind(wallet)
-    wallet.transferToken = async (...args) => { await blocked; return original(...args) }
-    let received!: (receipt: RedeemReceipt) => void
-    const receivedPromise = new Promise<RedeemReceipt>(resolve => { received = resolve })
-    const redemption = adapter.redeemPosition(position, { from: BETTOR, recipient,
-      onProgress: p => { if (p.status === 'payout-received') received(p.receipt) } })
-    const receipt = await receivedPromise
-    const retry = await adapter.transferPayout(position, receipt, { from: BETTOR, to: recipient })
-    expect(retry.ok).toBe(false)
-    release()
-    expect((await redemption).ok).toBe(true)
-    expect(wallet.transfers).toHaveLength(1)
-  })
-
-  it('rechaza destino invalido antes del cobro e importe o remitente alterados al reintentar', async () => {
-    const wallet = new FakeWallet(), { adapter } = makeAdapter({ wallet })
-    const position = await redeemablePosition(adapter)
-    for (const recipient of ['mal', '0x0000000000000000000000000000000000000000']) {
-      expect((await adapter.redeemPosition(position, { from: BETTOR, recipient })).ok).toBe(false)
-    }
-    expect(wallet.withdrawals).toHaveLength(0)
-    wallet.transferError = new Error('gas')
-    const recipient = '0x3333333333333333333333333333333333333333'
-    const result = await adapter.redeemPosition(position, { from: BETTOR, recipient })
-    if (!result.ok) throw new Error('cobro fallo')
-    wallet.transferError = null
-    expect((await adapter.transferPayout(position, { ...result.data, amount: toDecimal('30') }, { from: BETTOR, to: recipient })).ok).toBe(false)
-    expect((await adapter.transferPayout(position, result.data, { from: recipient, to: recipient })).ok).toBe(false)
     expect(wallet.transfers).toHaveLength(0)
+  })
+  it('rechaza un destino externo antes de cobrar', async () => {
+    const wallet = new FakeWallet(), { adapter } = makeAdapter({ wallet })
+    const position = await redeemablePosition(adapter)
+    expect((await adapter.redeemPosition(position, { from: BETTOR, recipient: '0x3333333333333333333333333333333333333333' })).ok).toBe(false)
+    expect(wallet.withdrawals).toHaveLength(0)
+  })
+  it('recupera recibos antiguos y conserva el hash al fallar la confirmación', async () => {
+    const wallet = new FakeWallet(), { adapter } = makeAdapter({ wallet })
+    const position = await redeemablePosition(adapter)
+    const result = await adapter.redeemPosition(position, { from: BETTOR })
+    if (!result.ok) throw new Error('cobro falló')
+    const recipient = '0x3333333333333333333333333333333333333333'
+    const oldReceipt: RedeemReceipt = { ...result.data, recipient, transferError: 'Envío anterior pendiente.' }
+    wallet.transferWaitError = new Error('timeout')
+    expect((await adapter.transferPayout(position, oldReceipt, { from: BETTOR, to: recipient })).ok).toBe(false)
+    wallet.transferWaitError = null
+    expect((await adapter.transferPayout(position, oldReceipt, { from: BETTOR, to: recipient })).ok).toBe(true)
+    expect(wallet.transfers).toHaveLength(1)
+    expect(wallet.withdrawals).toHaveLength(1)
+    expect((await adapter.transferPayout(position, { ...oldReceipt, amount: toDecimal('30') }, { from: BETTOR, to: recipient })).ok).toBe(false)
   })
 
   it('exige wallet, posición cobrable y datos de cobro presentes', async () => {

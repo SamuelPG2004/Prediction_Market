@@ -25,7 +25,7 @@ export function receivedPayout(receipt: TransactionReceipt, token: Address, from
 
 export async function transferPayoutToken(publicClient: PublicClient, wallet: WalletClient,
   token: Address, recipient: Address, amount: bigint, expectedFrom: Address,
-  onSubmitted?: (hash: Hex) => void, existingHash?: Hex): Promise<Hex> {
+  onSubmitted?: (hash: Hex) => void, existingHash?: Hex, onSigning?: () => void): Promise<Hex> {
   const account = payoutAccount(wallet, expectedFrom)
   let hash = existingHash
   // Un hash existente se comprueba; nunca se emite otra transferencia al reintentar.
@@ -33,6 +33,7 @@ export async function transferPayoutToken(publicClient: PublicClient, wallet: Wa
     const simulation = await publicClient.simulateContract({ address: token, abi: erc20Abi,
       functionName: 'transfer', args: [recipient, amount], account, chain: wallet.chain })
     if (!simulation.result) throw new Error('El token rechazó la transferencia.')
+    onSigning?.()
     hash = await wallet.writeContract({ address: token, abi: erc20Abi,
       functionName: 'transfer', args: [recipient, amount], account, chain: wallet.chain })
   }

@@ -1,4 +1,3 @@
-import { isAddress } from 'viem';
 import { payoutKey, usePayoutReceipts } from '../hooks/usePayoutReceipts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -23,6 +22,7 @@ import type {
 import { marketSources } from '../services/marketSources';
 import { useWallet } from '../services/web3Service';
 import { formatCurrency } from '../utils/formatters';
+import { useVenueBalances } from '../hooks/useVenueBalances';
 import { WithdrawalAccess } from './WithdrawalAccess';
 
 interface PositionsDrawerProps {
@@ -59,6 +59,7 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
   onClose,
 }) => {
   const wallet = useWallet();
+  const { refetch: refetchBalances } = useVenueBalances();
   const payoutRecords = usePayoutReceipts(state => state.records);
   const savePayout = usePayoutReceipts(state => state.save);
   const [feeds, setFeeds] = useState<VenuePositions[] | null>(null);
@@ -70,8 +71,6 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [tab, setTab] = useState<PositionTab>('open');
   const [withdrawing, setWithdrawing] = useState(false);
-  const [recipientDraft, setRecipientDraft] = useState<{ wallet: string | null; value: string }>({ wallet: null, value: '' });
-  const withdrawalRecipient = recipientDraft.wallet === wallet.address ? recipientDraft.value : wallet.address ?? '';
   const [redeemedReferences, setRedeemedReferences] = useState<Record<string, { reference: string; explorerUrl: string | null }>>({});
 
   const load = useCallback(async () => {
@@ -148,13 +147,10 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
   const redeemableCount = visibleFeeds?.flatMap((feed) => feed.positions).filter((position) => position.status === 'redeemable').length ?? 0;
   const allPositions = visibleFeeds?.flatMap((feed) => feed.positions) ?? [];
   const historyCount = allPositions.filter((position) => position.status !== 'open').length;
-  const pendingTransferCount = walletRecords.filter(record => record.receipt.transferError !== null).length;
   const filteredFeeds = visibleFeeds?.map((feed) => ({
     ...feed,
     positions: feed.positions.filter((position) =>
-      withdrawing
-        ? position.status === 'redeemable' || payoutRecords[payoutKey(wallet.address ?? '', position.id)]?.receipt.transferError != null
-        : tab === 'open' ? position.status === 'open' : position.status !== 'open',
+      tab === 'open' ? position.status === 'open' : position.status !== 'open',
     ),
   }));
 
@@ -198,19 +194,15 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
           </div>
         </div>
 
-        <div className="px-4 pt-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-4">
+        <div>
           <WithdrawalAccess
+            key={wallet.address ?? 'disconnected'}
             open={withdrawing}
-            connected={wallet.address !== null}
-            loading={isLoading || visibleFeeds === undefined}
-            readError={visibleFeeds?.some(feed => feed.error !== null || feed.unsupported) ?? false}
-            availableCount={redeemableCount + pendingTransferCount}
-            recipient={withdrawalRecipient}
-            onRecipientChange={(value) => setRecipientDraft({ wallet: wallet.address, value })}
-            onToggle={() => { setWithdrawing(current => !current); setTab('history'); }}
+            onToggle={() => setWithdrawing(current => !current)}
           />
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
           {wallet.address !== null && (
             <div className="grid grid-cols-2 gap-1 rounded-xl border border-neutral-800 bg-[#0d1017] p-1" role="tablist" aria-label="Mis apuestas">
               {([
@@ -234,8 +226,8 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
             <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
               <p className="text-[11px] leading-relaxed text-emerald-200">
                 {redeemableCount === 1
-                  ? 'Tienes un premio listo para retirar a tu wallet.'
-                  : `Tienes ${redeemableCount} premios listos para retirar a tu wallet.`}
+                  ? 'Tienes un premio listo para cobrar al saldo.'
+                  : `Tienes ${redeemableCount} premios listos para cobrar al saldo.`}
               </p>
               <button
                 type="button"
@@ -299,9 +291,9 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
                       position={p}
                       venueName={feed.displayName}
                       senderAddress={wallet.address ?? ''}
-                      suggestedRecipient={withdrawalRecipient}
                       payoutReceipt={payoutRecords[payoutKey(wallet.address ?? '', p.id)]?.receipt ?? null}
                       onSavePayout={(receipt) => { if (wallet.address) savePayout(wallet.address, p, receipt); }}
+                      onBalanceChange={refetchBalances}
                       onTransfer={transfererFor(feed.venue, wallet.address)}
                       onRedeem={redeemerFor(feed.venue, wallet.address)}
                       cashouter={cashouterFor(feed.venue, wallet.address)}
@@ -317,6 +309,7 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
             ))
           )}
         </div>
+        </div>
       </div>
     </div>
   );
@@ -324,7 +317,6 @@ export const PositionsDrawer: React.FC<PositionsDrawerProps> = ({
 
 type Redeemer = (
   position: Position,
-  recipient: string,
   onProgress: (progress: RedeemProgress) => void,
 ) => Promise<Result<RedeemReceipt>>;
 
@@ -337,8 +329,8 @@ function redeemerFor(venue: string, address: string | null): Redeemer | null {
   if (source === null || !source.capabilities.canRedeem || address === null) {
     return null;
   }
-  return (position, recipient, onProgress) =>
-    source.redeemPosition(position, { from: address, recipient, onProgress });
+  return (position, onProgress) =>
+    source.redeemPosition(position, { from: address, onProgress });
 }
 
 type Transferer = (position: Position, receipt: RedeemReceipt, onProgress: (progress: RedeemProgress) => void) => Promise<Result<RedeemTransferReceipt>>;
@@ -390,7 +382,7 @@ const PositionCard: React.FC<{
   position: Position;
   venueName: string;
   senderAddress: string;
-  suggestedRecipient: string;
+  onBalanceChange: () => void;
   payoutReceipt: RedeemReceipt | null;
   onSavePayout: (receipt: RedeemReceipt) => void;
   onTransfer: Transferer | null;
@@ -398,11 +390,9 @@ const PositionCard: React.FC<{
   cashouter: Cashouter | null;
   redeemedReceipt: { reference: string; explorerUrl: string | null } | null;
   onActionComplete: (positionId: string, receipt: { reference: string; explorerUrl: string | null } | null) => void;
-}> = ({ position, venueName, senderAddress, suggestedRecipient, payoutReceipt, onSavePayout, onTransfer, onRedeem, cashouter, redeemedReceipt, onActionComplete }) => {
+}> = ({ position, venueName, senderAddress, onBalanceChange, payoutReceipt, onSavePayout, onTransfer, onRedeem, cashouter, redeemedReceipt, onActionComplete }) => {
   const queryClient = useQueryClient();
   const [redeem, setRedeem] = useState<RedeemState>({ status: 'idle' });
-  const [recipient, setRecipient] = useState(senderAddress);
-  const validRecipient = isAddress(recipient.trim()) && !/^0x0{40}$/i.test(recipient.trim());
   const receiptRef = useRef(payoutReceipt);
   receiptRef.current = payoutReceipt ?? receiptRef.current;
   const [cashout, setCashout] = useState<CashoutState>({ status: 'idle' });
@@ -437,12 +427,13 @@ const PositionCard: React.FC<{
     }
   };
   const runRedeem = async () => {
-    if (!onRedeem || redeem.status !== 'reviewing' || !validRecipient) return;
+    if (!onRedeem || redeem.status !== 'reviewing') return;
     setRedeem({ status: 'pending', step: 'redeem' });
-    const result = await onRedeem(position, recipient.trim(), progressChanged);
+    const result = await onRedeem(position, progressChanged);
     setRedeem(result.ok ? { status: 'done', receipt: result.data } : { status: 'error', message: result.error.message });
     if (result.ok) {
       onSavePayout(result.data);
+      onBalanceChange();
       void queryClient.invalidateQueries({ queryKey: ['redeemable-count'] });
       onActionComplete(position.id, null);
     }
@@ -456,6 +447,7 @@ const PositionCard: React.FC<{
       transferReference: result.data.reference, transferExplorerUrl: result.data.explorerUrl }
       : { ...receipt, transferError: result.error.message };
     onSavePayout(next);
+    onBalanceChange();
     setRedeem({ status: 'done', receipt: next });
   };
 
@@ -544,45 +536,34 @@ const PositionCard: React.FC<{
       )}
       {effectiveStatus === 'open' && (
         <p className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-2.5 py-2 text-[10px] leading-relaxed text-neutral-500">
-          El retiro a tu wallet aparecerá cuando esta apuesta se liquide a tu favor.
+          El cobro estará disponible cuando esta apuesta se liquide a tu favor.
           {cashouter === null && <> Para cerrar antes, gestiona la posición desde {venueName}.</>}
         </p>
       )}
 
-      {/* Dirección editable y dos operaciones iniciadas por el usuario. */}
+      {/* Cobro independiente: el destino siempre es la wallet activa. */}
       {effectiveStatus === 'redeemable' && onRedeem !== null && (
         redeem.status === 'reviewing' || isBusy ? (
           <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-2.5 flex flex-col gap-2">
             <p className="text-[11px] text-neutral-200">Premio estimado: <strong>{formatCurrency(Number(position.potentialPayout))}</strong></p>
-            <label className="text-[11px] text-neutral-300">
-              Dirección de destino
-              <input aria-label="Dirección de destino" value={recipient} onChange={event => setRecipient(event.target.value)} disabled={isBusy}
-                placeholder="0x…" spellCheck={false} autoComplete="off"
-                className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 p-2 text-[11px] font-mono disabled:opacity-60" />
-            </label>
-            {!validRecipient && <p className="text-[10px] text-rose-300">Ingresa una dirección EVM válida y distinta de cero.</p>}
-            <p className="text-[10px] text-neutral-400">
-              {recipient.trim().toLowerCase() !== senderAddress.toLowerCase()
-                ? '1. Cobrar en la wallet conectada. 2. Enviar el importe recibido a este destino. La wallet pedirá dos confirmaciones; ambas usan gas.'
-                : 'El premio se cobra directamente en la wallet conectada.'}
-            </p>
+            <p className="text-[10px] text-neutral-400">El premio se acreditará al saldo de tu wallet activa: {senderAddress}. Puedes apostar de nuevo o retirarlo por separado.</p>
             <div className="flex gap-2">
-              <button onClick={() => void runRedeem()} disabled={isBusy || !validRecipient} className="flex-1 py-2 rounded-lg bg-emerald-500 text-black text-[11px] font-bold disabled:opacity-60">
-                {isBusy ? 'Procesando retiro…' : 'Confirmar retiro'}
+              <button onClick={() => void runRedeem()} disabled={isBusy} className="flex-1 py-2 rounded-lg bg-emerald-500 text-black text-[11px] font-bold disabled:opacity-60">
+                {isBusy ? 'Procesando cobro…' : 'Confirmar cobro'}
               </button>
               {!isBusy && <button onClick={() => setRedeem({ status: 'idle' })} className="px-3 rounded-lg bg-neutral-800 text-neutral-300 text-[11px]">Volver</button>}
             </div>
           </div>
         ) : (
-          <button onClick={() => { setRecipient(suggestedRecipient); setRedeem({ status: 'reviewing' }); }} className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-[11px] font-bold">
-            <Coins className="w-3.5 h-3.5" />Retirar a mi wallet · {formatCurrency(Number(position.potentialPayout))}
+          <button onClick={() => { setRedeem({ status: 'reviewing' }); }} className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-[11px] font-bold">
+            <Coins className="w-3.5 h-3.5" />Cobrar premio · {formatCurrency(Number(position.potentialPayout))}
           </button>
         )
       )}
-      {effectiveStatus === 'redeemable' && onRedeem === null && <p className="text-[10px] text-neutral-500">El retiro aún no está disponible para este mercado.</p>}
+      {effectiveStatus === 'redeemable' && onRedeem === null && <p className="text-[10px] text-neutral-500">El cobro aún no está disponible para este mercado.</p>}
       {isBusy && <p role="status" className="flex items-center gap-2 text-[11px] text-emerald-300">
         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        {redeem.step === 'redeem' ? 'Paso 1: cobrar premio' : 'Paso 2: enviar a destino'} · {isPending ? 'confirma en tu wallet' : 'esperando confirmación en la red'}
+        {redeem.step === 'redeem' ? 'Cobrar premio' : 'Recuperar envío anterior'} · {isPending ? 'confirma en tu wallet' : 'esperando confirmación en la red'}
       </p>}
 
       {/* Cash out: cerrar una posición abierta al precio que ofrezca el venue
@@ -675,7 +656,7 @@ const PositionCard: React.FC<{
 
       {completedReceipt && (
         <div className="flex flex-col gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 p-2.5 text-[11px] text-emerald-300">
-          <p>{completedReceipt.transferError ? 'Premio cobrado; envío al destino pendiente.' : 'Retiro confirmado.'}</p>
+          <p>{completedReceipt.transferError ? 'Premio cobrado; envío al destino pendiente.' : completedReceipt.transferReference ? 'Envío anterior confirmado.' : 'Premio acreditado al saldo.'}</p>
           <p className="font-mono">{completedReceipt.amount} {completedReceipt.tokenSymbol}</p>
           <p className="break-all text-neutral-300">Destino: {completedReceipt.recipient}</p>
           {completedReceipt.transferError && <>

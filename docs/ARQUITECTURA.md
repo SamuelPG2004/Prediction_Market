@@ -89,20 +89,28 @@ de cadena si toca), porque al arrancar no hay wallet. wagmi es multi-chain
 `src/config/chains.ts` (los públicos caducan — hay lista verificada y
 `VITE_POLYGON_RPC_URL`/`VITE_BASE_RPC_URL` para endpoints propios).
 
-## Retiro a una direccion elegida
+## Cobro de premios y retiro de saldo
 
-`redeemPosition` acepta un destino opcional. El contrato paga primero a la
-wallet firmante; si el destino es distinto, el adaptador envia una segunda
-transaccion ERC-20. El importe se obtiene de los eventos `Transfer` del
-recibo confirmado, filtrando token, contrato pagador y wallet receptora.
-La UI muestra ambos pasos y nunca calcula el envio a partir del premio estimado.
+El saldo disponible es el balance ERC-20 real de la wallet activa. Cobrar una
+posición con `redeemPosition` únicamente acredita esa wallet; nunca envía a
+un destino externo. Ganar marca el premio como cobrable: el saldo aumenta
+cuando la transacción de cobro se confirma, sin contabilidad ficticia local.
 
-Un cobro confirmado se guarda por wallet en `usePayoutReceipts`, incluso si
-el envio falla o la pagina se recarga. `transferPayout` comprueba otra vez el
-cobro original y permite recuperar exclusivamente el segundo paso. Un hash
-ya enviado se consulta sin emitir otra transferencia; solo un recibo revertido
-permite un nuevo intento. La wallet debe seguir siendo la que cobro y cada
-operacion empieza con una accion explicita en la UI.
+`WithdrawalPort` es independiente de tickets. Su adaptador comprueba el saldo
+real y envía un importe explícito a la dirección elegida mediante ERC-20.
+La composición usa los tokens ya configurados y el puente de wallet existente.
+Los importes se procesan con bigint y los decimales del token. La UI presenta
+saldo, red, importe, destino, firma, confirmación y resultado.
+
+El registro local versionado guarda intentos y hashes pendientes. Un hash
+existente se comprueba sin repetir el envío, incluso tras recargar. Solo un
+recibo revertido libera el intento para una nueva transferencia. Un intento
+sin hash después de una interrupción se bloquea para revisión en la wallet.
+El almacenamiento debe estar disponible antes de iniciar una firma.
+
+Los recibos antiguos de `usePayoutReceipts` y su `transferPayout` se conservan
+para recuperar exclusivamente envíos anteriores de premios, sin repetir el
+cobro. Todas las transacciones requieren una acción explícita del usuario.
 
 ## Tests
 
