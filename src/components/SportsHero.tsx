@@ -3,12 +3,12 @@ import { ChevronRight, Flame, Radio } from 'lucide-react';
 import type { LiveScore } from '../domain/types';
 import {
   findStarMarket,
-  optionLabelOf,
   type MarketEventView,
 } from '../utils/eventGrouping';
 import { formatCompactNumber, formatLiveScorePhase } from '../utils/formatters';
 import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
-import { StarMarketRow, type SelectMarketHandler } from './EventCard';
+import type { SelectMarketHandler } from './EventCard';
+import { SportsMarketPreview } from './SportsMarketPreview';
 
 interface SportsHeroProps {
   event: MarketEventView | null;
@@ -153,7 +153,7 @@ export const SportsHero: React.FC<SportsHeroProps> = ({
                     {event.markets[0]?.closesAt?.toLocaleTimeString('es', {
                       hour: '2-digit',
                       minute: '2-digit',
-                    }) ?? 'Próximo partido'}
+                    }) ?? (isLive ? 'Marcador no disponible' : 'Próximo partido')}
                   </span>
                 )}
               </div>
@@ -173,32 +173,9 @@ export const SportsHero: React.FC<SportsHeroProps> = ({
           )}
         </button>
 
-        {market !== null ? (
-          <div className="border-t border-white/[0.06] px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="truncate text-[9px] font-bold uppercase tracking-[0.14em] text-neutral-500">
-                {optionLabelOf(market)}
-              </span>
-              <span className="shrink-0 text-[9px] font-mono text-neutral-600">
-                Selecciona una cuota
-              </span>
-            </div>
-            <StarMarketRow
-              market={market}
-              participants={participants}
-              onPick={(outcomeId) => onSelectMarket(event, market, outcomeId)}
-              hideLabel
-            />
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={openEvent}
-            className="m-4 mt-0 w-[calc(100%-2rem)] rounded-xl border border-neutral-700 bg-neutral-900/70 py-2.5 text-xs font-bold text-neutral-200 hover:border-emerald-500/40 hover:text-emerald-300"
-          >
-            Ver mercados del evento
-          </button>
-        )}
+        <div className="border-t border-white/[0.06] p-4 sm:p-5">
+          <SportsMarketPreview key={event.id} event={event} onSelectMarket={onSelectMarket} />
+        </div>
       </article>
     </section>
   );

@@ -58,6 +58,8 @@ export function optionLabelOf(market: Market): string {
  */
 export const PREFERRED_MARKET_LABELS: RegExp[] = [
   /^full time result$/i,
+  /^match result(?: \(regular time\))?$/i,
+  /^winner of match$/i,
   /^match winner$/i,
   /^1x2$/i,
   /^winner$/i,
@@ -90,7 +92,7 @@ export function findStarMarket(markets: Market[]): Market | null {
  */
 export function marketLineOf(market: Market): number | null {
   for (const o of market.outcomes) {
-    const m = o.label.match(/\((-?\d+(?:\.\d+)?)\)/)
+    const m = o.label.match(/\(([+-]?\d+(?:\.\d+)?)\)/) ?? o.label.match(/^(?:over|under)\s+([+-]?\d+(?:\.\d+)?)$/i)
     if (m !== null) return Number(m[1])
   }
   return null
@@ -104,7 +106,7 @@ export function marketLineOf(market: Market): number | null {
  */
 export function marketVariantLabelOf(market: Market): string {
   const [a, b] = market.outcomes
-  const overUnder = /^(over|under)\s*\(/i
+  const overUnder = /^(over|under)(?:\s*\(|\s+\d)/i
   if (
     market.outcomes.length === 2 &&
     a !== undefined &&
@@ -134,8 +136,8 @@ export interface MarketDisplayGroup {
  */
 export type MarketGroupShape = 'over-under' | 'two-sided' | 'list'
 
-const OVER_LABEL = /^over\s*\(/i
-const UNDER_LABEL = /^under\s*\(/i
+const OVER_LABEL = /^over(?:\s*\(|\s+\d)/i
+const UNDER_LABEL = /^under(?:\s*\(|\s+\d)/i
 
 function labelMatchesName(label: string, name: string): boolean {
   return label.trim().toLowerCase().startsWith(name.trim().toLowerCase())
@@ -183,7 +185,7 @@ export function outcomeForParticipant(
 
 /** Línea de UN resultado: "Lan Mi (-7.5)" → "-7.5". `null` si no lleva. */
 export function outcomeLineOf(label: string): string | null {
-  const m = label.match(/\((-?\d+(?:\.\d+)?)\)/)
+  const m = label.match(/\(([+-]?\d+(?:\.\d+)?)\)/)
   return m?.[1] ?? null
 }
 

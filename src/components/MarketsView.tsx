@@ -23,7 +23,7 @@ import {
 } from '../utils/eventGrouping';
 import { buildSearchIndex, querySearchIndex } from '../utils/searchIndex';
 import { BetSlip } from './BetSlip';
-import { EventCard, EventListRow, orderedStarOutcomes } from './EventCard';
+import { EventCard, EventListRow } from './EventCard';
 import { CountryFlag, LeagueBrowser } from './LeagueBrowser';
 import { FEATURED_COUNT, FeaturedMatches } from './FeaturedMatches';
 import { LIVE_COUNT, LiveMatches } from './LiveMatches';
@@ -38,7 +38,6 @@ import { toggleSelection } from '../hooks/useBetSlip';
 import { countryDisplay } from '../utils/countries';
 import { formatCurrency } from '../utils/formatters';
 import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
-import { translateOutcomeLabel } from '../utils/marketLabels';
 
 /** Tarjetas pintadas por tanda. Renderizar cientos de golpe satura el navegador. */
 const PAGE_SIZE = 24;
@@ -74,7 +73,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
   onConnectWallet,
   onGetGas,
 }) => {
-  const [tabIndex, setTabIndex] = useState(0);
+  const [tabIndex, setTabIndex] = useState(1);
   const tab = TABS[tabIndex];
 
   // Subcategoría activa (un deporte dentro de Deportes); undefined = todas.
@@ -451,10 +450,10 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
             </div>
             <div>
               <h2 className="text-sm font-bold text-neutral-100 leading-tight">
-                Mercados reales
+                {tab.category === 'sports' ? 'Sportsbook' : 'Mercados de predicción'}
               </h2>
               <p className="text-[11px] text-neutral-400 mt-0.5">
-                Operar mueve fondos de verdad. Cada apuesta la firmas tú.
+                Elige un evento, explora sus mercados y añade tus selecciones al boleto.
               </p>
             </div>
           </div>
@@ -947,62 +946,6 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
                         const firstEvent = lg.events[0];
                         const sub = firstEvent?.markets[0]?.subcategory;
                         const icon = sub !== undefined ? subcategoryIcon(sub) : null;
-                        const sampleStar =
-                          firstEvent !== undefined
-                            ? findStarMarket(firstEvent.markets)
-                            : null;
-                        const orderedOutcomes =
-                          sampleStar !== null && firstEvent !== undefined
-                            ? orderedStarOutcomes(
-                                sampleStar,
-                                firstEvent.participants,
-                              )
-                            : [];
-                        const cols = Math.min(orderedOutcomes.length, 3);
-                        const hasDraw = orderedOutcomes.some((outcome) =>
-                          /^(draw|empate|x)$/i.test(outcome.label.trim()),
-                        );
-                        const matchesParticipants =
-                          firstEvent?.participants?.length === 2 &&
-                          orderedOutcomes.length >= 2 &&
-                          orderedOutcomes[0]?.label
-                            .trim()
-                            .toLocaleLowerCase('es') ===
-                            firstEvent.participants[0].name
-                              .trim()
-                              .toLocaleLowerCase('es') &&
-                          orderedOutcomes[orderedOutcomes.length - 1]?.label
-                            .trim()
-                            .toLocaleLowerCase('es') ===
-                            firstEvent.participants[1].name
-                              .trim()
-                              .toLocaleLowerCase('es');
-                        const standardThreeWay = hasDraw && matchesParticipants;
-                        const participantOutcomes =
-                          firstEvent?.participants?.length === 2 &&
-                          orderedOutcomes.length === 2 &&
-                          orderedOutcomes.every((outcome, index) =>
-                            outcome.label
-                              .trim()
-                              .toLocaleLowerCase('es') ===
-                            firstEvent.participants?.[index]?.name
-                              .trim()
-                              .toLocaleLowerCase('es'),
-                          );
-                        const columnLabels = orderedOutcomes.map(
-                          (outcome, index) =>
-                            standardThreeWay
-                              ? index === 1
-                                ? 'X'
-                                : index === 0
-                                  ? '1'
-                                  : '2'
-                              : participantOutcomes
-                                ? index === 0
-                                  ? '1'
-                                  : '2'
-                                : translateOutcomeLabel(outcome.label),
-                        );
 
                         return (
                           <div
@@ -1022,19 +965,8 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
                               </p>
                               {/* Los títulos de cuotas reflejan el mercado de
                                   cada grupo: 1X2, dos resultados u opciones. */}
-                              {cols >= 2 && (
-                                <div
-                                  className={`hidden shrink-0 gap-1.5 text-center text-[9px] font-bold uppercase tracking-wider text-neutral-300 sm:grid ${
-                                    cols === 2 ? 'grid-cols-2 w-40' : 'grid-cols-3 w-60'
-                                  }`}
-                                >
-                                  {columnLabels.slice(0, cols).map((label, index) => (
-                                    <span key={`${index}-${label}`} className="truncate">
-                                      {label}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
+                              <span className="hidden w-24 shrink-0 text-[10px] text-neutral-400 sm:block">Mercado</span>
+                              <span className="hidden w-60 shrink-0 text-center text-[10px] text-neutral-400 sm:block">Resultado y cuota</span>
                               <span className="w-12 shrink-0" />
                             </div>
                             <div className="divide-y divide-neutral-800/70">

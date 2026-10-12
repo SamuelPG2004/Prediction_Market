@@ -34,6 +34,7 @@ import {
   type MarketDisplayGroup,
   type MarketEventView,
 } from '../utils/eventGrouping';
+import { sortedSportsGroups, sportsMarketCategory, SPORTS_MARKET_CATEGORIES, type SportsMarketCategory } from '../utils/sportsMarkets';
 import { isValidAmount, outcomeOddsText } from '../utils/betting';
 import { formatCurrency, formatLiveScorePhase } from '../utils/formatters';
 import { translateOutcomeLabel } from '../utils/marketLabels';
@@ -68,39 +69,9 @@ type PlaceState =
   | { status: 'done'; receipt: BetReceipt }
   | { status: 'error'; error: VenueError };
 
-/** Botón del selector de mercado: etiqueta + cotización de un vistazo. */
-const MarketPickButton: React.FC<{
-  label: string;
-  quote: string;
-  active: boolean;
-  onClick: () => void;
-  fullWidth?: boolean;
-}> = ({ label, quote, active, onClick, fullWidth = false }) => (
-  <button
-    onClick={onClick}
-    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
-      fullWidth ? 'w-full justify-between text-left' : 'shrink-0'
-    } ${
-      active
-        ? 'bg-neutral-100 text-neutral-900'
-        : 'bg-[#12151d] text-neutral-400 border border-neutral-800 hover:text-neutral-200'
-    }`}
-  >
-    <span className="truncate max-w-[220px]">{label}</span>
-    <span className={`font-mono ${active ? 'text-neutral-600' : 'text-neutral-500'}`}>
-      {quote}
-    </span>
-  </button>
-);
-
-/** Cotización de un vistazo para el selector: la del primer resultado. */
-function firstQuoteOf(m: Market): string {
-  return outcomeOddsText(m, m.outcomes[0]);
-}
-
 /** "-7.5" se muestra tal cual; a "1.5" se le antepone el "+" de hándicap. */
 function signedLine(line: string): string {
-  return line.startsWith('-') ? line : `+${line}`;
+  return line.startsWith('-') || line.startsWith('+') ? line : `+${line}`;
 }
 
 /** Celda de cuota del selector: (línea +) cuota, clicable como selección. */
@@ -165,8 +136,8 @@ const SelectorSection: React.FC<{
           <span className="text-center">Menos</span>
         </div>
         {group.markets.map((m) => {
-          const over = m.outcomes.find((o) => /^over\s*\(/i.test(o.label));
-          const under = m.outcomes.find((o) => /^under\s*\(/i.test(o.label));
+          const over = m.outcomes.find((o) => /^over\b/i.test(o.label));
+          const under = m.outcomes.find((o) => /^under\b/i.test(o.label));
           if (over === undefined || under === undefined) return null;
           return (
             <div
@@ -248,26 +219,19 @@ const SelectorSection: React.FC<{
       </div>
     );
   } else {
-    body = (
-      <div className="flex flex-wrap gap-1.5">
-        {group.markets.map((m) => (
-          <MarketPickButton
-            key={m.id}
-            label={single !== null ? group.label : marketVariantLabelOf(m)}
-            quote={firstQuoteOf(m)}
-            active={m.id === activeMarketId}
-            onClick={() => onPick(m)}
-            fullWidth={single !== null}
-          />
-        ))}
-      </div>
-    );
+    body = <div className="flex flex-col gap-3">{group.markets.map(m => <div key={m.id} className="flex flex-col gap-1.5">
+      {group.markets.length > 1 && <p className="text-[10px] text-neutral-400">{marketVariantLabelOf(m)}</p>}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{m.outcomes.map(o => <OddsCell key={o.id} label={translateOutcomeLabel(o.label)}
+        quote={outcomeOddsText(m, o)} active={isActiveCell(m, o.id)} disabled={!o.isQuotable}
+        onClick={() => onPick(m, o.id)} />)}</div>
+    </div>)}</div>;
   }
 
   return (
     <div className="border-b border-neutral-800/60 last:border-0 pb-2">
       <button
         onClick={onToggle}
+        aria-expanded={!collapsed}
         className="w-full flex items-center justify-between gap-2 py-1.5 text-left"
       >
         <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
@@ -321,7 +285,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
   const [quoteNonce, setQuoteNonce] = useState(0);
   /** Secciones del selector plegadas por el usuario, por etiqueta de grupo. */
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
-    () => new Set(),
+    () => new Set(groupMarketsForDisplay(event.markets).filter(g => !g.markets.some(m => m.id === initialMarket.id)).map(g => g.label)),
   );
   /** Chat del tipster: plegado por defecto (cada consulta gasta cupo de IA). */
   const [tipsterOpen, setTipsterOpen] = useState(false);
@@ -340,9 +304,15 @@ export const TradePanel: React.FC<TradePanelProps> = ({
   const outcome = market.outcomes.find((o) => o.id === outcomeId) ?? null;
 
   const marketGroups = useMemo(
-    () => groupMarketsForDisplay(event.markets),
+    () => event.markets[0]?.category === 'sports' ? sortedSportsGroups(event.markets) : groupMarketsForDisplay(event.markets),
     [event.markets],
   );
+
+  const [marketCategory, setMarketCategory] = useState<'all' | SportsMarketCategory>('all');
+  const [marketSearch, setMarketSearch] = useState('');
+  const sportCategories = SPORTS_MARKET_CATEGORIES.filter(c => marketGroups.some(g => sportsMarketCategory(g.markets[0]) === c.id));
+  const visibleMarketGroups = marketGroups.filter(g => (marketCategory === 'all' || sportsMarketCategory(g.markets[0]) === marketCategory)
+    && (g.label + ' ' + g.markets.map(m => optionLabelOf(m)).join(' ')).toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(marketSearch.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '')));
 
   // Partido consultable por el tipster: evento del sportsbook (Azuro) con id
   // de juego nativo. En los demás venues/categorías el chat no existe.
@@ -516,7 +486,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
         onClick={onClose}
       />
 
-      <div className="relative w-full max-w-xl min-h-full sm:min-h-0 rounded-none sm:rounded-2xl bg-[#0b0d13] border-0 sm:border border-neutral-800 shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-3xl min-h-full sm:min-h-0 rounded-none sm:rounded-2xl bg-[#0b0d13] border-0 sm:border border-neutral-800 shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200">
         {/* Cabecera */}
         <div className="p-4 sm:p-5 border-b border-neutral-800 bg-[#101420] flex items-start justify-between gap-3">
           <div className="pr-2">
@@ -549,11 +519,11 @@ export const TradePanel: React.FC<TradePanelProps> = ({
                 </span>
               )}
             </div>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-0.5">
-              {event.title}
+            <p className="text-[10px] font-mono uppercase tracking-wider text-emerald-300 mb-1">
+              {event.leagueName ?? 'Mercados del partido'}
             </p>
-            <h3 className="text-sm font-bold text-neutral-100 leading-snug">
-              {optionLabelOf(market)}
+            <h3 className="text-lg sm:text-xl font-bold text-neutral-100 leading-snug">
+              {event.title}
             </h3>
           </div>
 
@@ -574,8 +544,16 @@ export const TradePanel: React.FC<TradePanelProps> = ({
             <p className="text-[10px] uppercase font-mono text-neutral-600 tracking-wider mb-1.5">
               Mercados del evento ({event.markets.length})
             </p>
-            <div className="max-h-80 overflow-y-auto flex flex-col gap-2 pr-1">
-              {marketGroups.map((g) => (
+            <input aria-label="Buscar mercados del partido" placeholder="Buscar goles, hándicap, córneres…" value={marketSearch} onChange={e => setMarketSearch(e.target.value)}
+              className="mb-3 w-full rounded-xl border border-white/[0.08] bg-[#171c26] px-3 py-2.5 text-xs text-neutral-100" />
+            {event.markets[0]?.category === 'sports' && <div role="group" aria-label="Categorías de apuestas" className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
+              {[{ id: 'all' as const, label: 'Todos' }, ...sportCategories].map(c => <button key={c.id} type="button" aria-pressed={marketCategory === c.id}
+                onClick={() => { setMarketCategory(c.id); setCollapsedGroups(new Set()); }}
+                className={`shrink-0 rounded-lg px-3 py-2 text-[11px] font-bold ${marketCategory === c.id ? 'bg-emerald-400/15 text-emerald-300 border border-emerald-400/25' : 'bg-[#181d28] text-neutral-400 border border-white/[0.06]'}`}>{c.label}</button>)}
+            </div>}
+            {visibleMarketGroups.length === 0 && <p className="py-3 text-xs text-neutral-400">No hay mercados que coincidan con este filtro.</p>}
+            <div className="max-h-[45vh] overflow-y-auto flex flex-col gap-2 pr-1">
+              {visibleMarketGroups.map((g) => (
                 <SelectorSection
                   key={g.label}
                   group={g}

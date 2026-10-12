@@ -112,6 +112,20 @@ Los recibos antiguos de `usePayoutReceipts` y su `transferPayout` se conservan
 para recuperar exclusivamente envíos anteriores de premios, sin repetir el
 cobro. Todas las transacciones requieren una acción explícita del usuario.
 
+## Presentación del sportsbook
+
+La portada abre en Deportes. `SportsMarketPreview` organiza los mercados del
+evento por categoría y línea, y cada cuota conserva su marketId/outcomeId.
+`MarketOdds` comparte el render de precios y selecciones entre tarjetas y lista.
+`sportsMarkets` clasifica etiquetas del dominio: no importa adaptadores ni SDKs.
+
+El ganador reconoce también Match Result y tiempo reglamentario. Si no hay
+cotización en ese mercado, se presenta otra opción disponible con su etiqueta
+real; si no hay ninguna, se indica la falta de cuotas. Nunca se inventan precios.
+El detalle permite buscar mercados y escoger resultados de goles, hándicaps,
+córneres, tarjetas y periodos. Seleccionar una cuota solo modifica el boleto;
+apostar sigue requiriendo una acción explícita y la ruta de ejecución existente.
+
 ## Tests
 
 `npm test` — vitest, sin red. Cada adaptador se prueba contra fixtures

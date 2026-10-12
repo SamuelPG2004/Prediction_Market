@@ -11,6 +11,15 @@
 /** Nombres de mercado (en minúsculas) → español. */
 const MARKET_NAMES = new Map<string, string>([
   ['match winner', 'Ganador del partido'],
+  ['match result', 'Resultado del partido'],
+  ['match result (regular time)', 'Resultado en tiempo reglamentario'],
+  ['total goals over/under', 'Goles totales'],
+  ['asian total goals over/under', 'Goles totales asiáticos'],
+  ['total points over/under', 'Puntos totales'],
+  ['total games over/under', 'Juegos totales'],
+  ['total corners over/under', 'Córneres totales'],
+  ['total cards over/under', 'Tarjetas totales'],
+  ['asian handicap (0-0)', 'Hándicap asiático (0-0)'],
   ['full time result', 'Resultado final'],
   ['half time result', 'Resultado al descanso'],
   ['winner', 'Ganador'],
@@ -156,7 +165,7 @@ const OUTCOME_NAMES = new Map<string, string>([
   ['no', 'No'],
 ])
 
-const OVER_UNDER = /^(over|under)\s*\((.+)\)$/i
+const OVER_UNDER = /^(over|under)\s*(?:\((.+)\)|([+-]?\d+(?:\.\d+)?))$/i
 
 /**
  * Etiqueta de resultado en español, o la original si no se reconoce.
@@ -166,7 +175,7 @@ export function translateOutcomeLabel(label: string): string {
   const trimmed = label.trim()
   const ou = trimmed.match(OVER_UNDER)
   if (ou !== null) {
-    return `${ou[1].toLowerCase() === 'over' ? 'Más de' : 'Menos de'} ${ou[2]}`
+    return `${ou[1].toLowerCase() === 'over' ? 'Más de' : 'Menos de'} ${ou[2] ?? ou[3]}`
   }
   return OUTCOME_NAMES.get(trimmed.toLowerCase()) ?? label
 }

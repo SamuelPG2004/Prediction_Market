@@ -8,7 +8,8 @@ import {
   formatLiveScorePhase,
 } from '../utils/formatters';
 import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
-import { StarMarketRow, type SelectMarketHandler } from './EventCard';
+import type { SelectMarketHandler } from './EventCard';
+import { SportsMarketPreview } from './SportsMarketPreview';
 
 /** Cuántos partidos pide el carrusel. */
 export const FEATURED_COUNT = 8;
@@ -165,14 +166,7 @@ export const FeaturedCard: React.FC<{
 
       {/* Cuotas del mercado estrella; el clic preselecciona el resultado.
           Sin etiqueta: repetida en cada tarjeta del carrusel era ruido. */}
-      {star !== null && (
-        <StarMarketRow
-          market={star}
-          participants={event.participants}
-          onPick={(outcomeId) => onSelectMarket(event, star, outcomeId)}
-          hideLabel
-        />
-      )}
+      <SportsMarketPreview event={event} onSelectMarket={onSelectMarket} compact />
     </div>
   );
 };
