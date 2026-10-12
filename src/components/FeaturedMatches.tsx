@@ -94,7 +94,7 @@ export const FeaturedCard: React.FC<{
 
   return (
     <div
-      className={`w-[290px] shrink-0 snap-start rounded-2xl bg-[#0d1017] border transition-colors p-3.5 flex flex-col gap-2.5 ${
+      className={`w-[min(320px,85vw)] shrink-0 snap-start rounded-2xl bg-[#141720] border transition-colors p-4 flex flex-col gap-3.5 ${
         accent === 'live'
           ? 'border-rose-500/25 hover:border-rose-500/45'
           : 'border-neutral-800/80 hover:border-neutral-700'
@@ -152,23 +152,15 @@ export const FeaturedCard: React.FC<{
         className="flex items-center gap-2 text-left cursor-pointer min-w-0"
         title="Abrir este evento"
       >
-        <FeaturedLogo participant={a} />
-        <span className="flex-1 text-[12.5px] font-semibold text-neutral-100 leading-tight min-w-0">
-          <span className="line-clamp-1">{a.name}</span>
-          <span className="line-clamp-1 text-neutral-300">{b.name}</span>
+        <span className="flex w-full flex-col gap-3">
+          {[a, b].map((participant, index) => (
+            <span key={participant.name} className="flex items-center gap-3 min-w-0">
+              <FeaturedLogo participant={participant} />
+              <span className="flex-1 text-sm font-semibold text-neutral-100 truncate">{participant.name}</span>
+              {score !== undefined && <span className={`text-base font-mono font-bold tabular-nums shrink-0 ${score.status === 'finished' ? 'text-neutral-400' : 'text-rose-300'}`}>{index === 0 ? score.home : score.guest}</span>}
+            </span>
+          ))}
         </span>
-        <FeaturedLogo participant={b} />
-        {/* Marcador en vivo, alineado línea a línea con cada equipo. */}
-        {score !== undefined && (
-          <span
-            className={`flex flex-col items-center text-[12.5px] font-mono font-bold leading-tight shrink-0 tabular-nums ${
-              score.status === 'finished' ? 'text-neutral-400' : 'text-rose-300'
-            }`}
-          >
-            <span>{score.home}</span>
-            <span>{score.guest}</span>
-          </span>
-        )}
       </button>
 
       {/* Cuotas del mercado estrella; el clic preselecciona el resultado.

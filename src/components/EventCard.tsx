@@ -75,7 +75,7 @@ export const EventCard: React.FC<EventCardProps> = ({
   };
 
   return (
-    <div className="group rounded-2xl bg-[#0d1017] border border-neutral-800/80 hover:border-neutral-700 transition-colors p-4 flex flex-col gap-3">
+    <div className="group rounded-2xl bg-[#12151d] border border-white/[0.08] hover:border-emerald-400/30 transition-colors p-4 sm:p-5 flex flex-col gap-4">
       {isMatchup ? (
         <MatchupBody event={event} eagerImage={eagerImage} onOpen={openEvent} onSelectMarket={onSelectMarket} />
       ) : (
@@ -389,10 +389,10 @@ const StarOutcomeButton: React.FC<{
   const flash = usePriceFlash(o.price === null ? null : Number(o.price));
 
   const base = inSlip
-    ? 'bg-emerald-500/25 border-emerald-400 ring-1 ring-emerald-400/50'
+    ? 'bg-emerald-400 border-emerald-300 ring-2 ring-emerald-400/20'
     : isFavorite
-      ? 'bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-500/45 hover:border-emerald-400/60'
-      : 'bg-emerald-500/[0.07] hover:bg-emerald-500/20 border-emerald-500/20 hover:border-emerald-500/40';
+      ? 'bg-[#202830] hover:bg-[#293a3b] border-emerald-500/25 hover:border-emerald-400/60'
+      : 'bg-[#20232d] hover:bg-[#2b323c] border-white/[0.06] hover:border-emerald-500/40';
   const flashRing =
     !inSlip && flash === 'up'
       ? 'ring-1 ring-emerald-300/70'
@@ -404,7 +404,10 @@ const StarOutcomeButton: React.FC<{
   return (
     <button
       onClick={onPick}
-      className={`${compact ? 'py-1.5 sm:py-1 px-1' : 'py-1.5 px-1'} rounded-lg transition-all active:scale-95 flex flex-col items-center min-w-0 border ${base} ${flashRing}`}
+      aria-pressed={inSlip}
+      aria-label={`${label} · ${display.primary ?? 'sin cotización'}`}
+      disabled={display.primary === null}
+      className={`${compact ? 'min-h-11 py-2 px-1' : 'min-h-16 py-2.5 px-2'} rounded-xl transition-colors active:scale-95 flex flex-col justify-center items-center min-w-0 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed ${base} ${flashRing}`}
       title={
         display.primary === null
           ? `${label} — sin cotización ahora mismo`
@@ -416,7 +419,7 @@ const StarOutcomeButton: React.FC<{
       }
     >
       {!compact && (
-        <span className="text-[10px] text-neutral-400 truncate w-full text-center">
+        <span className={`text-[11px] truncate w-full text-center ${inSlip ? 'text-emerald-950' : 'text-neutral-300'}`}>
           {label}
         </span>
       )}
@@ -424,13 +427,13 @@ const StarOutcomeButton: React.FC<{
           título y pierden la cabecera 1·X·2, así que la etiqueta viaja
           dentro del botón. En ≥sm la pone la cabecera de columnas. */}
       {compact && (
-        <span className="sm:hidden text-[9px] text-neutral-400 truncate w-full text-center">
+        <span className={`sm:hidden text-[10px] truncate w-full text-center ${inSlip ? 'text-emerald-950' : 'text-neutral-300'}`}>
           {label}
         </span>
       )}
       <span
-        className={`font-mono font-extrabold tabular-nums ${compact ? 'text-[12px]' : 'text-[15px]'} leading-tight flex items-center gap-0.5 ${
-          display.primary === null ? 'text-neutral-600' : 'text-emerald-300'
+        className={`font-mono font-extrabold tabular-nums ${compact ? 'text-sm' : 'text-lg'} leading-tight flex items-center gap-0.5 ${
+          display.primary === null ? 'text-neutral-500' : inSlip ? 'text-emerald-950' : 'text-neutral-100'
         }`}
       >
         {display.primary ?? '—'}
@@ -445,7 +448,7 @@ const StarOutcomeButton: React.FC<{
         </span>
       </span>
       {!compact && display.secondary !== null && (
-        <span className="text-[9px] font-mono text-neutral-500">
+        <span className={`text-[10px] font-mono ${inSlip ? 'text-emerald-900/70' : 'text-neutral-400'}`}>
           {display.secondary}
         </span>
       )}
@@ -483,9 +486,9 @@ export const EventListRow: React.FC<{
 
   return (
     <div
-      className={`flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-1.5 px-3 py-2.5 transition-colors ${
+      className={`flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-3 px-3 sm:px-4 py-3.5 transition-colors ${
         dense
-          ? 'bg-transparent hover:bg-white/[0.025]'
+          ? 'bg-transparent odd:bg-white/[0.015] hover:bg-white/[0.045]'
           : 'rounded-xl bg-[#0d1017] border border-neutral-800/70 hover:border-neutral-700'
       }`}
     >
@@ -506,14 +509,14 @@ export const EventListRow: React.FC<{
       {/* Enfrentamiento (o título). Clicable: abre el panel del evento. */}
       <button
         onClick={open}
-        className="flex-1 min-w-0 text-left flex flex-col gap-0.5 cursor-pointer"
+        className="flex-1 min-w-0 text-left flex flex-col gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 rounded-lg"
         title="Abrir este evento"
       >
         {isMatchup ? (
           event.participants!.map((p) => (
             <span key={p.name} className="flex min-w-0 items-center gap-2">
               <ParticipantListCrest participant={p} />
-              <span className="truncate text-[12.5px] font-semibold leading-tight text-neutral-100">
+              <span className="truncate text-sm font-semibold leading-tight text-neutral-100">
                 {p.name}
               </span>
             </span>
@@ -531,7 +534,7 @@ export const EventListRow: React.FC<{
       {star !== null && outcomes.length >= 2 && (
         <div
           className={`grid gap-1.5 shrink-0 order-last sm:order-none w-full ${
-            outcomes.length === 2 ? 'grid-cols-2 sm:w-32' : 'grid-cols-3 sm:w-48'
+            outcomes.length === 2 ? 'grid-cols-2 sm:w-40' : 'grid-cols-3 sm:w-60'
           }`}
         >
           {outcomes.map((o) => (
@@ -552,7 +555,7 @@ export const EventListRow: React.FC<{
           los dígitos, las columnas de cuotas dejan de alinearse fila a fila. */}
       <button
         onClick={open}
-        className="shrink-0 w-10 py-1.5 sm:py-1 rounded-lg text-[10px] font-mono tabular-nums text-center text-neutral-500 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+        className="shrink-0 w-12 min-h-11 py-1.5 rounded-lg border border-white/[0.06] text-[11px] font-mono tabular-nums text-center text-neutral-500 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
         title={`Ver los ${event.markets.length} mercados del evento`}
       >
         {event.markets.length} →

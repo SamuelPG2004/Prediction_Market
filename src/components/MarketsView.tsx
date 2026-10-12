@@ -542,7 +542,8 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
 
       {/* Chips de subcategoría (deportes dentro de Deportes, etc.) */}
       {subcategories.length > 0 && (
-        <div className="-mt-2 flex items-center gap-1.5 overflow-x-auto rounded-2xl border border-neutral-800/80 bg-[#0c1017] p-2">
+        <div className="-mt-2 flex flex-col gap-2 rounded-2xl border border-white/[0.08] bg-[#11141c] p-2.5">
+          <div role="group" aria-label="Estado y fecha de partidos" className="flex items-center gap-2 overflow-x-auto pb-1">
           {/* En vivo: filtro de estado, pide a los venues su listado en juego. */}
           <button
             onClick={() => { setUpcomingOnly(false); setLiveOnly((v) => !v); }}
@@ -579,7 +580,8 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
               <option value="week">7 días</option>
             </select>
           </label>
-          <span className="w-px h-4 bg-neutral-800 shrink-0" />
+          </div>
+          <div role="group" aria-label="Elegir deporte" className="flex items-center gap-2 overflow-x-auto border-t border-white/[0.06] pt-2">
           <SubcategoryChip
             label="Todos"
             active={subcategory === undefined}
@@ -598,6 +600,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
               }
             />
           ))}
+          </div>
         </div>
       )}
 
@@ -1004,9 +1007,9 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
                         return (
                           <div
                             key={lg.league}
-                            className="overflow-hidden rounded-xl border border-neutral-800/80 bg-[#0b0f15]"
+                            className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#11141c]"
                           >
-                            <div className="flex items-center gap-3 border-b border-neutral-800/80 bg-[#10151d] px-3 py-2.5">
+                            <div className="flex items-center gap-3 border-b border-neutral-800/80 bg-[#1a1e28] px-3 sm:px-4 py-3">
                               <span className="w-11 shrink-0" />
                               <p className="flex min-w-0 flex-1 items-center gap-2 text-[10px] font-bold uppercase tracking-[0.08em] text-neutral-400">
                                 {icon !== null && (
@@ -1021,8 +1024,8 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
                                   cada grupo: 1X2, dos resultados u opciones. */}
                               {cols >= 2 && (
                                 <div
-                                  className={`hidden shrink-0 gap-1.5 text-center text-[9px] font-bold uppercase tracking-wider text-neutral-600 sm:grid ${
-                                    cols === 2 ? 'grid-cols-2 w-32' : 'grid-cols-3 w-48'
+                                  className={`hidden shrink-0 gap-1.5 text-center text-[9px] font-bold uppercase tracking-wider text-neutral-300 sm:grid ${
+                                    cols === 2 ? 'grid-cols-2 w-40' : 'grid-cols-3 w-60'
                                   }`}
                                 >
                                   {columnLabels.slice(0, cols).map((label, index) => (
@@ -1032,7 +1035,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
                                   ))}
                                 </div>
                               )}
-                              <span className="w-10 shrink-0" />
+                              <span className="w-12 shrink-0" />
                             </div>
                             <div className="divide-y divide-neutral-800/70">
                               {lg.events.map((event) => (
