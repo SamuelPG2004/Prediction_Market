@@ -26,6 +26,7 @@ import { buildSearchIndex, querySearchIndex } from '../utils/searchIndex';
 import { BetSlip } from './BetSlip';
 import { EventCard, EventListRow } from './EventCard';
 import { CountryFlag, LeagueBrowser } from './LeagueBrowser';
+import { FeaturedMatches } from './FeaturedMatches';
 import { FEATURED_COUNT } from './FeaturedMatches';
 import { LIVE_COUNT } from './LiveMatches';
 import { useFeaturedEvents } from '../hooks/useFeaturedEvents';
@@ -645,6 +646,14 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
           }
           onSelectMarket={selectMarket}
           onViewAll={viewAllLive}
+        />
+      )}
+
+      {showSportsLanding && (
+        <FeaturedMatches
+          events={featuredEvents.filter((event) => event.id !== sportsFeatureEvent?.id)}
+          isLoading={isFeaturedLoading}
+          onSelectMarket={selectMarket}
         />
       )}
 
