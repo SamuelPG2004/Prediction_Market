@@ -9,6 +9,7 @@ import {
   X,
   AlertTriangle,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 import type { League, Market, MarketCategory } from '../domain/types';
 import { useDomainEvents } from '../hooks/useDomainEvents';
@@ -25,13 +26,12 @@ import { buildSearchIndex, querySearchIndex } from '../utils/searchIndex';
 import { BetSlip } from './BetSlip';
 import { EventCard, EventListRow } from './EventCard';
 import { CountryFlag, LeagueBrowser } from './LeagueBrowser';
-import { FEATURED_COUNT, FeaturedMatches } from './FeaturedMatches';
-import { LIVE_COUNT, LiveMatches } from './LiveMatches';
+import { FEATURED_COUNT } from './FeaturedMatches';
+import { LIVE_COUNT } from './LiveMatches';
 import { useFeaturedEvents } from '../hooks/useFeaturedEvents';
 import { useLiveEvents } from '../hooks/useLiveEvents';
 import { useLiveScores } from '../hooks/useLiveScores';
 import { LowGasBanner } from './LowGasBanner';
-import { TipsterPicks } from './TipsterPicks';
 import { TradePanel } from './TradePanel';
 import { SportsHero } from './SportsHero';
 import { toggleSelection } from '../hooks/useBetSlip';
@@ -43,13 +43,8 @@ import { subcategoryIcon, subcategoryLabel } from '../utils/subcategories';
 const PAGE_SIZE = 24;
 
 /**
- * Pestañas: la taxonomía del dominio, con el venue invisible.
- *
- * Solo categorías con oferta real hoy. Tecnología, Cultura y Otros se
- * quitaron a propósito (2026-08-28): ningún venue publica mercados con esos
- * domains y la pestaña vacía confunde más de lo que aporta. Sus mercados,
- * si algún día llegan, siguen saliendo en "Todo"; para reponer una pestaña
- * basta añadir su línea aquí.
+ * Temas de predicción con oferta actual. Deportes tiene un espacio propio para
+ * que las cuotas deportivas no se mezclen con los mercados sobre actualidad.
  */
 const TABS: { label: string; category?: MarketCategory }[] = [
   { label: 'Todo' },
@@ -58,6 +53,10 @@ const TABS: { label: string; category?: MarketCategory }[] = [
   { label: 'Economía', category: 'economy' },
   { label: 'Política', category: 'politics' },
 ];
+const PREDICTION_TABS = TABS.flatMap((tab, index) =>
+  tab.category === 'sports' ? [] : [{ tab, index }],
+);
+const SPORTS_TAB_INDEX = TABS.findIndex((tab) => tab.category === 'sports');
 
 interface MarketsViewProps {
   onConnectWallet: () => void;
@@ -75,6 +74,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
 }) => {
   const [tabIndex, setTabIndex] = useState(1);
   const tab = TABS[tabIndex];
+  const isSportsMode = tab.category === 'sports';
 
   // Subcategoría activa (un deporte dentro de Deportes); undefined = todas.
   const [subcategory, setSubcategory] = useState<string | undefined>(undefined);
@@ -229,10 +229,14 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
   const searchIndex = useMemo(() => {
     const byId = new Map<string, MarketEventView>();
     for (const event of [...indexEvents, ...featuredEvents]) {
-      if (!byId.has(event.id)) byId.set(event.id, event);
+      const matchesMode =
+        tab.category === undefined
+          ? event.markets.some((market) => market.category !== 'sports')
+          : event.markets.some((market) => market.category === tab.category);
+      if (matchesMode && !byId.has(event.id)) byId.set(event.id, event);
     }
     return buildSearchIndex([...byId.values()]);
-  }, [indexEvents, featuredEvents]);
+  }, [indexEvents, featuredEvents, tab.category]);
   const suggestions = useMemo(
     () => querySearchIndex(searchIndex, query),
     [searchIndex, query],
@@ -274,6 +278,12 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     }
     if (dateRange === 'week') end.setDate(end.getDate() + 7);
     return events.filter((event) => {
+      // "Todo" pertenece al espacio de predicciones. Los eventos de Azuro se
+      // mantienen en Deportes, aunque la fuente los mezcle en su catálogo.
+      if (
+        tab.category === undefined &&
+        event.markets.every((market) => market.category === 'sports')
+      ) return false;
       if (leagueFilter !== null && event.leagueName !== leagueFilter) return false;
       if (upcomingOnly && event.isLive) return false;
       if (dateRange === 'any') return true;
@@ -283,18 +293,10 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
       }, null);
       return kickoff !== null && kickoff >= start.getTime() && kickoff < end.getTime();
     });
-  }, [events, leagueFilter, upcomingOnly, dateRange]);
+  }, [events, tab.category, leagueFilter, upcomingOnly, dateRange]);
 
-  // La portada conserva sus carruseles. Deportes usa una sola tarjeta principal
-  // y solo cuando el usuario está en el landing sin filtros activos.
-  const showFeatured =
-    tab.category === undefined &&
-    debouncedQuery.trim() === '' &&
-    subcategory === undefined &&
-    leagueFilter === null &&
-    !liveOnly &&
-    !upcomingOnly &&
-    dateRange === 'any';
+  // Deportes reserva el módulo destacado para su evento principal; el espacio
+  // de predicciones nunca inserta partidos o sugerencias deportivas.
   const showSportsLanding =
     tab.category === 'sports' &&
     debouncedQuery.trim() === '' &&
@@ -438,109 +440,138 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
     subcategory !== undefined;
 
   return (
-    <div className={`flex flex-col ${tab.category === 'sports' ? 'gap-4' : 'gap-5'}`}>
-      {/* Cabecera de cuenta */}
-      <div className="rounded-2xl bg-[#0d1017] border border-neutral-800/80 overflow-hidden">
-        <div className="px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            {/* Tono sereno a propósito: el rojo se reserva para "en vivo" y
-                errores; el aviso de dinero real no es una alarma permanente. */}
-            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-neutral-100 leading-tight">
-                {tab.category === 'sports' ? 'Sportsbook' : 'Mercados de predicción'}
-              </h2>
-              <p className="text-[11px] text-neutral-400 mt-0.5">
-                Elige un evento, explora sus mercados y añade tus selecciones al boleto.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-5">
-            {balances.map((b) => (
-              <Metric
-                key={b.venue}
-                label={`Tu ${b.symbol}`}
-                value={b.balance === null ? '—' : formatCurrency(b.balance)}
-                accent={b.balance !== null}
-              />
-            ))}
-          </div>
+    <div className={`flex flex-col ${isSportsMode ? 'gap-4' : 'gap-5'}`}>
+      {/* Selector de producto: cada experiencia tiene un inicio y filtros propios. */}
+      <section className="flex flex-col gap-3" aria-label="Elegir tipo de mercado">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300/80">
+            Aether Markets
+          </p>
+          <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">
+            {isSportsMode ? 'Apuestas deportivas' : 'Mercados de predicción'}
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm text-neutral-400">
+            {isSportsMode
+              ? 'Partidos y cuotas en una experiencia deportiva descentralizada.'
+              : 'Explora predicciones sobre cripto, economía y actualidad.'}
+          </p>
         </div>
 
-        {balances.every((b) => b.balance === null) && (
+        <div
+          role="group"
+          aria-label="Experiencias de Aether Markets"
+          className="grid grid-cols-2 gap-2 rounded-2xl border border-neutral-800/80 bg-[#0b0e13] p-1.5"
+        >
           <button
-            onClick={onConnectWallet}
-            className="w-full px-5 py-2.5 flex items-center justify-center gap-2 bg-amber-500/10 hover:bg-amber-500/15 text-[11px] font-semibold text-amber-300 transition-colors"
+            type="button"
+            aria-pressed={isSportsMode}
+            onClick={() => setTabIndex(SPORTS_TAB_INDEX)}
+            className={`flex min-w-0 items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all sm:px-4 ${
+              isSportsMode
+                ? 'border-emerald-400/25 bg-gradient-to-r from-emerald-500/15 to-teal-500/[0.06] text-white shadow-[inset_0_1px_rgba(255,255,255,0.05)]'
+                : 'border-transparent text-neutral-400 hover:bg-white/[0.03] hover:text-neutral-200'
+            }`}
           >
-            <AlertTriangle className="w-3.5 h-3.5" />
-            <span>
-              Wallet no conectada — explora libremente, o conecta para operar
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isSportsMode ? 'bg-emerald-400/15 text-emerald-300' : 'bg-neutral-800/80 text-neutral-400'}`}>
+              <Trophy className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold">Deportes</span>
+              <span className="mt-0.5 block truncate text-[11px] text-neutral-500">Partidos y cuotas</span>
+            </span>
+            {isSportsMode && (
+              <span className="hidden shrink-0 items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-emerald-300 sm:flex">
+                Web3
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            aria-pressed={!isSportsMode}
+            onClick={() => { if (isSportsMode) setTabIndex(0); }}
+            className={`flex min-w-0 items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all sm:px-4 ${
+              !isSportsMode
+                ? 'border-sky-400/25 bg-gradient-to-r from-sky-500/15 to-indigo-500/[0.06] text-white shadow-[inset_0_1px_rgba(255,255,255,0.05)]'
+                : 'border-transparent text-neutral-400 hover:bg-white/[0.03] hover:text-neutral-200'
+            }`}
+          >
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${!isSportsMode ? 'bg-sky-400/15 text-sky-300' : 'bg-neutral-800/80 text-neutral-400'}`}>
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold">Predicciones</span>
+              <span className="mt-0.5 block truncate text-[11px] text-neutral-500">Cripto, economía y actualidad</span>
             </span>
           </button>
-        )}
+        </div>
+      </section>
+
+      {/* Temas exclusivos de predicción; Deportes conserva sus filtros propios. */}
+      {!isSportsMode && (
+        <div
+          role="group"
+          aria-label="Temas de predicción"
+          className="flex items-center gap-2 overflow-x-auto border-b border-neutral-800/80 px-1"
+        >
+          {PREDICTION_TABS.map(({ tab: predictionTab, index }) => {
+            const active = index === tabIndex;
+            return (
+              <button
+                key={predictionTab.label}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setTabIndex(index)}
+                className={`shrink-0 border-b-2 px-3 py-3 text-xs font-semibold transition-colors ${
+                  active
+                    ? 'border-sky-400 text-white'
+                    : 'border-transparent text-neutral-500 hover:text-neutral-200'
+                }`}
+              >
+                {predictionTab.label === 'Todo' ? 'Todos los temas' : predictionTab.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Cuenta compacta: balance real y firma de wallet sin interrumpir el catálogo. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-800/80 bg-[#0d1017] px-4 py-3 sm:px-5">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-300">
+            <ShieldCheck className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-xs font-semibold text-neutral-200">Tu cuenta</p>
+            <p className="text-[10px] text-neutral-500">Fondos reales · firmas desde tu wallet</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-5">
+          {balances.map((b) => (
+            <Metric
+              key={b.venue}
+              label={`Tu ${b.symbol}`}
+              value={b.balance === null ? '—' : formatCurrency(b.balance)}
+              accent={b.balance !== null}
+            />
+          ))}
+          {balances.every((b) => b.balance === null) && (
+            <button
+              type="button"
+              onClick={onConnectWallet}
+              className="rounded-lg border border-neutral-700 bg-neutral-800/70 px-3 py-2 text-[11px] font-semibold text-neutral-200 transition-colors hover:border-emerald-400/40 hover:text-emerald-200"
+            >
+              Conectar wallet
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Gas nativo bajo: aviso accionable antes de que una operación falle */}
       <LowGasBanner onGetGas={onGetGas} />
 
-      {/* La portada mantiene sus bloques destacados. En Deportes se sustituyen
-          los carruseles por un único partido principal debajo de sus filtros. */}
-      {showFeatured && (
-        <LiveMatches
-          events={liveEvents}
-          isLoading={isLiveLoading}
-          scores={liveScores}
-          onSelectMarket={selectMarket}
-          onViewAll={viewAllLive}
-        />
-      )}
-      {showFeatured && (
-        <FeaturedMatches
-          events={featuredEvents}
-          isLoading={isFeaturedLoading}
-          onSelectMarket={selectMarket}
-        />
-      )}
-      {showFeatured && (
-        <TipsterPicks
-          candidateEvents={featuredEvents}
-          onOpenMarket={(event, market, outcomeId) =>
-            setSelected({ event, market, outcomeId })
-          }
-        />
-      )}
-
-      {/* Pestañas de categoría */}
-      <div
-        role="tablist"
-        aria-label="Categorías de mercados"
-        className="flex items-center gap-5 overflow-x-auto border-b border-neutral-800/80 -mx-1 px-1"
-      >
-        {TABS.map((t, i) => {
-          const active = i === tabIndex;
-          return (
-            <button
-              key={t.label}
-              role="tab"
-              aria-selected={active}
-              onClick={() => setTabIndex(i)}
-              className={`flex shrink-0 items-center gap-1.5 border-b-2 px-1 py-3 text-[11px] font-extrabold uppercase tracking-[0.1em] whitespace-nowrap transition-colors ${
-                active
-                  ? 'border-emerald-400 text-neutral-100'
-                  : 'border-transparent text-neutral-500 hover:text-neutral-200'
-              }`}
-            >
-              <span>{t.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
       {/* Chips de subcategoría (deportes dentro de Deportes, etc.) */}
-      {subcategories.length > 0 && (
+      {isSportsMode && subcategories.length > 0 && (
         <div className="-mt-2 flex flex-col gap-2 rounded-2xl border border-white/[0.08] bg-[#11141c] p-2.5">
           <div role="group" aria-label="Estado y fecha de partidos" className="flex items-center gap-2 overflow-x-auto pb-1">
           {/* En vivo: filtro de estado, pide a los venues su listado en juego. */}
@@ -604,7 +635,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
       )}
 
       {showSportsLanding && (
-        <SportsHero
+      <SportsHero
           event={sportsFeatureEvent}
           isLoading={sportsFeatureEvent === null && (isLiveLoading || isFeaturedLoading)}
           liveScore={
@@ -672,7 +703,7 @@ export const MarketsView: React.FC<MarketsViewProps> = ({
             onKeyDown={(e) => {
               if (e.key === 'Escape') setSuggestionsOpen(false);
             }}
-            placeholder={`Buscar en ${tab.label.toLowerCase()}… (mínimo 3 letras)`}
+            placeholder={`Buscar en ${tab.category === undefined ? 'predicciones' : tab.label.toLowerCase()}… (mínimo 3 letras)`}
             className={`w-full pl-10 ${query !== '' ? 'pr-10' : 'pr-3'} py-2.5 rounded-xl bg-[#0f121a] border border-neutral-800 focus:border-emerald-500/50 focus:outline-none text-sm text-neutral-100 placeholder:text-neutral-600`}
           />
           {query !== '' && (

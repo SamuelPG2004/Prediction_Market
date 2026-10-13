@@ -55,7 +55,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-neutral-400 -mt-0.5 font-medium hidden sm:block">
-                Prediction Markets
+                Deportes · Predicciones
               </p>
             </div>
           </a>

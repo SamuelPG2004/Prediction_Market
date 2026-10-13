@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Activity, Droplets } from 'lucide-react';
-import type { Market } from '../domain/types';
+import type { Market, MarketCategory } from '../domain/types';
 import {
   findStarMarket,
   groupMarketsForDisplay,
@@ -23,6 +23,16 @@ import { displaySportsMarket } from '../utils/sportsMarkets';
 
 /** Cuántas opciones se listan antes de resumir el resto. */
 const MAX_VISIBLE_OPTIONS = 4;
+
+const PREDICTION_CATEGORY_LABEL: Partial<Record<MarketCategory, string>> = {
+  politics: 'Política',
+  crypto: 'Cripto',
+  economy: 'Economía',
+  tech: 'Tecnología',
+  culture: 'Cultura',
+  weather: 'Clima',
+  other: 'Otros temas',
+};
 
 /**
  * Abre el boleto de apuesta en un mercado concreto del evento; `outcomeId`
@@ -62,6 +72,7 @@ export const EventCard: React.FC<EventCardProps> = ({
   eagerImage = false,
 }) => {
   const isMatchup = event.participants !== undefined && event.participants.length === 2;
+  const isPrediction = event.markets[0]?.category !== 'sports';
 
   /**
    * Clic en la cabecera o en "Ver los N mercados": abre el panel en el mercado
@@ -78,7 +89,17 @@ export const EventCard: React.FC<EventCardProps> = ({
   };
 
   return (
-    <div className="group rounded-2xl bg-[#12151d] border border-white/[0.08] hover:border-emerald-400/30 transition-colors p-4 sm:p-5 flex flex-col gap-4">
+    <div className={`group relative overflow-hidden rounded-2xl border transition-colors p-4 sm:p-5 flex flex-col gap-4 ${
+      isPrediction
+        ? 'bg-[#111720] border-sky-300/[0.12] hover:border-sky-300/30'
+        : 'bg-[#12151d] border-white/[0.08] hover:border-emerald-400/30'
+    }`}>
+      {isPrediction && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-5 left-0 w-0.5 rounded-full bg-gradient-to-b from-sky-300/70 to-indigo-400/25"
+        />
+      )}
       {isMatchup ? (
         <MatchupBody event={event} eagerImage={eagerImage} onOpen={openEvent} onSelectMarket={onSelectMarket} />
       ) : (
@@ -378,6 +399,11 @@ const GenericBody: React.FC<{
       <EventImage event={event} eager={eagerImage} />
 
       <div className="flex-1 min-w-0">
+        {event.markets[0]?.category !== 'sports' && (
+          <span className="mb-1.5 inline-flex rounded-md border border-sky-300/15 bg-sky-300/[0.07] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-sky-200/80">
+            {PREDICTION_CATEGORY_LABEL[event.markets[0]?.category ?? 'other'] ?? 'Predicción'}
+          </span>
+        )}
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold text-neutral-100 leading-snug line-clamp-2 group-hover:text-white flex-1">
             {event.title}

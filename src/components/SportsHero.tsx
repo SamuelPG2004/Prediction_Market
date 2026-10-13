@@ -18,6 +18,13 @@ interface SportsHeroProps {
   onViewAll: () => void;
 }
 
+const SPORTS_HERO_STYLE = {
+  backgroundImage:
+    "linear-gradient(90deg, rgba(6,10,15,.96) 0%, rgba(6,10,15,.86) 46%, rgba(6,10,15,.56) 100%), url('/images/aether-sports-network.png')",
+  backgroundPosition: 'center',
+  backgroundSize: 'cover',
+} as const;
+
 /** Partido destacado de Deportes. Solo presenta datos y callbacks del dominio. */
 export const SportsHero: React.FC<SportsHeroProps> = ({
   event,
@@ -74,11 +81,17 @@ export const SportsHero: React.FC<SportsHeroProps> = ({
         )}
       </div>
 
-      <article className="relative isolate overflow-hidden rounded-2xl border border-emerald-500/20 bg-[#0c1118] shadow-[0_20px_70px_-45px_rgba(16,185,129,0.55)]">
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_50%_-18%,rgba(16,185,129,0.16),transparent_58%),linear-gradient(110deg,rgba(15,23,42,0.22),transparent_48%,rgba(15,23,42,0.36))]" />
+      <article
+        className="relative isolate overflow-hidden rounded-2xl border border-emerald-500/20 bg-[#0c1118] shadow-[0_20px_70px_-45px_rgba(16,185,129,0.55)]"
+        style={SPORTS_HERO_STYLE}
+      >
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_50%_-18%,rgba(16,185,129,0.14),transparent_58%)]" />
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] px-4 py-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-neutral-400">
+            <span className="shrink-0 rounded-md border border-sky-400/20 bg-sky-400/10 px-1.5 py-1 text-[8px] font-extrabold tracking-[0.12em] text-sky-200">
+              Web3
+            </span>
             {icon !== null && <span className="text-sm leading-none">{icon}</span>}
             {subcategory !== undefined && (
               <span className="shrink-0 text-neutral-300">

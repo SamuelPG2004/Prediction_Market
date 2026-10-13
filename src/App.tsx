@@ -68,7 +68,7 @@ export default function App() {
           <div className="flex items-center gap-2 flex-wrap justify-center">
             <span className="font-bold text-neutral-400">AETHER MARKETS</span>
             <span>•</span>
-            <span>Mercados de predicción reales</span>
+            <span>Apuestas deportivas y predicciones</span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px] flex-wrap justify-center">
