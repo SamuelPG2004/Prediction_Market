@@ -56,14 +56,14 @@ const PREDICTION_CATEGORY_ICON: Partial<Record<MarketCategory, LucideIcon>> = {
   other: CircleHelp,
 };
 
-const PREDICTION_CATEGORY_ART: Partial<Record<MarketCategory, string>> = {
-  politics: 'from-orange-500/35 via-rose-500/15 to-indigo-950',
-  crypto: 'from-violet-500/40 via-fuchsia-500/15 to-indigo-950',
-  economy: 'from-emerald-500/35 via-cyan-500/15 to-indigo-950',
-  tech: 'from-cyan-500/35 via-blue-500/15 to-indigo-950',
-  culture: 'from-rose-500/35 via-orange-500/15 to-purple-950',
-  weather: 'from-sky-500/35 via-indigo-500/20 to-blue-950',
-  other: 'from-indigo-500/35 via-sky-500/15 to-violet-950',
+const PREDICTION_CATEGORY_TILE: Partial<Record<MarketCategory, string>> = {
+  politics: 'bg-[#30313c] text-[#e9c391]',
+  crypto: 'bg-[#2d2c42] text-[#c5b8ff]',
+  economy: 'bg-[#233b38] text-[#9cddc9]',
+  tech: 'bg-[#233944] text-[#93d7e5]',
+  culture: 'bg-[#3a303b] text-[#e5afc0]',
+  weather: 'bg-[#28394b] text-[#a9caed]',
+  other: 'bg-[#2d3540] text-[#b6c8d4]',
 };
 
 /**
@@ -123,7 +123,7 @@ export const EventCard: React.FC<EventCardProps> = ({
   return (
     <div className={`group relative overflow-hidden rounded-2xl border transition-all duration-200 flex flex-col ${
       isPrediction
-        ? 'bg-[#0e1118] border-white/[0.09] hover:border-sky-300/30 hover:shadow-[0_18px_48px_rgba(13,85,150,0.12)]'
+        ? 'bg-[#121a22] border-[#293741] hover:border-[#5a8f93]/60 hover:shadow-[0_14px_36px_rgba(35,115,112,0.09)]'
         : 'bg-[#12151d] border-white/[0.08] p-4 sm:p-5 gap-4 hover:border-emerald-400/30'
     }`}>
       {isPrediction ? (
@@ -135,21 +135,23 @@ export const EventCard: React.FC<EventCardProps> = ({
       )}
 
       {/* Pie: métricas. Las que el venue no aporta no se inventan: se omiten. */}
-      <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-mono text-neutral-500 border-t border-neutral-800/60 mt-auto ${
-        isPrediction ? 'bg-[#0b0e14] px-4 sm:px-5 py-3' : 'pt-2.5'
+      <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-neutral-800/60 mt-auto ${
+        isPrediction
+          ? 'bg-[#0e151c] px-4 py-3 text-[11px] text-neutral-500 sm:px-5'
+          : 'pt-2.5 text-[10px] font-mono text-neutral-500'
       }`}>
         {event.liquidityUsd !== null && (
           <span className="flex items-center gap-1.5" title="Liquidez">
             <Droplets className="w-3 h-3 text-sky-300/70" />
             <span>Liquidez</span>
-            <strong className="font-semibold text-neutral-300">${formatCompactNumber(event.liquidityUsd)}</strong>
+            <strong className={`font-semibold ${isPrediction ? 'text-neutral-200' : 'text-neutral-300'}`}>${formatCompactNumber(event.liquidityUsd)}</strong>
           </span>
         )}
         {event.volume24hUsd !== null && (
           <span className="flex items-center gap-1.5" title="Volumen 24h">
             <Activity className="w-3 h-3 text-emerald-300/70" />
             <span>24 h</span>
-            <strong className="font-semibold text-neutral-300">${formatCompactNumber(event.volume24hUsd)}</strong>
+            <strong className={`font-semibold ${isPrediction ? 'text-neutral-200' : 'text-neutral-300'}`}>${formatCompactNumber(event.volume24hUsd)}</strong>
           </span>
         )}
         {/* En un enfrentamiento, el estado/hora ya va en su cabecera. */}
@@ -426,34 +428,47 @@ const PredictionBody: React.FC<{
 }> = ({ event, eagerImage, onOpen, onSelectMarket }) => {
   const category = event.markets[0]?.category ?? 'other';
   const marketCount = event.markets.length;
+  const closesAt = event.markets[0]?.closesAt;
+  const status = event.markets[0]?.status;
+  const statusLabel =
+    status === 'suspended'
+      ? 'Suspendido'
+      : status === 'closed'
+        ? 'Cerrado'
+        : status === 'resolved'
+          ? 'Resuelto'
+          : null;
 
   return (
     <>
       <button
         type="button"
         onClick={onOpen}
-        className="w-full text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+        className="flex w-full items-start gap-3.5 px-4 pt-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#83d9ce] sm:gap-4 sm:px-5 sm:pt-5"
         title="Abrir este mercado"
       >
         <PredictionArtwork event={event} category={category} eager={eagerImage} />
-        <div className="px-4 pt-4 sm:px-5 sm:pt-5">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="inline-flex min-w-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.13em] text-sky-200/80">
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex min-h-5 items-center justify-between gap-2">
+            <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-semibold text-[#9edbd2]">
               {React.createElement(PREDICTION_CATEGORY_ICON[category] ?? Sparkles, { className: 'h-3.5 w-3.5 shrink-0' })}
               <span className="truncate">{PREDICTION_CATEGORY_LABEL[category] ?? 'Predicción'}</span>
             </span>
-            {marketCount > 1 && (
-              <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 text-[9px] font-semibold text-neutral-400">
-                {marketCount} mercados
+            {statusLabel !== null ? (
+              <span className="shrink-0 text-[10px] text-neutral-500">{statusLabel}</span>
+            ) : closesAt ? (
+              <span className="inline-flex shrink-0 items-center gap-1 text-[10px] text-[#d8b979]">
+                <CalendarDays className="h-3 w-3" />
+                Cierra {formatEventDate(closesAt)}
               </span>
-            )}
+            ) : null}
           </div>
-          <h3 className="font-display text-[16px] font-semibold leading-snug tracking-[-0.02em] text-white line-clamp-3 group-hover:text-sky-100 sm:text-[17px]">
+          <h3 className="font-display text-[16px] font-semibold leading-[1.28] tracking-[-0.025em] text-[#edf3f5] line-clamp-3 group-hover:text-white sm:text-[17px]">
             {event.title}
           </h3>
-          {event.markets[0]?.subcategory && (
-            <p className="mt-2 text-[11px] text-neutral-500 line-clamp-1">
-              {event.markets[0].subcategory}
+          {(marketCount > 1 || event.markets[0]?.subcategory) && (
+            <p className="mt-2 truncate text-[10px] text-[#84939b]">
+              {event.markets[0]?.subcategory ?? `${marketCount} mercados disponibles`}
             </p>
           )}
         </div>
@@ -478,25 +493,9 @@ const PredictionArtwork: React.FC<{
 }> = ({ event, category, eager }) => {
   const [failed, setFailed] = useState(false);
   const Icon = PREDICTION_CATEGORY_ICON[category] ?? Sparkles;
-  const closesAt = event.markets[0]?.closesAt;
-  const status = event.markets[0]?.status;
-  const statusLabel =
-    status === 'suspended'
-      ? 'Suspendido'
-      : status === 'closed'
-        ? 'Cerrado'
-        : status === 'resolved'
-          ? 'Resuelto'
-          : 'Mercado abierto';
 
   return (
-    <div className={`relative isolate h-[132px] overflow-hidden bg-gradient-to-br ${PREDICTION_CATEGORY_ART[category] ?? PREDICTION_CATEGORY_ART.other} sm:h-[148px]`}>
-      <div aria-hidden="true" className="absolute inset-0 opacity-70">
-        <span className="absolute -right-8 -top-16 h-56 w-56 rounded-full border border-white/10" />
-        <span className="absolute -right-1 -top-9 h-40 w-40 rounded-full border border-white/[0.08]" />
-        <span className="absolute -bottom-20 left-[38%] h-48 w-48 rounded-full border border-white/[0.07]" />
-        <span className="absolute -left-14 -top-20 h-52 w-52 rounded-full bg-white/[0.06] blur-3xl" />
-      </div>
+    <div className={`relative isolate flex h-[78px] w-[78px] shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.08] ${PREDICTION_CATEGORY_TILE[category] ?? PREDICTION_CATEGORY_TILE.other}`}>
       {event.imageUrl && !failed && (
         <img
           src={event.imageUrl}
@@ -504,32 +503,14 @@ const PredictionArtwork: React.FC<{
           loading={eager ? 'eager' : 'lazy'}
           decoding="async"
           onError={() => setFailed(true)}
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+          className="absolute inset-0 h-full w-full object-cover"
         />
       )}
-      <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-[#080b12]/70 via-[#080b12]/20 to-transparent" />
-      <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-[#0e1118]/65 via-transparent to-black/10" />
       {(!event.imageUrl || failed) && (
-        <div aria-hidden="true" className="absolute inset-y-0 right-5 flex items-center text-white/20 sm:right-8">
-          <Icon className="h-[76px] w-[76px] stroke-[1.1] sm:h-[90px] sm:w-[90px]" />
+        <div aria-hidden="true" className="flex h-full w-full items-center justify-center">
+          <Icon className="h-8 w-8 stroke-[1.4]" />
         </div>
       )}
-      <div className="absolute inset-x-4 top-3 flex items-center justify-between gap-2 sm:inset-x-5 sm:top-4">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/25 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-white/80 backdrop-blur-md">
-          <Sparkles className="h-3 w-3" />
-          {statusLabel}
-        </span>
-        {closesAt && (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/25 px-2.5 py-1 text-[9px] font-medium text-white/75 backdrop-blur-md">
-            <CalendarDays className="h-3 w-3" />
-            Cierra {formatEventDate(closesAt)}
-          </span>
-        )}
-      </div>
-      <div className="absolute bottom-3 left-4 flex items-end gap-2 text-white/55 sm:bottom-4 sm:left-5">
-        <span className="h-px w-7 bg-sky-300/70" />
-        <span className="text-[9px] font-mono uppercase tracking-[0.22em]">Predicción descentralizada</span>
-      </div>
     </div>
   );
 };
@@ -542,11 +523,10 @@ const PredictionBinaryBody: React.FC<{
 
   return (
     <div className="grid grid-cols-2 gap-2.5 px-4 pb-4 pt-4 sm:gap-3 sm:px-5 sm:pb-5">
-      {market.outcomes.slice(0, 2).map((outcome, index) => {
+      {market.outcomes.slice(0, 2).map((outcome) => {
         const display = outcomeDisplay(outcome.price, outcome.probability, market.priceFormat);
         const inSlip = isSelected(market.id, outcome.id);
         const label = translateOutcomeLabel(outcome.label);
-        const affirmative = index === 0;
 
         return (
           <button
@@ -556,26 +536,23 @@ const PredictionBinaryBody: React.FC<{
             aria-pressed={inSlip}
             aria-label={`${label} · ${display.primary ?? 'sin cotización'}`}
             title={inSlip ? `${label} — en el boleto` : 'Añadir al boleto'}
-            className={`group/choice min-w-0 rounded-xl border px-3 py-3 text-left transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 ${
+            className={`group/choice min-w-0 rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#83d9ce] ${
               inSlip
-                ? 'border-sky-300/70 bg-sky-300/15 ring-1 ring-sky-300/20'
-                : affirmative
-                  ? 'border-sky-300/20 bg-sky-400/[0.07] hover:border-sky-300/45 hover:bg-sky-400/[0.12]'
-                  : 'border-violet-300/15 bg-violet-400/[0.05] hover:border-violet-300/35 hover:bg-violet-400/[0.1]'
+                ? 'border-[#83d9ce]/70 bg-[#83d9ce]/[0.12] ring-1 ring-[#83d9ce]/15'
+                : 'border-white/[0.08] bg-[#17232d] hover:border-[#83d9ce]/35 hover:bg-[#1b2b35]'
             }`}
           >
             <span className="flex items-center justify-between gap-2">
-              <span className={`truncate text-[11px] font-semibold ${inSlip ? 'text-sky-100' : affirmative ? 'text-sky-100/90' : 'text-violet-100/80'}`}>
+              <span className={`truncate text-[11px] font-semibold ${inSlip ? 'text-[#b9f0e7]' : 'text-[#b5c4cb]'}`}>
                 {label}
               </span>
-              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${inSlip ? 'bg-sky-200' : affirmative ? 'bg-sky-300/70' : 'bg-violet-300/60'}`} />
             </span>
-            <span className={`mt-2 block font-mono text-[22px] font-bold leading-none tabular-nums ${display.primary === null ? 'text-neutral-500' : 'text-white'}`}>
+            <span className={`mt-1.5 block font-display text-[21px] font-semibold leading-none tabular-nums ${display.primary === null ? 'text-neutral-500' : 'text-[#edf3f5]'}`}>
               {display.primary ?? '—'}
             </span>
-            <span className="mt-1 block text-[9px] font-medium uppercase tracking-[0.12em] text-neutral-500">
+            <span className="mt-1 block text-[10px] text-neutral-500">
               {display.secondary !== null
-                ? `${display.secondary} probabilidad`
+                ? `${display.secondary} de probabilidad`
                 : display.primary === null
                   ? 'Sin cotización'
                   : market.priceFormat === 'probability'
@@ -660,7 +637,7 @@ const OptionList: React.FC<{
   const hiddenCount = rows.length - visibleRows.length;
 
   return (
-    <div className={`flex flex-col ${prediction ? 'gap-1.5 px-4 pb-4 pt-3 sm:px-5 sm:pb-5' : 'gap-1'}`}>
+    <div className={`flex flex-col ${prediction ? 'divide-y divide-white/[0.07] px-4 pb-2 pt-1 sm:px-5 sm:pb-3' : 'gap-1'}`}>
       {visibleRows.map((r) => (
         <OptionRow
           key={r.market.id}
@@ -674,7 +651,7 @@ const OptionList: React.FC<{
       {hiddenCount > 0 && (
         <button
           onClick={() => setExpanded(true)}
-          className={`mt-0.5 py-2 text-[11px] font-semibold transition-colors text-left ${prediction ? 'rounded-lg border border-white/[0.06] bg-white/[0.025] px-3 text-sky-200/75 hover:border-sky-300/25 hover:text-sky-100' : 'text-neutral-500 hover:text-neutral-300'}`}
+          className={`mt-0.5 py-2 text-left text-[11px] font-semibold transition-colors ${prediction ? 'text-[#9edbd2] hover:text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
         >
           + {hiddenCount} opciones más
         </button>
@@ -682,7 +659,7 @@ const OptionList: React.FC<{
       {expanded && event.markets.length > MAX_VISIBLE_OPTIONS && (
         <button
           onClick={() => setExpanded(false)}
-          className="mt-0.5 py-1.5 text-[11px] font-semibold text-neutral-500 hover:text-neutral-300 transition-colors text-left"
+          className="mt-0.5 py-1.5 text-left text-[11px] font-semibold text-neutral-500 transition-colors hover:text-neutral-300"
         >
           Mostrar menos
         </button>
@@ -856,20 +833,20 @@ const OptionRow: React.FC<{
       onClick={onPick}
       className={`group w-full flex items-center gap-2.5 text-left transition-all ${
         prediction
-          ? 'rounded-xl border border-white/[0.07] bg-[#141922] px-3 py-2.5 hover:border-sky-300/25 hover:bg-[#171e29]'
+          ? 'w-full px-1 py-3 transition-colors hover:bg-white/[0.025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#83d9ce]'
           : '-mx-2 rounded-lg px-2 py-1.5 hover:bg-neutral-800/50'
       }`}
     >
       <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className={`truncate ${prediction ? 'text-[12px] font-medium text-neutral-200' : 'text-[11.5px] text-neutral-300'}`}>
+        <span className={`truncate ${prediction ? 'text-[12px] font-medium text-[#d8e1e5]' : 'text-[11.5px] text-neutral-300'}`}>
           {label ?? optionLabelOf(market)}
         </span>
 
         {/* El largo de la barra solo representa una probabilidad publicada. */}
-        <span className={`h-1 rounded-full bg-neutral-800 overflow-hidden shrink-0 ${prediction ? 'w-full' : 'hidden w-14 sm:block'}`}>
+        <span className={`h-0.5 rounded-full bg-neutral-800 overflow-hidden shrink-0 ${prediction ? 'w-full' : 'hidden w-14 sm:block'}`}>
           {pct !== null && (
             <span
-              className="block h-full bg-sky-300/65 transition-colors group-hover:bg-sky-200"
+              className={`block h-full transition-colors ${prediction ? 'bg-[#83d9ce]/75 group-hover:bg-[#b9f0e7]' : 'bg-sky-300/65 group-hover:bg-sky-200'}`}
               style={{ width: `${Math.min(Math.max(pct, 0), 100)}%` }}
             />
           )}
